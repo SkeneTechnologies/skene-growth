@@ -29,30 +29,35 @@ skene-growth scans your codebase and generates a **growth manifest** containing:
 
 ### Option 1: uvx (Recommended)
 
-Zero installation - runs instantly:
+Zero installation - runs instantly (requires API key):
 
 ```bash
-uvx skene-growth analyze .
+uvx skene-growth analyze . --api-key "your-gemini-api-key"
 uvx skene-growth generate
 uvx skene-growth inject
 uvx skene-growth validate ./growth-manifest.json
 ```
 
+> **Note:** The `analyze` command requires a Gemini API key. Get one free at https://aistudio.google.com/apikey
+
 ### Option 2: pip install
 
 ```bash
 pip install skene-growth
-
-# With Gemini support (for LLM-powered analysis)
-pip install skene-growth[gemini]
 ```
 
 ## CLI Commands
 
 ### `analyze` - Analyze a codebase
 
+Requires a Gemini API key (set via `--api-key`, `SKENE_API_KEY` env var, or config file).
+
 ```bash
 # Analyze current directory
+uvx skene-growth analyze . --api-key "your-gemini-api-key"
+
+# Using environment variable
+export SKENE_API_KEY="your-gemini-api-key"
 uvx skene-growth analyze .
 
 # Analyze specific path with custom output
@@ -60,6 +65,9 @@ uvx skene-growth analyze ./my-project -o manifest.json
 
 # With verbose output
 uvx skene-growth analyze . -v
+
+# Use a specific model
+uvx skene-growth analyze . --model gemini-2.5-pro
 ```
 
 **Output:** `./skene-context/growth-manifest.json`
@@ -172,12 +180,17 @@ contents = await explorer.read_multiple_files(["src/a.py", "src/b.py"])
 ### Analyzers
 
 ```python
+from pydantic import SecretStr
 from skene_growth import ManifestAnalyzer, CodebaseExplorer
 from skene_growth.llm import create_llm_client
 
 # Initialize
 codebase = CodebaseExplorer("/path/to/repo")
-llm = create_llm_client("gemini", "your-api-key")
+llm = create_llm_client(
+    provider="gemini",
+    api_key=SecretStr("your-api-key"),
+    model_name="gemini-2.0-flash",
+)
 
 # Run analysis
 analyzer = ManifestAnalyzer()
@@ -187,9 +200,10 @@ result = await analyzer.run(
     request="Analyze this codebase for growth opportunities",
 )
 
-# Access results
-print(result.data["tech_stack"])
-print(result.data["growth_hubs"])
+# Access results (the manifest is in result.data["output"])
+manifest = result.data["output"]
+print(manifest["tech_stack"])
+print(manifest["growth_hubs"])
 ```
 
 ### Growth Loop Catalog
@@ -303,7 +317,7 @@ The catalog includes these growth loop templates:
 ## Requirements
 
 - Python 3.11+
-- Gemini API key (for LLM-powered analysis)
+- **Gemini API key** (required for `analyze` command) - Get one free at https://aistudio.google.com/apikey
 
 ## License
 
