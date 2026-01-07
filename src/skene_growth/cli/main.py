@@ -227,10 +227,11 @@ async def _run_analysis(
                     console.print(json.dumps(result.data, indent=2, default=json_serializer))
                 raise typer.Exit(1)
 
-            # Save output
+            # Save output - unwrap "output" key if present
             progress.update(task, description="Saving manifest...")
             output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_text(json.dumps(result.data, indent=2, default=json_serializer))
+            manifest_data = result.data.get("output", result.data) if "output" in result.data else result.data
+            output.write_text(json.dumps(manifest_data, indent=2, default=json_serializer))
 
             progress.update(task, description="Complete!")
 
@@ -252,6 +253,10 @@ async def _run_analysis(
 
 def _show_analysis_summary(data: dict):
     """Display a summary of the analysis results."""
+    # Unwrap "output" key if present (from GenerateStep)
+    if "output" in data and isinstance(data["output"], dict):
+        data = data["output"]
+
     table = Table(title="Analysis Summary")
     table.add_column("Category", style="cyan")
     table.add_column("Details", style="white")
