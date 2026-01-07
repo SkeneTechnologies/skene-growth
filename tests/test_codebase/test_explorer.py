@@ -25,9 +25,7 @@ class TestListDirectory:
     """Tests for list_directory method."""
 
     @pytest.mark.asyncio
-    async def test_returns_files_and_directories(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    async def test_returns_files_and_directories(self, codebase_explorer: CodebaseExplorer):
         """Should return both files and directories."""
         result = await codebase_explorer.list_directory()
 
@@ -46,9 +44,7 @@ class TestListDirectory:
         assert ".git" not in names
 
     @pytest.mark.asyncio
-    async def test_returns_error_for_nonexistent_path(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    async def test_returns_error_for_nonexistent_path(self, codebase_explorer: CodebaseExplorer):
         """Should return error for non-existent path."""
         result = await codebase_explorer.list_directory("nonexistent/path")
         assert "error" in result
@@ -76,9 +72,7 @@ class TestReadFile:
         assert "Sample Repository" in result["content"]
 
     @pytest.mark.asyncio
-    async def test_returns_error_for_nonexistent_file(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    async def test_returns_error_for_nonexistent_file(self, codebase_explorer: CodebaseExplorer):
         """Should return error for non-existent file."""
         result = await codebase_explorer.read_file("nonexistent.txt")
         assert "error" in result
@@ -116,9 +110,7 @@ class TestSearchFiles:
         assert "utils.py" in names
 
     @pytest.mark.asyncio
-    async def test_finds_files_in_subdirectories(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    async def test_finds_files_in_subdirectories(self, codebase_explorer: CodebaseExplorer):
         """Should find files in subdirectories."""
         result = await codebase_explorer.search_files(".", "**/*.py")
         matches = result["matches"]
@@ -126,9 +118,7 @@ class TestSearchFiles:
         assert len(matches) >= 2
 
     @pytest.mark.asyncio
-    async def test_returns_empty_for_no_matches(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    async def test_returns_empty_for_no_matches(self, codebase_explorer: CodebaseExplorer):
         """Should return empty list for no matches."""
         result = await codebase_explorer.search_files(".", "*.nonexistent")
         assert result["matches"] == []
@@ -173,9 +163,7 @@ class TestGetFileInfo:
         assert result["type"] == "file"
 
     @pytest.mark.asyncio
-    async def test_returns_error_for_nonexistent(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    async def test_returns_error_for_nonexistent(self, codebase_explorer: CodebaseExplorer):
         """Should return error for non-existent file."""
         result = await codebase_explorer.get_file_info("nonexistent.txt")
         assert "error" in result
@@ -185,9 +173,7 @@ class TestSecurityPathTraversal:
     """Tests for path traversal protection."""
 
     @pytest.mark.asyncio
-    async def test_blocks_parent_directory_traversal(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    async def test_blocks_parent_directory_traversal(self, codebase_explorer: CodebaseExplorer):
         """Should block attempts to access parent directories."""
         with pytest.raises(ValueError, match="outside"):
             await codebase_explorer.read_file("../../../etc/passwd")
@@ -202,9 +188,7 @@ class TestSecurityPathTraversal:
             await explorer.read_file("../../../etc/passwd")
 
     @pytest.mark.asyncio
-    async def test_allows_relative_paths_within_root(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    async def test_allows_relative_paths_within_root(self, codebase_explorer: CodebaseExplorer):
         """Should allow valid relative paths."""
         result = await codebase_explorer.read_file("src/main.py")
         assert "content" in result
@@ -217,17 +201,13 @@ class TestExecuteTool:
     @pytest.mark.asyncio
     async def test_executes_known_tool(self, codebase_explorer: CodebaseExplorer):
         """Should execute known tools."""
-        result = await codebase_explorer.execute_tool(
-            "read_file", {"file_path": "README.md"}
-        )
+        result = await codebase_explorer.execute_tool("read_file", {"file_path": "README.md"})
 
         assert "content" in result
         assert "Sample Repository" in result["content"]
 
     @pytest.mark.asyncio
-    async def test_returns_error_for_unknown_tool(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    async def test_returns_error_for_unknown_tool(self, codebase_explorer: CodebaseExplorer):
         """Should return error for unknown tools."""
         result = await codebase_explorer.execute_tool("unknown_tool", {})
         assert "error" in result
@@ -244,9 +224,7 @@ class TestGetToolDefinitions:
         assert isinstance(definitions, list)
         assert len(definitions) > 0
 
-    def test_definitions_have_required_fields(
-        self, codebase_explorer: CodebaseExplorer
-    ):
+    def test_definitions_have_required_fields(self, codebase_explorer: CodebaseExplorer):
         """Each definition should have name, description, and parameters."""
         definitions = codebase_explorer.get_tool_definitions()
 

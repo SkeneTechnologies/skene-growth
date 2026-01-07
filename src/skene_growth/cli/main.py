@@ -142,9 +142,7 @@ def analyze(
             "[yellow]Warning:[/yellow] No API key provided. "
             "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.toml"
         )
-        console.print(
-            "\nTo get an API key, visit: https://aistudio.google.com/apikey"
-        )
+        console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
         raise typer.Exit(1)
 
     console.print(
@@ -157,9 +155,7 @@ def analyze(
     )
 
     # Run async analysis
-    asyncio.run(
-        _run_analysis(path, resolved_output, resolved_api_key, resolved_provider, verbose)
-    )
+    asyncio.run(_run_analysis(path, resolved_output, resolved_api_key, resolved_provider, verbose))
 
 
 async def _run_analysis(
@@ -223,6 +219,7 @@ async def _run_analysis(
             console.print(f"[red]Error:[/red] {e}")
             if verbose:
                 import traceback
+
                 console.print(traceback.format_exc())
             raise typer.Exit(1)
 
@@ -604,7 +601,7 @@ def config(
             console.print(f"[yellow]Config already exists:[/yellow] {config_path}")
             raise typer.Exit(1)
 
-        sample_config = '''# skene-growth configuration
+        sample_config = """# skene-growth configuration
 # See: https://github.com/skene-technologies/skene-growth
 
 # API key for LLM provider (can also use SKENE_API_KEY env var)
@@ -618,7 +615,7 @@ output_dir = "./skene-context"
 
 # Enable verbose output
 verbose = false
-'''
+"""
         config_path.write_text(sample_config)
         console.print(f"[green]Created config file:[/green] {config_path}")
         console.print("\nEdit this file to add your API key and customize settings.")
@@ -670,9 +667,7 @@ verbose = false
     console.print(values_table)
 
     if not project_cfg and not user_cfg:
-        console.print(
-            "\n[dim]Tip: Run 'skene-growth config --init' to create a config file[/dim]"
-        )
+        console.print("\n[dim]Tip: Run 'skene-growth config --init' to create a config file[/dim]")
 
 
 if __name__ == "__main__":

@@ -162,9 +162,7 @@ class GoogleGeminiClient(LLMClient):
 
             chunk_iterator = iter(response_stream)
             while True:
-                chunk, done = await loop.run_in_executor(
-                    None, get_next_chunk, chunk_iterator
-                )
+                chunk, done = await loop.run_in_executor(None, get_next_chunk, chunk_iterator)
 
                 if done:
                     break

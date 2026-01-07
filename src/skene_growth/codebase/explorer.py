@@ -185,9 +185,7 @@ class CodebaseExplorer:
             "count": len(matches),
         }
 
-    async def get_directory_tree(
-        self, path: str = ".", max_depth: int = 3
-    ) -> dict[str, Any]:
+    async def get_directory_tree(self, path: str = ".", max_depth: int = 3) -> dict[str, Any]:
         """
         Get a tree view of the directory structure.
 

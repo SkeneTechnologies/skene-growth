@@ -127,32 +127,38 @@ class SelectFilesStep(AnalysisStep):
         ]
 
         if candidates:
-            prompt_parts.extend([
-                "",
-                "## Candidate Files (matching patterns)",
-                "These files match the search patterns and may be particularly relevant:",
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "",
+                    "## Candidate Files (matching patterns)",
+                    "These files match the search patterns and may be particularly relevant:",
+                    "",
+                ]
+            )
             for f in candidates[:50]:  # Limit candidates shown
                 prompt_parts.append(f"- {f}")
 
         # Include context from previous steps if available
         if context.get("request"):
-            prompt_parts.extend([
-                "",
-                "## Original Request",
-                context.request,
-            ])
+            prompt_parts.extend(
+                [
+                    "",
+                    "## Original Request",
+                    context.request,
+                ]
+            )
 
-        prompt_parts.extend([
-            "",
-            "## Instructions",
-            f"Select up to {self.max_files} files that are most relevant for this task.",
-            "Return ONLY a JSON array of file paths, nothing else.",
-            "",
-            "Example response:",
-            '["src/main.ts", "package.json", "src/config.ts"]',
-        ])
+        prompt_parts.extend(
+            [
+                "",
+                "## Instructions",
+                f"Select up to {self.max_files} files that are most relevant for this task.",
+                "Return ONLY a JSON array of file paths, nothing else.",
+                "",
+                "Example response:",
+                '["src/main.ts", "package.json", "src/config.ts"]',
+            ]
+        )
 
         return "\n".join(prompt_parts)
 

@@ -68,9 +68,7 @@ class AnalyzeStep(AnalysisStep):
             file_contents = context.get(self.source_key, {})
 
             if not file_contents:
-                logger.warning(
-                    f"AnalyzeStep: No file contents in context key '{self.source_key}'"
-                )
+                logger.warning(f"AnalyzeStep: No file contents in context key '{self.source_key}'")
 
             # Build prompt for LLM
             llm_prompt = self._build_prompt(file_contents, context)
@@ -111,55 +109,69 @@ class AnalyzeStep(AnalysisStep):
 
         # Include original request if enabled
         if self.include_request and context.request:
-            prompt_parts.extend([
-                "",
-                "## Original Request",
-                context.request,
-            ])
+            prompt_parts.extend(
+                [
+                    "",
+                    "## Original Request",
+                    context.request,
+                ]
+            )
 
         # Add file contents
         if file_contents:
-            prompt_parts.extend([
-                "",
-                "## Files to Analyze",
-            ])
+            prompt_parts.extend(
+                [
+                    "",
+                    "## Files to Analyze",
+                ]
+            )
             for path, content in file_contents.items():
                 # Truncate very large files
                 if len(content) > 50_000:
                     content = content[:50_000] + "\n... (truncated)"
-                prompt_parts.extend([
-                    "",
-                    f"### {path}",
-                    "```",
-                    content,
-                    "```",
-                ])
+                prompt_parts.extend(
+                    [
+                        "",
+                        f"### {path}",
+                        "```",
+                        content,
+                        "```",
+                    ]
+                )
 
         # Add output format instructions
-        prompt_parts.extend([
-            "",
-            "## Output Format",
-        ])
+        prompt_parts.extend(
+            [
+                "",
+                "## Output Format",
+            ]
+        )
 
         if self.output_schema:
             # Generate schema description from Pydantic model
             schema = self.output_schema.model_json_schema()
-            prompt_parts.extend([
-                "Return your analysis as JSON matching this schema:",
-                "```json",
-                json.dumps(schema, indent=2),
-                "```",
-            ])
+            prompt_parts.extend(
+                [
+                    "Return your analysis as JSON matching this schema:",
+                    "```json",
+                    json.dumps(schema, indent=2),
+                    "```",
+                ]
+            )
         else:
-            prompt_parts.extend([
-                "Return your analysis as a JSON object.",
-                "Include relevant keys based on your findings.",
-            ])
+            prompt_parts.extend(
+                [
+                    "Return your analysis as a JSON object.",
+                    "Include relevant keys based on your findings.",
+                ]
+            )
 
-        prompt_parts.extend([
-            "",
-            "Return ONLY valid JSON, no other text.",
-        ])
+        prompt_parts.extend(
+            [
+                "",
+                "Return ONLY valid JSON, no other text.",
+            ]
+        )
 
         return "\n".join(prompt_parts)
 

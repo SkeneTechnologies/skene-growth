@@ -56,9 +56,7 @@ class ReadFilesStep(AnalysisStep):
             files_to_read = context.get(self.source_key, [])
 
             if not files_to_read:
-                logger.warning(
-                    f"ReadFilesStep: No files found in context key '{self.source_key}'"
-                )
+                logger.warning(f"ReadFilesStep: No files found in context key '{self.source_key}'")
                 return StepResult(
                     step_name=self.name,
                     data={self.output_key: {}},
@@ -96,10 +94,7 @@ class ReadFilesStep(AnalysisStep):
                 file_contents[file_path] = read_result["content"]
                 files_read.append(file_path)
 
-            logger.info(
-                f"ReadFilesStep read {len(files_read)} files, "
-                f"skipped {len(skipped_files)}"
-            )
+            logger.info(f"ReadFilesStep read {len(files_read)} files, skipped {len(skipped_files)}")
 
             return StepResult(
                 step_name=self.name,

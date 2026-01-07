@@ -316,17 +316,17 @@ Return JSON with:
             return self._generate_basic_plan(mapping)
 
         # Format injection points
-        injection_points_text = "\n".join([
-            f"- {p.file_path}: {p.location} (confidence: {p.confidence:.0%})\n  {p.rationale}"
-            for p in mapping.injection_points
-        ])
+        injection_points_text = "\n".join(
+            [
+                f"- {p.file_path}: {p.location} (confidence: {p.confidence:.0%})\n  {p.rationale}"
+                for p in mapping.injection_points
+            ]
+        )
 
         # Format tech stack
-        tech_stack_text = ", ".join([
-            f"{k}: {v}"
-            for k, v in manifest.tech_stack.model_dump().items()
-            if v
-        ])
+        tech_stack_text = ", ".join(
+            [f"{k}: {v}" for k, v in manifest.tech_stack.model_dump().items() if v]
+        )
 
         # Build prompt
         prompt = self.PLANNING_PROMPT.format(
@@ -359,17 +359,17 @@ Return JSON with:
             return [], []
 
         # Summarize plans
-        plans_summary = "\n\n".join([
-            f"## {plan.loop_name}\n"
-            + "\n".join([f"- {c.description}" for c in plan.code_changes[:5]])
-            for plan in loop_plans
-        ])
+        plans_summary = "\n\n".join(
+            [
+                f"## {plan.loop_name}\n"
+                + "\n".join([f"- {c.description}" for c in plan.code_changes[:5]])
+                for plan in loop_plans
+            ]
+        )
 
-        tech_stack_text = ", ".join([
-            f"{k}: {v}"
-            for k, v in manifest.tech_stack.model_dump().items()
-            if v
-        ])
+        tech_stack_text = ", ".join(
+            [f"{k}: {v}" for k, v in manifest.tech_stack.model_dump().items() if v]
+        )
 
         prompt = self.INFRASTRUCTURE_PROMPT.format(
             plans_summary=plans_summary,
@@ -386,11 +386,13 @@ Return JSON with:
 
         for point in mapping.injection_points:
             for change_desc in point.changes_required:
-                code_changes.append(CodeChange(
-                    file_path=point.file_path,
-                    change_type="modify",
-                    description=change_desc,
-                ))
+                code_changes.append(
+                    CodeChange(
+                        file_path=point.file_path,
+                        change_type="modify",
+                        description=change_desc,
+                    )
+                )
 
         return LoopInjectionPlan(
             loop_id=mapping.loop_id,
@@ -428,13 +430,15 @@ Return JSON with:
         code_changes = []
         for change in data.get("code_changes", []):
             try:
-                code_changes.append(CodeChange(
-                    file_path=change.get("file_path", "unknown"),
-                    change_type=change.get("change_type", "modify"),
-                    description=change.get("description", ""),
-                    code_snippet=change.get("code_snippet"),
-                    dependencies=change.get("dependencies", []),
-                ))
+                code_changes.append(
+                    CodeChange(
+                        file_path=change.get("file_path", "unknown"),
+                        change_type=change.get("change_type", "modify"),
+                        description=change.get("description", ""),
+                        code_snippet=change.get("code_snippet"),
+                        dependencies=change.get("dependencies", []),
+                    )
+                )
             except Exception:
                 continue
 
@@ -473,12 +477,14 @@ Return JSON with:
         shared_changes = []
         for change in data.get("shared_changes", []):
             try:
-                shared_changes.append(CodeChange(
-                    file_path=change.get("file_path", "unknown"),
-                    change_type=change.get("change_type", "create"),
-                    description=change.get("description", ""),
-                    code_snippet=change.get("code_snippet"),
-                ))
+                shared_changes.append(
+                    CodeChange(
+                        file_path=change.get("file_path", "unknown"),
+                        change_type=change.get("change_type", "create"),
+                        description=change.get("description", ""),
+                        code_snippet=change.get("code_snippet"),
+                    )
+                )
             except Exception:
                 continue
 

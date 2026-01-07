@@ -124,10 +124,12 @@ Return your analysis as JSON with:
         codebase_context = tree_result.get("tree", "")
 
         # Format growth hubs
-        growth_hubs_text = "\n".join([
-            f"- {hub.feature_name}: {hub.detected_intent} ({hub.file_path})"
-            for hub in manifest.growth_hubs
-        ])
+        growth_hubs_text = "\n".join(
+            [
+                f"- {hub.feature_name}: {hub.detected_intent} ({hub.file_path})"
+                for hub in manifest.growth_hubs
+            ]
+        )
 
         # Build prompt
         prompt = self.MAPPING_PROMPT.format(
@@ -210,20 +212,24 @@ Return your analysis as JSON with:
                     for hub in matching_hubs
                 ]
 
-                mappings.append(LoopMapping(
-                    loop_id=loop.id,
-                    loop_name=loop.name,
-                    is_applicable=True,
-                    injection_points=injection_points,
-                    priority=min(len(matching_hubs) * 2, 10),
-                ))
+                mappings.append(
+                    LoopMapping(
+                        loop_id=loop.id,
+                        loop_name=loop.name,
+                        is_applicable=True,
+                        injection_points=injection_points,
+                        priority=min(len(matching_hubs) * 2, 10),
+                    )
+                )
             else:
-                mappings.append(LoopMapping(
-                    loop_id=loop.id,
-                    loop_name=loop.name,
-                    is_applicable=False,
-                    priority=0,
-                ))
+                mappings.append(
+                    LoopMapping(
+                        loop_id=loop.id,
+                        loop_name=loop.name,
+                        is_applicable=False,
+                        priority=0,
+                    )
+                )
 
         return mappings
 
@@ -277,13 +283,15 @@ Return your analysis as JSON with:
         injection_points = []
         for point in data.get("injection_points", []):
             try:
-                injection_points.append(InjectionPoint(
-                    file_path=point.get("file_path", "unknown"),
-                    location=point.get("location", "unknown"),
-                    confidence=float(point.get("confidence", 0.5)),
-                    rationale=point.get("rationale", ""),
-                    changes_required=point.get("changes_required", []),
-                ))
+                injection_points.append(
+                    InjectionPoint(
+                        file_path=point.get("file_path", "unknown"),
+                        location=point.get("location", "unknown"),
+                        confidence=float(point.get("confidence", 0.5)),
+                        rationale=point.get("rationale", ""),
+                        changes_required=point.get("changes_required", []),
+                    )
+                )
             except Exception:
                 continue
 

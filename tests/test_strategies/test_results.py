@@ -81,9 +81,7 @@ class TestAnalysisResult:
 
     def test_success_result_factory(self):
         """Should create successful result via factory."""
-        result = AnalysisResult.success_result(
-            data={"key": "value", "count": 42}
-        )
+        result = AnalysisResult.success_result(data={"key": "value", "count": 42})
 
         assert result.success is True
         assert result.data == {"key": "value", "count": 42}

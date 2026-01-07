@@ -99,51 +99,57 @@ class GenerateStep(AnalysisStep):
         # Get context data to include
         all_data = context.get_all_data()
         if self.include_context_keys:
-            data_to_include = {
-                k: v for k, v in all_data.items() if k in self.include_context_keys
-            }
+            data_to_include = {k: v for k, v in all_data.items() if k in self.include_context_keys}
         else:
             # Exclude large data like file_contents by default
             data_to_include = {
-                k: v
-                for k, v in all_data.items()
-                if k != "file_contents" and not k.startswith("_")
+                k: v for k, v in all_data.items() if k != "file_contents" and not k.startswith("_")
             }
 
         if data_to_include:
-            prompt_parts.extend([
-                "",
-                "## Analysis Results",
-                "Use this information to generate your output:",
-                "",
-                "```json",
-                json.dumps(data_to_include, indent=2, default=str),
-                "```",
-            ])
+            prompt_parts.extend(
+                [
+                    "",
+                    "## Analysis Results",
+                    "Use this information to generate your output:",
+                    "",
+                    "```json",
+                    json.dumps(data_to_include, indent=2, default=str),
+                    "```",
+                ]
+            )
 
         # Add output format instructions
-        prompt_parts.extend([
-            "",
-            "## Output Format",
-        ])
+        prompt_parts.extend(
+            [
+                "",
+                "## Output Format",
+            ]
+        )
 
         if self.output_schema:
             schema = self.output_schema.model_json_schema()
-            prompt_parts.extend([
-                "Generate output as JSON matching this schema:",
-                "```json",
-                json.dumps(schema, indent=2),
-                "```",
-            ])
+            prompt_parts.extend(
+                [
+                    "Generate output as JSON matching this schema:",
+                    "```json",
+                    json.dumps(schema, indent=2),
+                    "```",
+                ]
+            )
         else:
-            prompt_parts.extend([
-                "Generate output as a JSON object.",
-            ])
+            prompt_parts.extend(
+                [
+                    "Generate output as a JSON object.",
+                ]
+            )
 
-        prompt_parts.extend([
-            "",
-            "Return ONLY valid JSON, no other text.",
-        ])
+        prompt_parts.extend(
+            [
+                "",
+                "Return ONLY valid JSON, no other text.",
+            ]
+        )
 
         return "\n".join(prompt_parts)
 
