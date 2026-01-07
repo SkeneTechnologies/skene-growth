@@ -186,8 +186,23 @@ class GenerateStep(AnalysisStep):
         logger.warning(f"Could not parse generation response as JSON: {response[:200]}")
         return {"raw_response": response}
 
+    def _unwrap_items(self, data: Any) -> Any:
+        """Recursively unwrap {'items': [...]} dicts back to plain lists."""
+        if isinstance(data, dict):
+            # If dict has only 'items' key with a list value, unwrap it
+            if list(data.keys()) == ["items"] and isinstance(data["items"], list):
+                return [self._unwrap_items(item) for item in data["items"]]
+            # Otherwise recurse into dict values
+            return {k: self._unwrap_items(v) for k, v in data.items()}
+        if isinstance(data, list):
+            return [self._unwrap_items(item) for item in data]
+        return data
+
     def _validate_output(self, data: dict[str, Any]) -> dict[str, Any]:
         """Validate output against schema if provided."""
+        # Unwrap any {"items": [...]} patterns back to plain lists
+        data = self._unwrap_items(data)
+
         if self.output_schema:
             try:
                 validated = self.output_schema.model_validate(data)

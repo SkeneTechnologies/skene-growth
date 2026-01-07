@@ -177,11 +177,21 @@ class AnalyzeStep(AnalysisStep):
 
     def _parse_response(self, response: str) -> dict[str, Any]:
         """Parse LLM response to extract structured data."""
+
+        def normalize_parsed(parsed: Any) -> dict[str, Any] | None:
+            """Normalize parsed JSON to a dict, wrapping arrays if needed."""
+            if isinstance(parsed, dict):
+                return parsed
+            if isinstance(parsed, list):
+                return {"items": parsed}
+            return None
+
         # Try direct JSON parse
         try:
             parsed = json.loads(response.strip())
-            if isinstance(parsed, dict):
-                return self._validate_output(parsed)
+            normalized = normalize_parsed(parsed)
+            if normalized:
+                return self._validate_output(normalized)
         except json.JSONDecodeError:
             pass
 
@@ -190,8 +200,9 @@ class AnalyzeStep(AnalysisStep):
         if json_match:
             try:
                 parsed = json.loads(json_match.group(1).strip())
-                if isinstance(parsed, dict):
-                    return self._validate_output(parsed)
+                normalized = normalize_parsed(parsed)
+                if normalized:
+                    return self._validate_output(normalized)
             except json.JSONDecodeError:
                 pass
 
@@ -200,8 +211,20 @@ class AnalyzeStep(AnalysisStep):
         if obj_match:
             try:
                 parsed = json.loads(obj_match.group(0))
-                if isinstance(parsed, dict):
-                    return self._validate_output(parsed)
+                normalized = normalize_parsed(parsed)
+                if normalized:
+                    return self._validate_output(normalized)
+            except json.JSONDecodeError:
+                pass
+
+        # Try to find JSON array pattern
+        arr_match = re.search(r"\[[\s\S]*\]", response)
+        if arr_match:
+            try:
+                parsed = json.loads(arr_match.group(0))
+                normalized = normalize_parsed(parsed)
+                if normalized:
+                    return self._validate_output(normalized)
             except json.JSONDecodeError:
                 pass
 
