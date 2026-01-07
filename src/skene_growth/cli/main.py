@@ -18,8 +18,9 @@ Configuration files (optional):
 
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 from rich.console import Console
@@ -40,6 +41,13 @@ app = typer.Typer(
 )
 
 console = Console()
+
+
+def json_serializer(obj: Any) -> str:
+    """JSON serializer for objects not serializable by default."""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
 def version_callback(value: bool):
@@ -216,13 +224,13 @@ async def _run_analysis(
             if not result.success:
                 console.print("[red]Analysis failed[/red]")
                 if verbose and result.data:
-                    console.print(json.dumps(result.data, indent=2))
+                    console.print(json.dumps(result.data, indent=2, default=json_serializer))
                 raise typer.Exit(1)
 
             # Save output
             progress.update(task, description="Saving manifest...")
             output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_text(json.dumps(result.data, indent=2))
+            output.write_text(json.dumps(result.data, indent=2, default=json_serializer))
 
             progress.update(task, description="Complete!")
 
