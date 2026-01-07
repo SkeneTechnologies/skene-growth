@@ -58,6 +58,11 @@ class Config:
         """Get verbose flag."""
         return self.get("verbose", False)
 
+    @property
+    def model(self) -> str:
+        """Get LLM model name."""
+        return self.get("model", "gemini-2.0-flash")
+
 
 def find_project_config() -> Path | None:
     """Find project-level config file (.skene-growth.toml)."""

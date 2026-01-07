@@ -27,6 +27,8 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from pydantic import SecretStr
+
 from skene_growth import __version__
 from skene_growth.config import load_config
 
@@ -103,6 +105,12 @@ def analyze(
         "-p",
         help="LLM provider to use",
     ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model name (e.g., gemini-2.0-flash)",
+    ),
     verbose: bool = typer.Option(
         False,
         "-v",
@@ -135,6 +143,7 @@ def analyze(
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
+    resolved_model = model or config.model
     resolved_output = output or Path(config.output_dir) / "growth-manifest.json"
 
     if not resolved_api_key:
@@ -149,13 +158,14 @@ def analyze(
         Panel.fit(
             f"[bold blue]Analyzing codebase[/bold blue]\n"
             f"Path: {path}\n"
-            f"Provider: {resolved_provider}",
+            f"Provider: {resolved_provider}\n"
+            f"Model: {resolved_model}",
             title="skene-growth",
         )
     )
 
     # Run async analysis
-    asyncio.run(_run_analysis(path, resolved_output, resolved_api_key, resolved_provider, verbose))
+    asyncio.run(_run_analysis(path, resolved_output, resolved_api_key, resolved_provider, resolved_model, verbose))
 
 
 async def _run_analysis(
@@ -163,6 +173,7 @@ async def _run_analysis(
     output: Path,
     api_key: str,
     provider: str,
+    model: str,
     verbose: bool,
 ):
     """Run the async analysis."""
@@ -183,7 +194,7 @@ async def _run_analysis(
             codebase = CodebaseExplorer(path)
 
             progress.update(task, description="Connecting to LLM provider...")
-            llm = create_llm_client(provider, api_key)
+            llm = create_llm_client(provider, SecretStr(api_key), model)
 
             # Create analyzer
             progress.update(task, description="Creating analyzer...")
