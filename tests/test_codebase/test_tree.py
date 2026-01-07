@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from skene_growth.codebase.tree import build_directory_tree
 
 

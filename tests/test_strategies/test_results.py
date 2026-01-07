@@ -3,8 +3,6 @@
 import time
 from datetime import datetime
 
-import pytest
-
 from skene_growth.strategies.base import AnalysisMetadata, AnalysisResult
 
 
