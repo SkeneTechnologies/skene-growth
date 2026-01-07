@@ -23,12 +23,11 @@ from pathlib import Path
 from typing import Any, Optional
 
 import typer
+from pydantic import SecretStr
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-
-from pydantic import SecretStr
 
 from skene_growth import __version__
 from skene_growth.config import load_config
@@ -173,7 +172,11 @@ def analyze(
     )
 
     # Run async analysis
-    asyncio.run(_run_analysis(path, resolved_output, resolved_api_key, resolved_provider, resolved_model, verbose))
+    asyncio.run(
+        _run_analysis(
+            path, resolved_output, resolved_api_key, resolved_provider, resolved_model, verbose
+        )
+    )
 
 
 async def _run_analysis(
@@ -230,7 +233,9 @@ async def _run_analysis(
             # Save output - unwrap "output" key if present
             progress.update(task, description="Saving manifest...")
             output.parent.mkdir(parents=True, exist_ok=True)
-            manifest_data = result.data.get("output", result.data) if "output" in result.data else result.data
+            manifest_data = (
+                result.data.get("output", result.data) if "output" in result.data else result.data
+            )
             output.write_text(json.dumps(manifest_data, indent=2, default=json_serializer))
 
             progress.update(task, description="Complete!")
