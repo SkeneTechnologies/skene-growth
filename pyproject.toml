@@ -62,3 +62,8 @@ select = ["E", "F", "I", "W"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "ruff (>=0.14.10,<0.15.0)"
+]
