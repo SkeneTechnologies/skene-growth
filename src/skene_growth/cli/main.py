@@ -381,7 +381,7 @@ def generate(
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # Generate context doc
-            context_doc = generator.generate_context_doc(manifest_obj)
+            context_doc = generator.generate_context(manifest_obj)
             context_path = output_dir / "context.md"
             context_path.write_text(context_doc)
 
