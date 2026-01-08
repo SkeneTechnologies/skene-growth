@@ -18,11 +18,13 @@
 
 {{ project_name }} is built with:
 
-{% if tech_stack.framework %}- **Framework**: {{ tech_stack.framework }}{% endif %}
-- **Language**: {{ tech_stack.language }}
-{% if tech_stack.database %}- **Database**: {{ tech_stack.database }}{% endif %}
-{% if tech_stack.auth %}- **Authentication**: {{ tech_stack.auth }}{% endif %}
-{% if tech_stack.deployment %}- **Deployment**: {{ tech_stack.deployment }}{% endif %}
+{% if tech_stack.framework %}- **Framework**: {{ tech_stack.framework }}
+{% endif %}- **Language**: {{ tech_stack.language }}
+{% if tech_stack.database %}- **Database**: {{ tech_stack.database }}
+{% endif %}{% if tech_stack.auth %}- **Authentication**: {{ tech_stack.auth }}
+{% endif %}{% if tech_stack.deployment %}- **Deployment**: {{ tech_stack.deployment }}
+{% endif %}{% if tech_stack.services %}- **Services**: {{ tech_stack.services | join(', ') }}
+{% endif %}
 
 ## Features
 

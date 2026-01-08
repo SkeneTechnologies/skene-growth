@@ -36,9 +36,12 @@ description: "{{ description or project_name + ' - ' + topic }}"
 {{ project_name }} leverages modern technologies:
 
 - Built with **{{ tech_stack.language }}**{% if tech_stack.framework %} and **{{ tech_stack.framework }}**{% endif %}
-{% if tech_stack.database %}- Powered by **{{ tech_stack.database }}** for data storage{% endif %}
-{% if tech_stack.auth %}- Secured with **{{ tech_stack.auth }}**{% endif %}
-{% if tech_stack.deployment %}- Deployed on **{{ tech_stack.deployment }}**{% endif %}
+
+{% if tech_stack.database %}- Powered by **{{ tech_stack.database }}** for data storage
+{% endif %}{% if tech_stack.auth %}- Secured with **{{ tech_stack.auth }}**
+{% endif %}{% if tech_stack.deployment %}- Deployed on **{{ tech_stack.deployment }}**
+{% endif %}{% if tech_stack.services %}- Integrated with **{{ tech_stack.services | join('**, **') }}**
+{% endif %}
 
 {% if keywords %}
 ## Related Topics

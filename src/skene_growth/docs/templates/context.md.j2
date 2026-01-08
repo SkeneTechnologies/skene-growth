@@ -16,11 +16,13 @@ This document provides structured context about the {{ project_name }} project.
 | Category | Technology |
 |----------|------------|
 | Language | {{ tech_stack.language }} |
-{% if tech_stack.framework %}| Framework | {{ tech_stack.framework }} |{% endif %}
-{% if tech_stack.database %}| Database | {{ tech_stack.database }} |{% endif %}
-{% if tech_stack.auth %}| Authentication | {{ tech_stack.auth }} |{% endif %}
-{% if tech_stack.deployment %}| Deployment | {{ tech_stack.deployment }} |{% endif %}
-{% if tech_stack.package_manager %}| Package Manager | {{ tech_stack.package_manager }} |{% endif %}
+{% if tech_stack.framework %}| Framework | {{ tech_stack.framework }} |
+{% endif %}{% if tech_stack.database %}| Database | {{ tech_stack.database }} |
+{% endif %}{% if tech_stack.auth %}| Authentication | {{ tech_stack.auth }} |
+{% endif %}{% if tech_stack.deployment %}| Deployment | {{ tech_stack.deployment }} |
+{% endif %}{% if tech_stack.package_manager %}| Package Manager | {{ tech_stack.package_manager }} |
+{% endif %}{% if tech_stack.services %}| Services | {{ tech_stack.services | join(', ') }} |
+{% endif %}
 
 ## Growth Hubs
 
