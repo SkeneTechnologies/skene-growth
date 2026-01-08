@@ -77,9 +77,8 @@ class AnalysisStrategy(ABC):
     """
     Abstract base class for all analysis strategies.
 
-    Strategies define how an analysis is conducted - whether through
-    a predefined sequence of steps (MultiStepStrategy) or through
-    autonomous LLM-driven exploration (AgenticStrategy).
+    Strategies define how an analysis is conducted - e.g. through
+    a predefined sequence of steps (MultiStepStrategy).
 
     Example:
         class MyStrategy(AnalysisStrategy):

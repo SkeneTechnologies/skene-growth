@@ -3,7 +3,6 @@ Analysis strategies for codebase exploration and content generation.
 
 This module provides the strategy pattern for different analysis approaches:
 - MultiStepStrategy: Guided, deterministic multi-step analysis
-- (Future) AgenticStrategy: Autonomous LLM-driven analysis (premium, in skene-agent)
 """
 
 from skene_growth.strategies.base import (
