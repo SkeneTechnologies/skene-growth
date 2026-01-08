@@ -15,7 +15,7 @@ Focus on identifying:
 2. **Language**: The main programming language (e.g., Python, TypeScript, Go)
 3. **Database**: Database technology if detectable (e.g., PostgreSQL, MongoDB, Redis)
 4. **Auth**: Authentication method or library (e.g., JWT, OAuth, NextAuth, Clerk)
-5. **Deployment**: Deployment platform or method (e.g., Vercel, AWS, Docker, Kubernetes, Netlify, Fly.io, Render)
+5. **Deployment**: Deployment platform or method (e.g., Vercel, AWS, Docker, Kubernetes, Netlify)
 6. **Package Manager**: Package manager used (e.g., npm, yarn, poetry, cargo)
 7. **Services**: Third-party services and integrations used in the project
 

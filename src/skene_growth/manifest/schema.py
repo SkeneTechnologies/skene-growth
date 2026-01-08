@@ -41,7 +41,7 @@ class TechStack(BaseModel):
     )
     services: list[str] = Field(
         default_factory=list,
-        description="Third-party services and integrations (e.g., 'Stripe', 'SendGrid', 'Twilio', 'Sentry')",
+        description="Third-party services and integrations (e.g., 'Stripe', 'SendGrid', 'Twilio')",
     )
 
 
