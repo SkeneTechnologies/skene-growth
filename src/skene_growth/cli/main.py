@@ -124,6 +124,11 @@ def analyze(
         "--verbose",
         help="Enable verbose output",
     ),
+    docs: bool = typer.Option(
+        False,
+        "--docs",
+        help="Enable documentation mode (collects product overview and features)",
+    ),
 ):
     """
     Analyze a codebase and generate growth-manifest.json.
@@ -132,6 +137,10 @@ def analyze(
     - Technology stack (framework, language, database, etc.)
     - Growth hubs (features with growth potential)
     - GTM gaps (missing features that could drive growth)
+
+    With --docs flag, also collects:
+    - Product overview (tagline, value proposition, target audience)
+    - User-facing feature documentation
 
     Examples:
 
@@ -161,12 +170,14 @@ def analyze(
         console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
         raise typer.Exit(1)
 
+    mode_str = "docs" if docs else "growth"
     console.print(
         Panel.fit(
             f"[bold blue]Analyzing codebase[/bold blue]\n"
             f"Path: {path}\n"
             f"Provider: {resolved_provider}\n"
-            f"Model: {resolved_model}",
+            f"Model: {resolved_model}\n"
+            f"Mode: {mode_str}",
             title="skene-growth",
         )
     )
@@ -174,7 +185,13 @@ def analyze(
     # Run async analysis
     asyncio.run(
         _run_analysis(
-            path, resolved_output, resolved_api_key, resolved_provider, resolved_model, verbose
+            path,
+            resolved_output,
+            resolved_api_key,
+            resolved_provider,
+            resolved_model,
+            verbose,
+            docs,
         )
     )
 
@@ -186,9 +203,10 @@ async def _run_analysis(
     provider: str,
     model: str,
     verbose: bool,
+    docs: bool = False,
 ):
     """Run the async analysis."""
-    from skene_growth.analyzers import ManifestAnalyzer
+    from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
     from skene_growth.codebase import CodebaseExplorer
     from skene_growth.llm import create_llm_client
 
@@ -209,7 +227,12 @@ async def _run_analysis(
 
             # Create analyzer
             progress.update(task, description="Creating analyzer...")
-            analyzer = ManifestAnalyzer()
+            if docs:
+                analyzer = DocsAnalyzer()
+                request_msg = "Generate documentation for this project"
+            else:
+                analyzer = ManifestAnalyzer()
+                request_msg = "Analyze this codebase for growth opportunities"
 
             # Define progress callback
             def on_progress(message: str, pct: float):
@@ -220,7 +243,7 @@ async def _run_analysis(
             result = await analyzer.run(
                 codebase=codebase,
                 llm=llm,
-                request="Analyze this codebase for growth opportunities",
+                request=request_msg,
                 on_progress=on_progress,
             )
 
@@ -368,11 +391,14 @@ def generate(
 
         try:
             from skene_growth.docs import DocsGenerator
-            from skene_growth.manifest import GrowthManifest
+            from skene_growth.manifest import DocsManifest, GrowthManifest
 
-            # Parse manifest
+            # Parse manifest - use DocsManifest for v2.0, GrowthManifest otherwise
             progress.update(task, description="Parsing manifest...")
-            manifest_obj = GrowthManifest(**manifest_data)
+            if manifest_data.get("version") == "2.0":
+                manifest_obj = DocsManifest(**manifest_data)
+            else:
+                manifest_obj = GrowthManifest(**manifest_data)
 
             # Generate docs
             progress.update(task, description="Generating context document...")

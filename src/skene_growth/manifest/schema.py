@@ -82,6 +82,46 @@ class GTMGap(BaseModel):
     )
 
 
+class ProductOverview(BaseModel):
+    """High-level product information for documentation."""
+
+    tagline: str | None = Field(
+        default=None,
+        description="Short one-liner describing the product (under 15 words)",
+    )
+    value_proposition: str | None = Field(
+        default=None,
+        description="What problem the product solves and why it matters",
+    )
+    target_audience: str | None = Field(
+        default=None,
+        description="Who the product is for (e.g., developers, businesses)",
+    )
+
+
+class Feature(BaseModel):
+    """User-facing feature documentation."""
+
+    name: str = Field(
+        description="Human-readable feature name",
+    )
+    description: str = Field(
+        description="User-facing description of what the feature does",
+    )
+    file_path: str | None = Field(
+        default=None,
+        description="Primary file where this feature is implemented",
+    )
+    usage_example: str | None = Field(
+        default=None,
+        description="Code snippet or usage example",
+    )
+    category: str | None = Field(
+        default=None,
+        description="Feature category (e.g., 'Authentication', 'API', 'UI')",
+    )
+
+
 class GrowthManifest(BaseModel):
     """
     Complete growth manifest for a project.
@@ -154,4 +194,27 @@ class GrowthManifest(BaseModel):
                 "generated_at": "2024-01-15T10:30:00Z",
             }
         }
+    )
+
+
+class DocsManifest(GrowthManifest):
+    """
+    Extended manifest with documentation-specific fields.
+
+    Inherits all GrowthManifest fields and adds:
+    - product_overview: High-level product description
+    - features: User-facing feature documentation
+    """
+
+    version: str = Field(
+        default="2.0",
+        description="Manifest schema version (2.0 for docs-enabled)",
+    )
+    product_overview: ProductOverview | None = Field(
+        default=None,
+        description="High-level product overview",
+    )
+    features: list[Feature] = Field(
+        default_factory=list,
+        description="User-facing feature documentation",
     )

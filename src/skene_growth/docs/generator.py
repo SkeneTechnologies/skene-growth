@@ -162,7 +162,7 @@ class DocsGenerator:
 
     def _get_context_vars(self, manifest: GrowthManifest) -> dict[str, Any]:
         """Get common context variables for templates."""
-        return {
+        context = {
             "project_name": manifest.project_name,
             "description": manifest.description,
             "tech_stack": manifest.tech_stack,
@@ -173,3 +173,11 @@ class DocsGenerator:
             "gap_count": len(manifest.gtm_gaps),
             "high_priority_gaps": [g for g in manifest.gtm_gaps if g.priority == "high"],
         }
+
+        # Add docs-specific fields if available (DocsManifest)
+        if hasattr(manifest, "product_overview"):
+            context["product_overview"] = manifest.product_overview
+        if hasattr(manifest, "features"):
+            context["features"] = manifest.features
+
+        return context

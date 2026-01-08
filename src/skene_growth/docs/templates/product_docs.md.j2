@@ -1,7 +1,17 @@
 # {{ project_name }}
 
-{% if description %}
+{% if product_overview and product_overview.tagline %}
+> {{ product_overview.tagline }}
+
+{% endif %}
+{% if product_overview and product_overview.value_proposition %}
+{{ product_overview.value_proposition }}
+{% elif description %}
 {{ description }}
+{% endif %}
+
+{% if product_overview and product_overview.target_audience %}
+**Built for**: {{ product_overview.target_audience }}
 {% endif %}
 
 ## Tech Stack
@@ -16,7 +26,20 @@
 
 ## Features
 
-{% if growth_hubs %}
+{% if features %}
+{% for feature in features %}
+### {{ feature.name }}
+
+{{ feature.description }}
+
+{% if feature.usage_example %}
+```
+{{ feature.usage_example }}
+```
+{% endif %}
+
+{% endfor %}
+{% elif growth_hubs %}
 {% for hub in growth_hubs %}
 ### {{ hub.feature_name }}
 

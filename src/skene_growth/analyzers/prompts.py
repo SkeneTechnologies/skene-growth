@@ -82,3 +82,95 @@ Return a complete growth manifest as JSON with:
 - growth_hubs: From the growth hub analysis
 - gtm_gaps: Your identified gaps with priority (high/medium/low)
 """
+
+# Product Overview Extraction Prompt
+PRODUCT_OVERVIEW_PROMPT = """
+Analyze the provided documentation files to extract product overview information.
+
+Focus on identifying:
+1. **Tagline**: A short one-liner (under 15 words) that captures what the product does
+2. **Value Proposition**: What problem does this solve? Why should someone use it? (2-3 sentences)
+3. **Target Audience**: Who is this product for? (e.g., developers, marketers, enterprises)
+
+Look for this information in:
+- README.md introductions and first paragraphs
+- Package description fields (package.json description, pyproject.toml)
+- About/Overview sections
+- Marketing copy in documentation
+
+Return your analysis as JSON:
+{
+    "tagline": "string or null",
+    "value_proposition": "string or null",
+    "target_audience": "string or null"
+}
+
+Be concise but informative. Write from the perspective of explaining the product to someone new.
+Use null for fields you cannot confidently determine from the provided files.
+"""
+
+# Features Documentation Prompt
+FEATURES_PROMPT = """
+Analyze the source files to document user-facing features.
+
+For each major feature, provide:
+1. **name**: Human-readable feature name (not code identifiers)
+2. **description**: User-facing description of what it does (1-2 sentences, non-technical)
+3. **file_path**: Primary implementation file
+4. **usage_example**: Short code snippet or usage example (if identifiable)
+5. **category**: Feature category (e.g., "Authentication", "API", "Data Management", "UI")
+
+Focus on:
+- Features users interact with directly
+- Core functionality, not internal utilities or helpers
+- Clear, non-technical descriptions where possible
+- The value each feature provides to users
+
+Return as a JSON array of features:
+[
+    {
+        "name": "Feature Name",
+        "description": "What this feature does for users",
+        "file_path": "path/to/file.py",
+        "usage_example": "optional code example",
+        "category": "Category"
+    }
+]
+
+Prioritize the most important 5-10 features. Quality over quantity.
+"""
+
+# Documentation Manifest Generation Prompt
+DOCS_MANIFEST_PROMPT = """
+Generate a complete documentation manifest by combining all analysis results.
+
+You have been provided with:
+- Tech stack analysis (detected technologies)
+- Product overview (tagline, value proposition, target audience)
+- Features documentation (user-facing feature descriptions)
+- Growth hub analysis (features with growth potential)
+
+Your task is to:
+1. Create a cohesive DocsManifest combining all sections
+2. Infer a project_name from the codebase structure or package files
+3. Write a brief description summarizing the project
+4. Include all provided analysis data
+5. Identify GTM (Go-to-Market) gaps - missing features that could drive growth
+
+For GTM gaps, consider what's missing:
+- User onboarding flows
+- Viral/sharing mechanisms
+- Analytics and insights
+- Monetization capabilities
+- Engagement features
+
+Return a complete manifest as JSON with:
+- version: "2.0"
+- project_name: Inferred from the codebase
+- description: Brief project description
+- tech_stack: From the tech stack analysis
+- product_overview: From the product overview analysis
+- features: From the features documentation
+- growth_hubs: From the growth hub analysis
+- gtm_gaps: Your identified gaps with priority (high/medium/low)
+"""
