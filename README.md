@@ -1,6 +1,6 @@
 # skene-growth
 
-PLG (Product-Led Growth) analysis toolkit for codebases. Analyze your code, detect growth opportunities, and generate documentation.
+PLG (Product-Led Growth) analysis toolkit for codebases. Analyze your code, detect growth opportunities, and generate documentation of your stack.
 
 ## Quick Start
 
