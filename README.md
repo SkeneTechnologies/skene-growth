@@ -25,6 +25,11 @@ skene-growth scans your codebase and generates a **growth manifest** containing:
 - **Growth Hubs** - Features with growth potential (signup flows, sharing, invites, billing)
 - **GTM Gaps** - Missing features that could drive user acquisition and retention
 
+With the `--docs` flag, it also collects:
+
+- **Product Overview** - Tagline, value proposition, target audience
+- **Features** - User-facing feature documentation with descriptions and examples
+
 ## Installation
 
 ### Option 1: uvx (Recommended)
@@ -68,9 +73,14 @@ uvx skene-growth analyze . -v
 
 # Use a specific model
 uvx skene-growth analyze . --model gemini-2.5-pro
+
+# Enable docs mode (collects product overview and features)
+uvx skene-growth analyze . --docs
 ```
 
 **Output:** `./skene-context/growth-manifest.json`
+
+The `--docs` flag enables documentation mode which produces a v2.0 manifest with additional fields for generating richer documentation.
 
 ### `generate` - Generate documentation
 
@@ -287,6 +297,36 @@ The `growth-manifest.json` output contains:
       "feature_name": "Social Sharing",
       "description": "No social sharing for user content",
       "priority": "high"
+    }
+  ],
+  "generated_at": "2024-01-15T10:30:00Z"
+}
+```
+
+### Docs Mode Schema (v2.0)
+
+When using `--docs` flag, the manifest includes additional fields:
+
+```json
+{
+  "version": "2.0",
+  "project_name": "my-app",
+  "description": "A SaaS application",
+  "tech_stack": { ... },
+  "growth_hubs": [ ... ],
+  "gtm_gaps": [ ... ],
+  "product_overview": {
+    "tagline": "The easiest way to collaborate with your team",
+    "value_proposition": "Simplify team collaboration with real-time editing and sharing.",
+    "target_audience": "Remote teams and startups"
+  },
+  "features": [
+    {
+      "name": "Team Workspaces",
+      "description": "Create dedicated spaces for your team to collaborate on projects.",
+      "file_path": "src/features/workspaces/index.ts",
+      "usage_example": "<WorkspaceCard workspace={workspace} />",
+      "category": "Collaboration"
     }
   ],
   "generated_at": "2024-01-15T10:30:00Z"
