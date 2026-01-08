@@ -15,8 +15,19 @@ Focus on identifying:
 2. **Language**: The main programming language (e.g., Python, TypeScript, Go)
 3. **Database**: Database technology if detectable (e.g., PostgreSQL, MongoDB, Redis)
 4. **Auth**: Authentication method or library (e.g., JWT, OAuth, NextAuth, Clerk)
-5. **Deployment**: Deployment platform or method (e.g., Vercel, AWS, Docker, Kubernetes)
+5. **Deployment**: Deployment platform or method (e.g., Vercel, AWS, Docker, Kubernetes, Netlify, Fly.io, Render)
 6. **Package Manager**: Package manager used (e.g., npm, yarn, poetry, cargo)
+7. **Services**: Third-party services and integrations used in the project
+
+For **Services**, look for dependencies and environment variables indicating:
+- Payment processors: Stripe, PayPal, Paddle, LemonSqueezy
+- Email services: SendGrid, Mailgun, Postmark, Resend
+- Analytics: Segment, Mixpanel, Amplitude, PostHog
+- Monitoring: Sentry, DataDog, New Relic, LogRocket
+- Communication: Twilio, Plivo
+- Search: Algolia, Elasticsearch, Typesense
+- Storage: AWS S3, Cloudflare R2, Cloudinary
+- Other SaaS integrations
 
 Return your analysis as JSON matching this structure:
 {
@@ -25,10 +36,12 @@ Return your analysis as JSON matching this structure:
     "database": "string or null",
     "auth": "string or null",
     "deployment": "string or null",
-    "package_manager": "string or null"
+    "package_manager": "string or null",
+    "services": ["array of service names"]
 }
 
 Be conservative - only include values you're confident about. Use null for uncertain fields.
+Return an empty array for services if none are detected.
 """
 
 # Growth Hub Detection Prompt

@@ -39,6 +39,10 @@ class TechStack(BaseModel):
         default=None,
         description="Package manager (e.g., 'npm', 'poetry', 'cargo')",
     )
+    services: list[str] = Field(
+        default_factory=list,
+        description="Third-party services and integrations (e.g., 'Stripe', 'SendGrid', 'Twilio', 'Sentry')",
+    )
 
 
 class GrowthHub(BaseModel):
@@ -170,6 +174,7 @@ class GrowthManifest(BaseModel):
                     "auth": "NextAuth.js",
                     "deployment": "Vercel",
                     "package_manager": "npm",
+                    "services": ["Stripe", "SendGrid"],
                 },
                 "growth_hubs": [
                     {
