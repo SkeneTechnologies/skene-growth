@@ -99,8 +99,7 @@ class OpenAIClient(LLMClient):
                 return response.choices[0].message.content.strip()
             except Exception as fallback_error:
                 raise RuntimeError(
-                    f"Error calling OpenAI (fallback model {self.fallback_model}): "
-                    f"{fallback_error}"
+                    f"Error calling OpenAI (fallback model {self.fallback_model}): {fallback_error}"
                 )
         except Exception as e:
             raise RuntimeError(f"Error calling OpenAI: {e}")
