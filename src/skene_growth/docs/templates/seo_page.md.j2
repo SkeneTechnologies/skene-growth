@@ -1,0 +1,56 @@
+---
+title: "{{ topic }} | {{ project_name }}"
+description: "{{ description or project_name + ' - ' + topic }}"
+{% if keywords %}keywords: {{ keywords | join(', ') }}{% endif %}
+---
+
+# {{ topic }}
+
+{% if description %}
+{{ description }}
+{% endif %}
+
+## About {{ project_name }}
+
+{{ project_name }} is a {{ tech_stack.language }}{% if tech_stack.framework %}/{{ tech_stack.framework }}{% endif %} application{% if description %} that {{ description | lower }}{% endif %}.
+
+{% if growth_hubs %}
+## Key Features
+
+{% for hub in growth_hubs[:5] %}
+### {{ hub.feature_name }}
+
+{{ hub.detected_intent }}
+
+{% if hub.growth_potential %}
+{% for potential in hub.growth_potential[:3] %}
+- {{ potential }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
+## Technology
+
+{{ project_name }} leverages modern technologies:
+
+- Built with **{{ tech_stack.language }}**{% if tech_stack.framework %} and **{{ tech_stack.framework }}**{% endif %}
+
+{% if tech_stack.database %}- Powered by **{{ tech_stack.database }}** for data storage
+{% endif %}{% if tech_stack.auth %}- Secured with **{{ tech_stack.auth }}**
+{% endif %}{% if tech_stack.deployment %}- Deployed on **{{ tech_stack.deployment }}**
+{% endif %}{% if tech_stack.services %}- Integrated with **{{ tech_stack.services | join('**, **') }}**
+{% endif %}
+
+{% if keywords %}
+## Related Topics
+
+{% for keyword in keywords %}
+- {{ keyword }}
+{% endfor %}
+{% endif %}
+
+---
+
+*Learn more about {{ project_name }}*
