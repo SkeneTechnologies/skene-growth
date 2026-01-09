@@ -8,14 +8,14 @@ PLG (Product-Led Growth) analysis toolkit for codebases. Analyze your code, dete
 
 ```bash
 # Analyze your codebase
-uvx skene-growth analyze . --api-key "your-gemini-api-key"
+uvx skene-growth analyze . --api-key "your-openai-api-key"
 
 # Or set the API key as environment variable
-export SKENE_API_KEY="your-gemini-api-key"
+export SKENE_API_KEY="your-openai-api-key"
 uvx skene-growth analyze .
 ```
 
-Get a free Gemini API key at: https://aistudio.google.com/apikey
+Get an OpenAI API key at: https://platform.openai.com/api-keys
 
 ## What It Does
 
@@ -37,13 +37,13 @@ With the `--docs` flag, it also collects:
 Zero installation - runs instantly (requires API key):
 
 ```bash
-uvx skene-growth analyze . --api-key "your-gemini-api-key"
+uvx skene-growth analyze . --api-key "your-openai-api-key"
 uvx skene-growth generate
 uvx skene-growth inject
 uvx skene-growth validate ./growth-manifest.json
 ```
 
-> **Note:** The `analyze` command requires a Gemini API key. Get one free at https://aistudio.google.com/apikey
+> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`.
 
 ### Option 2: pip install
 
@@ -55,14 +55,14 @@ pip install skene-growth
 
 ### `analyze` - Analyze a codebase
 
-Requires a Gemini API key (set via `--api-key`, `SKENE_API_KEY` env var, or config file).
+Requires an API key (set via `--api-key`, `SKENE_API_KEY` env var, or config file).
 
 ```bash
-# Analyze current directory
-uvx skene-growth analyze . --api-key "your-gemini-api-key"
+# Analyze current directory (uses OpenAI by default)
+uvx skene-growth analyze . --api-key "your-openai-api-key"
 
 # Using environment variable
-export SKENE_API_KEY="your-gemini-api-key"
+export SKENE_API_KEY="your-openai-api-key"
 uvx skene-growth analyze .
 
 # Analyze specific path with custom output
@@ -72,7 +72,10 @@ uvx skene-growth analyze ./my-project -o manifest.json
 uvx skene-growth analyze . -v
 
 # Use a specific model
-uvx skene-growth analyze . --model gemini-2.5-pro
+uvx skene-growth analyze . --model gpt-4o
+
+# Use Gemini instead of OpenAI
+uvx skene-growth analyze . --provider gemini --api-key "your-gemini-api-key"
 
 # Enable docs mode (collects product overview and features)
 uvx skene-growth analyze . --docs
@@ -142,10 +145,13 @@ skene-growth supports configuration files for storing defaults:
 # .skene-growth.toml
 
 # API key for LLM provider (can also use SKENE_API_KEY env var)
-# api_key = "your-gemini-api-key"
+# api_key = "your-api-key"
 
-# LLM provider to use (default: gemini)
-provider = "gemini"
+# LLM provider to use: "openai" (default) or "gemini"
+provider = "openai"
+
+# Model to use (default: gpt-4o-mini for OpenAI, gemini-2.0-flash for Gemini)
+# model = "gpt-4o"
 
 # Default output directory
 output_dir = "./skene-context"
@@ -197,9 +203,9 @@ from skene_growth.llm import create_llm_client
 # Initialize
 codebase = CodebaseExplorer("/path/to/repo")
 llm = create_llm_client(
-    provider="gemini",
+    provider="openai",  # or "gemini"
     api_key=SecretStr("your-api-key"),
-    model_name="gemini-2.0-flash",
+    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" for Gemini
 )
 
 # Run analysis
@@ -351,13 +357,15 @@ The catalog includes these growth loop templates:
 
 | Variable | Description |
 |----------|-------------|
-| `SKENE_API_KEY` | API key for LLM provider (Gemini) |
-| `SKENE_PROVIDER` | LLM provider to use (default: gemini) |
+| `SKENE_API_KEY` | API key for LLM provider |
+| `SKENE_PROVIDER` | LLM provider to use: `openai` (default) or `gemini` |
 
 ## Requirements
 
 - Python 3.11+
-- **Gemini API key** (required for `analyze` command) - Get one free at https://aistudio.google.com/apikey
+- **API key** (required for `analyze` command):
+  - OpenAI (default): https://platform.openai.com/api-keys
+  - Gemini: https://aistudio.google.com/apikey
 
 ## License
 
