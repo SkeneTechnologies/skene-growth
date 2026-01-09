@@ -40,6 +40,8 @@ def create_llm_client(
 
             return GoogleGeminiClient(api_key=api_key, model_name=model_name)
         case "openai":
-            raise NotImplementedError("OpenAI not implemented yet")
+            from skene_growth.llm.providers.openai import OpenAIClient
+
+            return OpenAIClient(api_key=api_key, model_name=model_name)
         case _:
             raise ValueError(f"Unknown provider: {provider}")
