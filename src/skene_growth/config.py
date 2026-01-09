@@ -46,7 +46,7 @@ class Config:
     @property
     def provider(self) -> str:
         """Get LLM provider."""
-        return self.get("provider", "gemini")
+        return self.get("provider", "openai")
 
     @property
     def output_dir(self) -> str:
@@ -61,7 +61,7 @@ class Config:
     @property
     def model(self) -> str:
         """Get LLM model name."""
-        return self.get("model", "gemini-2.0-flash")
+        return self.get("model", "gpt-4o-mini")
 
 
 def find_project_config() -> Path | None:

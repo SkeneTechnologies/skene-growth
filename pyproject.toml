@@ -27,6 +27,7 @@ dependencies = [
     "typer>=0.12",
     "rich>=13.0",
     "google-genai>=1.0",
+    "openai>=1.0",
 ]
 
 [project.optional-dependencies]
