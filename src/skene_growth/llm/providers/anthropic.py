@@ -101,7 +101,8 @@ class AnthropicClient(LLMClient):
                 return response.content[0].text.strip()
             except Exception as fallback_error:
                 raise RuntimeError(
-                    f"Error calling Anthropic (fallback model {self.fallback_model}): {fallback_error}"
+                    f"Error calling Anthropic (fallback model {self.fallback_model}): "
+                    f"{fallback_error}"
                 )
         except Exception as e:
             raise RuntimeError(f"Error calling Anthropic: {e}")
@@ -152,7 +153,8 @@ class AnthropicClient(LLMClient):
                         messages=[{"role": "user", "content": prompt}],
                     ) as stream:
                         logger.info(
-                            f"Successfully started streaming with fallback model {self.fallback_model}"
+                            "Successfully started streaming with fallback model "
+                            f"{self.fallback_model}"
                         )
                         async for text in stream.text_stream:
                             yield text
