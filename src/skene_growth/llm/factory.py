@@ -43,5 +43,9 @@ def create_llm_client(
             from skene_growth.llm.providers.openai import OpenAIClient
 
             return OpenAIClient(api_key=api_key, model_name=model_name)
+        case "anthropic":
+            from skene_growth.llm.providers.anthropic import AnthropicClient
+
+            return AnthropicClient(api_key=api_key, model_name=model_name)
         case _:
             raise ValueError(f"Unknown provider: {provider}")
