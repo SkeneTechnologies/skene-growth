@@ -7,6 +7,9 @@ PLG (Product-Led Growth) analysis toolkit for codebases. Analyze your code, dete
 **No installation required** - just run with [uvx](https://docs.astral.sh/uv/):
 
 ```bash
+#install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Analyze your codebase
 uvx skene-growth analyze . --api-key "your-openai-api-key"
 
@@ -33,6 +36,12 @@ With the `--docs` flag, it also collects:
 ## Installation
 
 ### Option 1: uvx (Recommended)
+
+Install uv
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
 Zero installation - runs instantly (requires API key):
 
