@@ -42,8 +42,8 @@ class TechStackAnalyzer(MultiStepStrategy):
         super().__init__(
             steps=[
                 SelectFilesStep(
-                    prompt="Select configuration files that reveal the technology stack. "
-                    "Look for package managers, framework configs, and dependency files.",
+                    prompt="Select configuration files and representative source files that reveal the technology stack. "
+                    "Include package managers, framework configs, dependency files, and a few source files to identify the language.",
                     patterns=[
                         "package.json",
                         "requirements.txt",
@@ -64,8 +64,16 @@ class TechStackAnalyzer(MultiStepStrategy):
                         "netlify.toml",
                         "fly.toml",
                         "render.yaml",
+                        # Include source files to help identify language
+                        "**/*.py",
+                        "**/*.js",
+                        "**/*.ts",
+                        "**/*.tsx",
+                        "**/*.go",
+                        "**/*.rs",
+                        "**/*.rb",
                     ],
-                    max_files=10,
+                    max_files=15,
                     output_key="selected_files",
                 ),
                 ReadFilesStep(

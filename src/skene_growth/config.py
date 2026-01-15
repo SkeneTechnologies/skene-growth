@@ -18,6 +18,19 @@ except ImportError:
     import tomli as tomllib  # type: ignore
 
 
+DEFAULT_MODEL_BY_PROVIDER = {
+    "openai": "gpt-4o-mini",
+    "gemini": "gemini-2.0-flash",
+    "anthropic": "claude-sonnet-4-20250514",
+    "ollama": "llama2",
+}
+
+
+def default_model_for_provider(provider: str) -> str:
+    """Return the default model for a given provider."""
+    return DEFAULT_MODEL_BY_PROVIDER.get(provider.lower(), "gpt-4o-mini")
+
+
 class Config:
     """Configuration container with hierarchical loading."""
 
@@ -61,7 +74,10 @@ class Config:
     @property
     def model(self) -> str:
         """Get LLM model name."""
-        return self.get("model", "gpt-4o-mini")
+        model = self.get("model")
+        if model:
+            return model
+        return default_model_for_provider(self.provider)
 
 
 def find_project_config() -> Path | None:

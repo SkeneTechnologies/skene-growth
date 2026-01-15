@@ -33,6 +33,10 @@ With the `--docs` flag, it also collects:
 - **Product Overview** - Tagline, value proposition, target audience
 - **Features** - User-facing feature documentation with descriptions and examples
 
+After the manifest is created, skene-growth generates a **custom growth template** (JSON + Markdown)
+tailored to your business type using LLM analysis. The templates use examples in `src/templates/` as 
+reference but create custom lifecycle stages and keywords specific to your product.
+
 ## Installation
 
 ### Option 1: uvx (Recommended)
@@ -96,9 +100,18 @@ uvx skene-growth analyze . --provider ollama --model "llama2"
 
 # Enable docs mode (collects product overview and features)
 uvx skene-growth analyze . --docs
+
+# Specify business type for custom growth template
+uvx skene-growth analyze . --business-type "design-agency"
+uvx skene-growth analyze . --business-type "b2b-saas"
 ```
 
-**Output:** `./skene-context/growth-manifest.json`
+**Output:** `./skene-context/growth-manifest.json`, `./skene-context/growth-manifest.md`,
+`./skene-context/growth-template.json`, and `./skene-context/growth-template.md`
+
+**Growth Templates:** The system generates custom templates tailored to your business type, with
+lifecycle stages and keywords specific to your user journey. If no business type is specified, 
+the LLM infers it from your codebase.
 
 The `--docs` flag enables documentation mode which produces a v2.0 manifest with additional fields for generating richer documentation.
 
@@ -153,7 +166,8 @@ skene-growth supports configuration files for storing defaults:
 provider = "openai"
 
 # Model to use (provider-specific defaults apply if not set)
-# model = "gpt-4o"
+# openai: gpt-4o-mini | gemini: gemini-2.0-flash | anthropic: claude-sonnet-4-20250514 | ollama: llama2
+# model = "gpt-4o-mini"
 
 # Default output directory
 output_dir = "./skene-context"

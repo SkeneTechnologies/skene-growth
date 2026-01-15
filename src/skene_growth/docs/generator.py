@@ -66,6 +66,43 @@ class DocsGenerator:
         template = self.env.get_template("context.md.j2")
         return template.render(manifest=manifest, **self._get_context_vars(manifest))
 
+    def generate_analysis(self, manifest: GrowthManifest) -> str:
+        """
+        Generate a markdown analysis summary from the manifest.
+
+        Args:
+            manifest: The growth manifest to generate docs from
+
+        Returns:
+            Markdown content as string
+        """
+        template = self.env.get_template("analysis.md.j2")
+        return template.render(manifest=manifest, **self._get_context_vars(manifest))
+
+    def generate_growth_template(self, template_data: dict[str, Any]) -> str:
+        """
+        Generate markdown from a growth template JSON.
+        
+        Automatically detects template structure and uses appropriate Jinja template:
+        - If template has 'lifecycles' key -> uses plg_lifecycle_template.md.j2
+        - Otherwise -> uses growth_template.md.j2 (legacy format)
+
+        Args:
+            template_data: The growth template data to render
+
+        Returns:
+            Markdown content as string
+        """
+        # Detect template structure
+        if "lifecycles" in template_data:
+            # New PLG lifecycle template with milestones and metrics
+            template = self.env.get_template("plg_lifecycle_template.md.j2")
+        else:
+            # Legacy template with visuals and keywordMappings
+            template = self.env.get_template("growth_template.md.j2")
+        
+        return template.render(template=template_data)
+
     def generate_product_docs(self, manifest: GrowthManifest) -> str:
         """
         Generate product documentation.
