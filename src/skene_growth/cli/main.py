@@ -162,13 +162,19 @@ def analyze(
     resolved_model = model or config.model
     resolved_output = output or Path(config.output_dir) / "growth-manifest.json"
 
+    # LM Studio doesn't require an API key (local server)
+    is_lmstudio = resolved_provider.lower() in ("lmstudio", "lm-studio", "lm_studio")
+
     if not resolved_api_key:
-        console.print(
-            "[yellow]Warning:[/yellow] No API key provided. "
-            "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.toml"
-        )
-        console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
-        raise typer.Exit(1)
+        if is_lmstudio:
+            resolved_api_key = "lm-studio"  # Dummy key for local server
+        else:
+            console.print(
+                "[yellow]Warning:[/yellow] No API key provided. "
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.toml"
+            )
+            console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
+            raise typer.Exit(1)
 
     mode_str = "docs" if docs else "growth"
     console.print(
