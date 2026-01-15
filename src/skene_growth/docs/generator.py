@@ -63,7 +63,7 @@ class DocsGenerator:
         Returns:
             Markdown content as string
         """
-        template = self.env.get_template("context.md.j2")
+        template = self.env.get_template("analysis.md.j2")
         return template.render(manifest=manifest, **self._get_context_vars(manifest))
 
     def generate_analysis(self, manifest: GrowthManifest) -> str:
