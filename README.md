@@ -318,6 +318,37 @@ When using `--docs` flag, the manifest includes additional fields:
   - Anthropic: https://platform.claude.com/settings/keys
   - LM Studio: No API key needed (runs locally at http://localhost:1234)
 
+## Troubleshooting
+
+### LM Studio: Context length error
+
+If you see an error like:
+```
+Error code: 400 - {'error': 'The number of tokens to keep from the initial prompt is greater than the context length...'}
+```
+
+This means the model's context length is too small for the analysis. To fix:
+
+1. In LM Studio, unload the current model
+2. Go to **Developer > Load**
+3. Click on **Context Length: Model supports up to N tokens**
+4. Reload to apply changes
+
+See: https://github.com/lmstudio-ai/lmstudio-bug-tracker/issues/237
+
+### LM Studio: Connection refused
+
+If you see a connection error, ensure:
+- LM Studio is running
+- A model is loaded and ready
+- The server is running on the default port (http://localhost:1234)
+
+If using a different port or host, set the `LMSTUDIO_BASE_URL` environment variable:
+```bash
+export LMSTUDIO_BASE_URL="http://localhost:8080/v1"
+```
+
+
 ## License
 
 MIT
