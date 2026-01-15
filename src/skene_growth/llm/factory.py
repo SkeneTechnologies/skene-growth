@@ -51,5 +51,9 @@ def create_llm_client(
             from skene_growth.llm.providers.lmstudio import LMStudioClient
 
             return LMStudioClient(api_key=api_key, model_name=model_name)
+        case "ollama":
+            from skene_growth.llm.providers.ollama import OllamaClient
+
+            return OllamaClient(api_key=api_key, model_name=model_name)
         case _:
             raise ValueError(f"Unknown provider: {provider}")
