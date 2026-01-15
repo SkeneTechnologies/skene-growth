@@ -47,5 +47,9 @@ def create_llm_client(
             from skene_growth.llm.providers.anthropic import AnthropicClient
 
             return AnthropicClient(api_key=api_key, model_name=model_name)
+        case "lmstudio" | "lm-studio" | "lm_studio":
+            from skene_growth.llm.providers.lmstudio import LMStudioClient
+
+            return LMStudioClient(api_key=api_key, model_name=model_name)
         case _:
             raise ValueError(f"Unknown provider: {provider}")
