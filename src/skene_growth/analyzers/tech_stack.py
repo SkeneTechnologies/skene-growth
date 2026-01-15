@@ -42,8 +42,10 @@ class TechStackAnalyzer(MultiStepStrategy):
         super().__init__(
             steps=[
                 SelectFilesStep(
-                    prompt="Select configuration files and representative source files that reveal the technology stack. "
-                    "Include package managers, framework configs, dependency files, and a few source files to identify the language.",
+                    prompt="Select configuration files and representative source files "
+                    "that reveal the technology stack. "
+                    "Include package managers, framework configs, dependency files, "
+                    "and a few source files to identify the language.",
                     patterns=[
                         "package.json",
                         "requirements.txt",

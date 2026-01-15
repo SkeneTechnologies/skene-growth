@@ -46,31 +46,27 @@ def _build_candidate_template() -> dict:
                     {
                         "title": "Website Visit",
                         "description": "User lands on website",
-                        "order_index": 1
+                        "order_index": 1,
                     },
-                    {
-                        "title": "Sign Up",
-                        "description": "User creates account",
-                        "order_index": 2
-                    }
+                    {"title": "Sign Up", "description": "User creates account", "order_index": 2},
                 ],
                 "metrics": [
                     {
                         "name": "Conversion Rate",
                         "howToMeasure": "% of visitors who sign up",
-                        "healthyBenchmark": "> 2.5%"
+                        "healthyBenchmark": "> 2.5%",
                     },
                     {
                         "name": "Time to Sign-Up",
                         "howToMeasure": "Average time from landing to account creation",
-                        "healthyBenchmark": "< 5 minutes"
+                        "healthyBenchmark": "< 5 minutes",
                     },
                     {
                         "name": "Traffic Quality",
                         "howToMeasure": "Conversion rate by source",
-                        "healthyBenchmark": "> 3%"
-                    }
-                ]
+                        "healthyBenchmark": "> 3%",
+                    },
+                ],
             },
             {
                 "name": "ACTIVATION",
@@ -80,36 +76,36 @@ def _build_candidate_template() -> dict:
                     {
                         "title": "Onboarding Start",
                         "description": "User begins onboarding flow",
-                        "order_index": 1
+                        "order_index": 1,
                     },
                     {
                         "title": "First Action",
                         "description": "User completes primary action",
-                        "order_index": 2
+                        "order_index": 2,
                     },
                     {
                         "title": "Aha Moment",
                         "description": "User experiences core value",
-                        "order_index": 3
-                    }
+                        "order_index": 3,
+                    },
                 ],
                 "metrics": [
                     {
                         "name": "Activation Rate",
                         "howToMeasure": "% of users reaching aha moment in 7 days",
-                        "healthyBenchmark": "> 40%"
+                        "healthyBenchmark": "> 40%",
                     },
                     {
                         "name": "Time to Value",
                         "howToMeasure": "Average time to first core action",
-                        "healthyBenchmark": "< 10 minutes"
+                        "healthyBenchmark": "< 10 minutes",
                     },
                     {
                         "name": "Day-1 Retention",
                         "howToMeasure": "% returning within 24 hours",
-                        "healthyBenchmark": "> 50%"
-                    }
-                ]
+                        "healthyBenchmark": "> 50%",
+                    },
+                ],
             },
             {
                 "name": "RETENTION",
@@ -119,39 +115,39 @@ def _build_candidate_template() -> dict:
                     {
                         "title": "Week 2 Return",
                         "description": "User active after 2 weeks",
-                        "order_index": 1
+                        "order_index": 1,
                     },
                     {
                         "title": "Regular Usage",
                         "description": "User establishes usage pattern",
-                        "order_index": 2
-                    }
+                        "order_index": 2,
+                    },
                 ],
                 "metrics": [
                     {
                         "name": "30-Day Retention",
                         "howToMeasure": "% active after 30 days",
-                        "healthyBenchmark": "> 25%"
+                        "healthyBenchmark": "> 25%",
                     },
                     {
                         "name": "Churn Rate",
                         "howToMeasure": "% stopping usage per month",
-                        "healthyBenchmark": "< 5%"
+                        "healthyBenchmark": "< 5%",
                     },
                     {
                         "name": "Weekly Active Users",
                         "howToMeasure": "% engaging weekly",
-                        "healthyBenchmark": "> 30%"
-                    }
-                ]
-            }
+                        "healthyBenchmark": "> 30%",
+                    },
+                ],
+            },
         ],
         "metadata": {
             "framework_description": "Test PLG framework for unit testing",
             "usage": "Use for testing growth template generation",
             "created_at": "2026-01-15",
-            "category": "Test"
-        }
+            "category": "Test",
+        },
     }
 
 
@@ -203,9 +199,7 @@ async def test_generate_growth_template_with_business_type():
     llm = FakeLLM(json.dumps(candidate))
 
     generated = await generate_growth_template(
-        llm, 
-        {"project_name": "Design Studio"}, 
-        business_type="design-agency"
+        llm, {"project_name": "Design Studio"}, business_type="design-agency"
     )
 
     assert generated["id"] is not None

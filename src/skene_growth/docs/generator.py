@@ -82,7 +82,7 @@ class DocsGenerator:
     def generate_growth_template(self, template_data: dict[str, Any]) -> str:
         """
         Generate markdown from a growth template JSON.
-        
+
         Automatically detects template structure and uses appropriate Jinja template:
         - If template has 'lifecycles' key -> uses plg_lifecycle_template.md.j2
         - Otherwise -> uses growth_template.md.j2 (legacy format)
@@ -100,7 +100,7 @@ class DocsGenerator:
         else:
             # Legacy template with visuals and keywordMappings
             template = self.env.get_template("growth_template.md.j2")
-        
+
         return template.render(template=template_data)
 
     def generate_product_docs(self, manifest: GrowthManifest) -> str:

@@ -10,13 +10,15 @@ in closed-source implementations.
 TECH_STACK_PROMPT = """
 Analyze the provided files (configuration files and source files) to detect the technology stack used in this project.
 
-IMPORTANT: When determining the **Language**, prioritize actual source files over configuration files. 
-For example, if you see Python source files (.py) but only a package.json config file, the language is Python, not JavaScript.
+IMPORTANT: When determining the **Language**, prioritize actual source files over configuration files.
+For example, if you see Python source files (.py) but only a package.json config file,
+the language is Python, not JavaScript.
 Look at file extensions and code syntax in source files to determine the primary language.
 
 Focus on identifying:
 1. **Framework**: The primary web/app framework (e.g., Next.js, FastAPI, Rails, Django)
-2. **Language**: The main programming language (e.g., Python, TypeScript, Go) - DETERMINE FROM SOURCE FILES, not just config files
+2. **Language**: The main programming language (e.g., Python, TypeScript, Go) - DETERMINE FROM SOURCE FILES,
+   not just config files
 3. **Database**: Database technology if detectable (e.g., PostgreSQL, MongoDB, Redis)
 4. **Auth**: Authentication method or library (e.g., JWT, OAuth, NextAuth, Clerk)
 5. **Deployment**: Deployment platform or method (e.g., Vercel, AWS, Docker, Kubernetes, Netlify)

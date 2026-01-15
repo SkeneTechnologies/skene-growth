@@ -166,7 +166,7 @@ def analyze(
 
         # With API key
         uvx skene-growth analyze . --api-key "your-key"
-        
+
         # Specify business type for custom growth template
         uvx skene-growth analyze . --business-type "design-agency"
 
@@ -326,7 +326,7 @@ async def _run_analysis(
 
 def _show_analysis_summary(data: dict, template_data: dict | None = None):
     """Display a summary of the analysis results.
-    
+
     Args:
         data: Manifest data
         template_data: Growth template data (optional)
@@ -351,7 +351,7 @@ def _show_analysis_summary(data: dict, template_data: dict | None = None):
     if "gtm_gaps" in data:
         gaps = data["gtm_gaps"]
         table.add_row("GTM Gaps", f"{len(gaps)} opportunities identified")
-    
+
     # Add growth template summary
     if template_data:
         if "lifecycles" in template_data:
@@ -439,9 +439,11 @@ def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
         console.print(f"[yellow]Warning:[/yellow] Failed to generate product docs: {exc}")
 
 
-async def _write_growth_template(llm, manifest_data: dict, business_type: Optional[str] = None) -> dict | None:
+async def _write_growth_template(
+    llm, manifest_data: dict, business_type: Optional[str] = None
+) -> dict | None:
     """Generate and save the growth template JSON and Markdown outputs.
-    
+
     Returns:
         Template data dict if successful, None if failed
     """

@@ -46,7 +46,8 @@ class ManifestAnalyzer(MultiStepStrategy):
                 # Phase 1: Detect tech stack
                 SelectFilesStep(
                     prompt="Select configuration files and representative source files for tech stack detection. "
-                    "Include package managers, framework configs, dependency files, and a few source files to identify the language.",
+                    "Include package managers, framework configs, dependency files, "
+                    "and a few source files to identify the language.",
                     patterns=[
                         "package.json",
                         "requirements.txt",
