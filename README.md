@@ -51,7 +51,7 @@ uvx skene-growth generate
 uvx skene-growth validate ./growth-manifest.json
 ```
 
-> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini` or Anthropic with `--provider anthropic`.
+> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`, Anthropic with `--provider anthropic`, or LM Studio (local) with `--provider lmstudio`.
 
 ### Option 2: pip install
 
@@ -87,6 +87,9 @@ uvx skene-growth analyze . --provider gemini --api-key "your-gemini-api-key"
 
 # Use Anthropic (Claude)
 uvx skene-growth analyze . --provider anthropic --api-key "your-anthropic-api-key"
+
+# Use LM Studio (local server)
+uvx skene-growth analyze . --provider lmstudio --model "your-loaded-model"
 
 # Enable docs mode (collects product overview and features)
 uvx skene-growth analyze . --docs
@@ -143,7 +146,7 @@ skene-growth supports configuration files for storing defaults:
 # API key for LLM provider (can also use SKENE_API_KEY env var)
 # api_key = "your-api-key"
 
-# LLM provider to use: "openai" (default), "gemini", or "anthropic"
+# LLM provider to use: "openai" (default), "gemini", "anthropic", or "lmstudio"
 provider = "openai"
 
 # Model to use (provider-specific defaults apply if not set)
@@ -199,9 +202,9 @@ from skene_growth.llm import create_llm_client
 # Initialize
 codebase = CodebaseExplorer("/path/to/repo")
 llm = create_llm_client(
-    provider="openai",  # or "gemini" or "anthropic"
+    provider="openai",  # or "gemini", "anthropic", or "lmstudio"
     api_key=SecretStr("your-api-key"),
-    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-sonnet-4-20250514"
+    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-sonnet-4-20250514" / local model
 )
 
 # Run analysis
@@ -303,15 +306,17 @@ When using `--docs` flag, the manifest includes additional fields:
 | Variable | Description |
 |----------|-------------|
 | `SKENE_API_KEY` | API key for LLM provider |
-| `SKENE_PROVIDER` | LLM provider to use: `openai` (default), `gemini`, or `anthropic` |
+| `SKENE_PROVIDER` | LLM provider to use: `openai` (default), `gemini`, `anthropic`, or `lmstudio` |
+| `LMSTUDIO_BASE_URL` | LM Studio server URL (default: `http://localhost:1234/v1`) |
 
 ## Requirements
 
 - Python 3.11+
-- **API key** (required for `analyze` command):
+- **API key** (required for `analyze` command, except LM Studio):
   - OpenAI (default): https://platform.openai.com/api-keys
   - Gemini: https://aistudio.google.com/apikey
   - Anthropic: https://platform.claude.com/settings/keys
+  - LM Studio: No API key needed (runs locally at http://localhost:1234)
 
 ## License
 
