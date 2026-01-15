@@ -51,7 +51,6 @@ Zero installation - runs instantly (requires API key):
 
 ```bash
 uvx skene-growth analyze . --api-key "your-openai-api-key"
-uvx skene-growth generate
 uvx skene-growth validate ./growth-manifest.json
 ```
 
@@ -104,28 +103,28 @@ uvx skene-growth analyze . --docs
 # Specify business type for custom growth template
 uvx skene-growth analyze . --business-type "design-agency"
 uvx skene-growth analyze . --business-type "b2b-saas"
+
+# Generate product documentation alongside analysis
+uvx skene-growth analyze . --product-docs
 ```
 
-**Output:** `./skene-context/growth-manifest.json`, `./skene-context/growth-manifest.md`,
-`./skene-context/growth-template.json`, and `./skene-context/growth-template.md`
+**Output:**
+- `./skene-context/growth-manifest.json` (structured data)
+- `./skene-context/growth-manifest.md` (analysis summary)
+- `./skene-context/growth-template.json` (if --business-type specified)
+- `./skene-context/growth-template.md` (if --business-type specified)
+- `./skene-context/product-docs.md` (if --product-docs flag used)
 
 **Growth Templates:** The system generates custom templates tailored to your business type, with
-lifecycle stages and keywords specific to your user journey. If no business type is specified, 
+lifecycle stages and keywords specific to your user journey. If no business type is specified,
 the LLM infers it from your codebase.
 
-The `--docs` flag enables documentation mode which produces a v2.0 manifest with additional fields for generating richer documentation.
+**Flags:**
+- `--docs`: Enable documentation mode (collects product overview and features)
+- `--product-docs`: Generate user-friendly product documentation
+- `--business-type`: Specify business type for custom growth template
 
-### `generate` - Generate documentation
-
-```bash
-# Generate docs from manifest (auto-detected)
-uvx skene-growth generate
-
-# Specify manifest and output directory
-uvx skene-growth generate -m ./manifest.json -o ./docs
-```
-
-**Output:** Markdown documentation in `./skene-docs/`
+The `--docs` flag enables documentation mode which produces a v2.0 manifest with additional fields. The `--product-docs` flag generates a user-friendly product documentation file with features and roadmap.
 
 ### `validate` - Validate a manifest
 
