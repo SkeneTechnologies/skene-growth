@@ -30,7 +30,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from skene_growth import __version__
-from skene_growth.config import load_config
+from skene_growth.config import default_model_for_provider, load_config
 
 app = typer.Typer(
     name="skene-growth",
@@ -110,7 +110,7 @@ def analyze(
         None,
         "--provider",
         "-p",
-        help="LLM provider to use",
+        help="LLM provider to use (openai, gemini, anthropic, ollama)",
     ),
     model: Optional[str] = typer.Option(
         None,
@@ -128,6 +128,12 @@ def analyze(
         False,
         "--docs",
         help="Enable documentation mode (collects product overview and features)",
+    ),
+    business_type: Optional[str] = typer.Option(
+        None,
+        "--business-type",
+        "-b",
+        help="Business type for growth template (e.g., 'design-agency', 'b2b-saas'). LLM will infer if not provided.",
     ),
 ):
     """
@@ -152,6 +158,9 @@ def analyze(
 
         # With API key
         uvx skene-growth analyze . --api-key "your-key"
+        
+        # Specify business type for custom growth template
+        uvx skene-growth analyze . --business-type "design-agency"
     """
     # Load config with fallbacks
     config = load_config()
@@ -159,7 +168,10 @@ def analyze(
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
-    resolved_model = model or config.model
+    if model:
+        resolved_model = model
+    else:
+        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
     resolved_output = output or Path(config.output_dir) / "growth-manifest.json"
 
     if not resolved_api_key:
@@ -192,6 +204,7 @@ def analyze(
             resolved_model,
             verbose,
             docs,
+            business_type,
         )
     )
 
@@ -204,6 +217,7 @@ async def _run_analysis(
     model: str,
     verbose: bool,
     docs: bool = False,
+    business_type: Optional[str] = None,
 ):
     """Run the async analysis."""
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
@@ -261,6 +275,7 @@ async def _run_analysis(
             )
             output.write_text(json.dumps(manifest_data, indent=2, default=json_serializer))
             _write_manifest_markdown(manifest_data, output)
+            template_data = await _write_growth_template(llm, manifest_data, business_type)
 
             progress.update(task, description="Complete!")
 
@@ -277,11 +292,16 @@ async def _run_analysis(
 
     # Show quick stats if available
     if result.data:
-        _show_analysis_summary(result.data)
+        _show_analysis_summary(result.data, template_data)
 
 
-def _show_analysis_summary(data: dict):
-    """Display a summary of the analysis results."""
+def _show_analysis_summary(data: dict, template_data: dict | None = None):
+    """Display a summary of the analysis results.
+    
+    Args:
+        data: Manifest data
+        template_data: Growth template data (optional)
+    """
     # Unwrap "output" key if present (from GenerateStep)
     if "output" in data and isinstance(data["output"], dict):
         data = data["output"]
@@ -302,6 +322,25 @@ def _show_analysis_summary(data: dict):
     if "gtm_gaps" in data:
         gaps = data["gtm_gaps"]
         table.add_row("GTM Gaps", f"{len(gaps)} opportunities identified")
+    
+    # Add growth template summary
+    if template_data:
+        if "lifecycles" in template_data:
+            # New format with lifecycles
+            lifecycle_count = len(template_data["lifecycles"])
+            lifecycle_names = [lc["name"] for lc in template_data["lifecycles"][:3]]
+            lifecycle_summary = ", ".join(lifecycle_names)
+            if lifecycle_count > 3:
+                lifecycle_summary += f", +{lifecycle_count - 3} more"
+            table.add_row("Lifecycle Stages", f"{lifecycle_count} stages: {lifecycle_summary}")
+        elif "visuals" in template_data and "lifecycleVisuals" in template_data["visuals"]:
+            # Legacy format with visuals
+            lifecycle_count = len(template_data["visuals"]["lifecycleVisuals"])
+            lifecycle_names = list(template_data["visuals"]["lifecycleVisuals"].keys())[:3]
+            lifecycle_summary = ", ".join(lifecycle_names)
+            if lifecycle_count > 3:
+                lifecycle_summary += f", +{lifecycle_count - 3} more"
+            table.add_row("Lifecycle Stages", f"{lifecycle_count} stages: {lifecycle_summary}")
 
     console.print(table)
 
@@ -332,6 +371,26 @@ def _write_manifest_markdown(manifest_data: dict, output_path: Path) -> None:
         console.print(f"[green]Markdown saved to:[/green] {markdown_path}")
     except Exception as exc:
         console.print(f"[yellow]Warning:[/yellow] Failed to generate markdown: {exc}")
+
+
+async def _write_growth_template(llm, manifest_data: dict, business_type: Optional[str] = None) -> dict | None:
+    """Generate and save the growth template JSON and Markdown outputs.
+    
+    Returns:
+        Template data dict if successful, None if failed
+    """
+    from skene_growth.templates import generate_growth_template, write_growth_template_outputs
+
+    try:
+        template_data = await generate_growth_template(llm, manifest_data, business_type)
+        output_dir = Path("./skene-context")
+        json_path, markdown_path = write_growth_template_outputs(template_data, output_dir)
+        console.print(f"[green]Growth template saved to:[/green] {json_path}")
+        console.print(f"[green]Growth template markdown saved to:[/green] {markdown_path}")
+        return template_data
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Failed to generate growth template: {exc}")
+        return None
 
 
 @app.command()

@@ -45,8 +45,8 @@ class ManifestAnalyzer(MultiStepStrategy):
             steps=[
                 # Phase 1: Detect tech stack
                 SelectFilesStep(
-                    prompt="Select configuration files for tech stack detection. "
-                    "Include package managers, framework configs, and dependency files.",
+                    prompt="Select configuration files and representative source files for tech stack detection. "
+                    "Include package managers, framework configs, dependency files, and a few source files to identify the language.",
                     patterns=[
                         "package.json",
                         "requirements.txt",
@@ -59,8 +59,16 @@ class ManifestAnalyzer(MultiStepStrategy):
                         "tsconfig.json",
                         "docker-compose.yml",
                         "Dockerfile",
+                        # Include source files to help identify language
+                        "**/*.py",
+                        "**/*.js",
+                        "**/*.ts",
+                        "**/*.tsx",
+                        "**/*.go",
+                        "**/*.rs",
+                        "**/*.rb",
                     ],
-                    max_files=10,
+                    max_files=15,
                     output_key="config_files",
                 ),
                 ReadFilesStep(

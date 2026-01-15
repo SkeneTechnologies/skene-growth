@@ -1,0 +1,358 @@
+{
+  "title": "Design Agency",
+  "description": "Template for design agencies focusing on UX and graphical design, tracking the complete client journey from discovery to delivery",
+  "version": "1.0.0",
+  "framework": "Design Agency",
+  "lifecycles": [
+    {
+      "name": "DISCOVERY",
+      "description": "The First Impression",
+      "order_index": 1,
+      "milestones": [
+        {
+          "title": "Portfolio Discovery",
+          "description": "Client discovers your agency through portfolio, case studies, or featured work",
+          "order_index": 1
+        },
+        {
+          "title": "Brand Recognition",
+          "description": "Client recognizes your brand through marketing channels, referrals, or content",
+          "order_index": 2
+        },
+        {
+          "title": "Website Visit",
+          "description": "Client visits your website and explores your services and capabilities",
+          "order_index": 3
+        },
+        {
+          "title": "Work Exploration",
+          "description": "Client reviews your featured work, case studies, and design examples",
+          "order_index": 4
+        },
+        {
+          "title": "Service Understanding",
+          "description": "Client understands your service offerings (web design, UX/UI, graphic design, etc.)",
+          "order_index": 5
+        }
+      ],
+      "metrics": [
+        {
+          "name": "Portfolio Engagement Rate",
+          "howToMeasure": "% of website visitors who view 3+ portfolio items or case studies",
+          "healthyBenchmark": "> 25%"
+        },
+        {
+          "name": "Time on Portfolio",
+          "howToMeasure": "Average time spent viewing portfolio and case study pages (minutes)",
+          "healthyBenchmark": "> 3 minutes"
+        },
+        {
+          "name": "Service Page Conversion",
+          "howToMeasure": "% of service page visitors who proceed to contact form",
+          "healthyBenchmark": "> 8%"
+        },
+        {
+          "name": "Brand Recognition Score",
+          "howToMeasure": "% of new inquiries mentioning specific work or referral source",
+          "healthyBenchmark": "> 40%"
+        }
+      ]
+    },
+    {
+      "name": "CONSULTATION",
+      "description": "The Connection",
+      "order_index": 2,
+      "milestones": [
+        {
+          "title": "Initial Contact",
+          "description": "Client reaches out via contact form, email, or phone",
+          "order_index": 1
+        },
+        {
+          "title": "Project Inquiry",
+          "description": "Client submits project inquiry with initial requirements",
+          "order_index": 2
+        },
+        {
+          "title": "Consultation Meeting",
+          "description": "Client schedules and attends initial consultation or discovery call",
+          "order_index": 3
+        },
+        {
+          "title": "Needs Assessment",
+          "description": "Agency understands client's design needs, goals, and constraints",
+          "order_index": 4
+        },
+        {
+          "title": "Trust Building",
+          "description": "Client builds trust through agency expertise demonstration and communication",
+          "order_index": 5
+        }
+      ],
+      "metrics": [
+        {
+          "name": "Contact Form Conversion",
+          "howToMeasure": "% of website visitors who submit contact form or inquiry",
+          "healthyBenchmark": "> 2%"
+        },
+        {
+          "name": "Consultation Booking Rate",
+          "howToMeasure": "% of inquiries that schedule and attend consultation meeting",
+          "healthyBenchmark": "> 60%"
+        },
+        {
+          "name": "Response Time",
+          "howToMeasure": "Average time to respond to initial inquiry (hours)",
+          "healthyBenchmark": "< 4 hours"
+        },
+        {
+          "name": "Consultation Completion Rate",
+          "howToMeasure": "% of scheduled consultations that are completed",
+          "healthyBenchmark": "> 85%"
+        }
+      ]
+    },
+    {
+      "name": "PROPOSAL",
+      "description": "The Agreement",
+      "order_index": 3,
+      "milestones": [
+        {
+          "title": "Project Scoping",
+          "description": "Agency defines project scope, deliverables, and timeline",
+          "order_index": 1
+        },
+        {
+          "title": "Proposal Presentation",
+          "description": "Agency presents detailed proposal with design approach and pricing",
+          "order_index": 2
+        },
+        {
+          "title": "Proposal Review",
+          "description": "Client reviews proposal and asks questions or requests adjustments",
+          "order_index": 3
+        },
+        {
+          "title": "Contract Negotiation",
+          "description": "Parties negotiate terms, timeline, and project details",
+          "order_index": 4
+        },
+        {
+          "title": "Contract Signing",
+          "description": "Client signs contract and project officially begins",
+          "order_index": 5
+        }
+      ],
+      "metrics": [
+        {
+          "name": "Proposal Acceptance Rate",
+          "howToMeasure": "% of proposals that are accepted without major revisions",
+          "healthyBenchmark": "> 50%"
+        },
+        {
+          "name": "Time to Proposal",
+          "howToMeasure": "Average days from consultation to proposal delivery",
+          "healthyBenchmark": "< 5 days"
+        },
+        {
+          "name": "Contract Signing Rate",
+          "howToMeasure": "% of proposals that result in signed contracts",
+          "healthyBenchmark": "> 70%"
+        },
+        {
+          "name": "Proposal Revision Cycles",
+          "howToMeasure": "Average number of proposal revisions before acceptance",
+          "healthyBenchmark": "< 2 revisions"
+        }
+      ]
+    },
+    {
+      "name": "DESIGN",
+      "description": "The Creative Process",
+      "order_index": 4,
+      "milestones": [
+        {
+          "title": "UX Research",
+          "description": "Agency conducts user research, interviews, and competitive analysis",
+          "order_index": 1
+        },
+        {
+          "title": "Information Architecture",
+          "description": "Agency creates site maps, user flows, and content structure",
+          "order_index": 2
+        },
+        {
+          "title": "Wireframing",
+          "description": "Agency develops low-fidelity wireframes and layout concepts",
+          "order_index": 3
+        },
+        {
+          "title": "Visual Design",
+          "description": "Agency creates high-fidelity designs, brand identity, and visual elements",
+          "order_index": 4
+        },
+        {
+          "title": "Design Iteration",
+          "description": "Client provides feedback and agency refines designs through iterations",
+          "order_index": 5
+        },
+        {
+          "title": "Design Approval",
+          "description": "Client approves final designs and visual direction",
+          "order_index": 6
+        }
+      ],
+      "metrics": [
+        {
+          "name": "Design Iteration Cycles",
+          "howToMeasure": "Average number of design revision rounds before approval",
+          "healthyBenchmark": "< 3 rounds"
+        },
+        {
+          "name": "Design Approval Time",
+          "howToMeasure": "Average days from design delivery to client approval",
+          "healthyBenchmark": "< 7 days"
+        },
+        {
+          "name": "Design Quality Score",
+          "howToMeasure": "Client satisfaction rating during design phase (1-10 scale)",
+          "healthyBenchmark": "> 8.0"
+        },
+        {
+          "name": "Scope Creep Rate",
+          "howToMeasure": "% of projects requiring additional design work beyond initial scope",
+          "healthyBenchmark": "< 20%"
+        }
+      ]
+    },
+    {
+      "name": "DEVELOPMENT",
+      "description": "The Implementation",
+      "order_index": 5,
+      "milestones": [
+        {
+          "title": "Development Kickoff",
+          "description": "Agency begins implementation based on approved designs",
+          "order_index": 1
+        },
+        {
+          "title": "Prototype Development",
+          "description": "Agency builds interactive prototypes or development previews",
+          "order_index": 2
+        },
+        {
+          "title": "Client Review",
+          "description": "Client reviews development progress and provides feedback",
+          "order_index": 3
+        },
+        {
+          "title": "Refinement",
+          "description": "Agency refines implementation based on client feedback and testing",
+          "order_index": 4
+        },
+        {
+          "title": "Quality Assurance",
+          "description": "Agency performs testing, bug fixes, and quality checks",
+          "order_index": 5
+        },
+        {
+          "title": "Final Approval",
+          "description": "Client approves final implementation and gives go-ahead for launch",
+          "order_index": 6
+        }
+      ],
+      "metrics": [
+        {
+          "name": "Development Velocity",
+          "howToMeasure": "Average days to complete development milestones",
+          "healthyBenchmark": "On schedule ±10%"
+        },
+        {
+          "name": "Bug Rate",
+          "howToMeasure": "Number of critical bugs found per 100 hours of development",
+          "healthyBenchmark": "< 5 bugs"
+        },
+        {
+          "name": "Client Review Cycles",
+          "howToMeasure": "Average number of client review rounds during development",
+          "healthyBenchmark": "< 2 rounds"
+        },
+        {
+          "name": "QA Pass Rate",
+          "howToMeasure": "% of QA tests passing on first attempt",
+          "healthyBenchmark": "> 90%"
+        }
+      ]
+    },
+    {
+      "name": "DELIVERY",
+      "description": "The Launch",
+      "order_index": 6,
+      "milestones": [
+        {
+          "title": "Pre-Launch Preparation",
+          "description": "Agency prepares assets, documentation, and launch checklist",
+          "order_index": 1
+        },
+        {
+          "title": "Launch",
+          "description": "Project goes live and becomes publicly available",
+          "order_index": 2
+        },
+        {
+          "title": "Post-Launch Support",
+          "description": "Agency provides immediate support and addresses any launch issues",
+          "order_index": 3
+        },
+        {
+          "title": "Knowledge Transfer",
+          "description": "Agency transfers project knowledge, assets, and documentation to client",
+          "order_index": 4
+        },
+        {
+          "title": "Project Completion",
+          "description": "Project is officially completed and client is satisfied",
+          "order_index": 5
+        },
+        {
+          "title": "Long-term Relationship",
+          "description": "Client becomes a repeat customer or refers others to the agency",
+          "order_index": 6
+        }
+      ],
+      "metrics": [
+        {
+          "name": "Launch Success Rate",
+          "howToMeasure": "% of projects launched without critical issues",
+          "healthyBenchmark": "> 95%"
+        },
+        {
+          "name": "Post-Launch Issue Rate",
+          "howToMeasure": "Number of critical issues reported within 30 days of launch",
+          "healthyBenchmark": "< 3 issues"
+        },
+        {
+          "name": "Client Satisfaction Score",
+          "howToMeasure": "Client satisfaction rating at project completion (1-10 scale)",
+          "healthyBenchmark": "> 9.0"
+        },
+        {
+          "name": "Repeat Business Rate",
+          "howToMeasure": "% of clients who return for additional projects within 12 months",
+          "healthyBenchmark": "> 30%"
+        },
+        {
+          "name": "Referral Rate",
+          "howToMeasure": "% of completed projects that result in client referrals",
+          "healthyBenchmark": "> 25%"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "framework_description": "Design agency template tracking the complete client journey from initial discovery through consultation, proposal, design, development, and delivery. Focuses on UX and graphical design workflows.",
+    "usage": "Use this template for design agencies to track client projects, identify bottlenecks in the design process, and improve client experience. Customize milestones based on your agency's specific workflow.",
+    "created_at": "2025-01-22",
+    "category": "Design Agency"
+  }
+}
