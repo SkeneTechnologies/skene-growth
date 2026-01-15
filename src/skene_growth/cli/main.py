@@ -163,7 +163,12 @@ def analyze(
     resolved_output = output or Path(config.output_dir) / "growth-manifest.json"
 
     # LM Studio and Ollama don't require an API key (local servers)
-    is_local_provider = resolved_provider.lower() in ("lmstudio", "lm-studio", "lm_studio", "ollama")
+    is_local_provider = resolved_provider.lower() in (
+        "lmstudio",
+        "lm-studio",
+        "lm_studio",
+        "ollama",
+    )
 
     if not resolved_api_key:
         if is_local_provider:
