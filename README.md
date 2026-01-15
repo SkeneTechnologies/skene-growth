@@ -51,7 +51,7 @@ uvx skene-growth generate
 uvx skene-growth validate ./growth-manifest.json
 ```
 
-> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`, Anthropic with `--provider anthropic`, or local LLMs with `--provider lmstudio` or `--provider ollama`.
+> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`, Anthropic with `--provider anthropic`, or local LLMs with `--provider lmstudio` or `--provider ollama` (experimental).
 
 ### Option 2: pip install
 
@@ -91,7 +91,7 @@ uvx skene-growth analyze . --provider anthropic --api-key "your-anthropic-api-ke
 # Use LM Studio (local server)
 uvx skene-growth analyze . --provider lmstudio --model "your-loaded-model"
 
-# Use Ollama (local server)
+# Use Ollama (local server) - Experimental
 uvx skene-growth analyze . --provider ollama --model "llama2"
 
 # Enable docs mode (collects product overview and features)
@@ -149,7 +149,7 @@ skene-growth supports configuration files for storing defaults:
 # API key for LLM provider (can also use SKENE_API_KEY env var)
 # api_key = "your-api-key"
 
-# LLM provider to use: "openai" (default), "gemini", "anthropic", "lmstudio", or "ollama"
+# LLM provider to use: "openai" (default), "gemini", "anthropic", "lmstudio", or "ollama" (experimental)
 provider = "openai"
 
 # Model to use (provider-specific defaults apply if not set)
@@ -205,7 +205,7 @@ from skene_growth.llm import create_llm_client
 # Initialize
 codebase = CodebaseExplorer("/path/to/repo")
 llm = create_llm_client(
-    provider="openai",  # or "gemini", "anthropic", "lmstudio", or "ollama"
+    provider="openai",  # or "gemini", "anthropic", "lmstudio", or "ollama" (experimental)
     api_key=SecretStr("your-api-key"),
     model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-sonnet-4-20250514" / local model
 )
@@ -309,9 +309,9 @@ When using `--docs` flag, the manifest includes additional fields:
 | Variable | Description |
 |----------|-------------|
 | `SKENE_API_KEY` | API key for LLM provider |
-| `SKENE_PROVIDER` | LLM provider to use: `openai` (default), `gemini`, `anthropic`, `lmstudio`, or `ollama` |
+| `SKENE_PROVIDER` | LLM provider to use: `openai` (default), `gemini`, `anthropic`, `lmstudio`, or `ollama` (experimental) |
 | `LMSTUDIO_BASE_URL` | LM Studio server URL (default: `http://localhost:1234/v1`) |
-| `OLLAMA_BASE_URL` | Ollama server URL (default: `http://localhost:11434/v1`) |
+| `OLLAMA_BASE_URL` | Ollama server URL (default: `http://localhost:11434/v1`) - Experimental |
 
 ## Requirements
 
@@ -321,7 +321,7 @@ When using `--docs` flag, the manifest includes additional fields:
   - Gemini: https://aistudio.google.com/apikey
   - Anthropic: https://platform.claude.com/settings/keys
   - LM Studio: No API key needed (runs locally at http://localhost:1234)
-  - Ollama: No API key needed (runs locally at http://localhost:11434)
+  - Ollama (experimental): No API key needed (runs locally at http://localhost:11434)
 
 ## Troubleshooting
 
@@ -353,7 +353,9 @@ If using a different port or host, set the `LMSTUDIO_BASE_URL` environment varia
 export LMSTUDIO_BASE_URL="http://localhost:8080/v1"
 ```
 
-### Ollama: Connection refused
+### Ollama: Connection refused (Experimental)
+
+**Note:** Ollama support is experimental and has not been fully tested. Please report any issues.
 
 If you see a connection error, ensure:
 - Ollama is running (`ollama serve`)

@@ -1,6 +1,8 @@
 """
 Ollama LLM client implementation.
 
+EXPERIMENTAL: This provider has not been fully tested. Please report any issues.
+
 Ollama provides an OpenAI-compatible API for running local LLMs.
 Default endpoint: http://localhost:11434/v1
 """
@@ -20,6 +22,8 @@ DEFAULT_BASE_URL = "http://localhost:11434/v1"
 class OllamaClient(LLMClient):
     """
     Ollama LLM client.
+
+    EXPERIMENTAL: This provider has not been fully tested.
 
     Uses the OpenAI-compatible API provided by Ollama for local LLM inference.
     The base URL can be configured via the OLLAMA_BASE_URL environment variable
