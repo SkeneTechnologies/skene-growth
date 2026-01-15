@@ -66,6 +66,19 @@ class DocsGenerator:
         template = self.env.get_template("context.md.j2")
         return template.render(manifest=manifest, **self._get_context_vars(manifest))
 
+    def generate_analysis(self, manifest: GrowthManifest) -> str:
+        """
+        Generate a markdown analysis summary from the manifest.
+
+        Args:
+            manifest: The growth manifest to generate docs from
+
+        Returns:
+            Markdown content as string
+        """
+        template = self.env.get_template("analysis.md.j2")
+        return template.render(manifest=manifest, **self._get_context_vars(manifest))
+
     def generate_product_docs(self, manifest: GrowthManifest) -> str:
         """
         Generate product documentation.

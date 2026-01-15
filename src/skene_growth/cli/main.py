@@ -260,6 +260,7 @@ async def _run_analysis(
                 result.data.get("output", result.data) if "output" in result.data else result.data
             )
             output.write_text(json.dumps(manifest_data, indent=2, default=json_serializer))
+            _write_manifest_markdown(manifest_data, output)
 
             progress.update(task, description="Complete!")
 
@@ -303,6 +304,34 @@ def _show_analysis_summary(data: dict):
         table.add_row("GTM Gaps", f"{len(gaps)} opportunities identified")
 
     console.print(table)
+
+
+def _write_manifest_markdown(manifest_data: dict, output_path: Path) -> None:
+    """Render a markdown summary next to the JSON manifest."""
+    from skene_growth.docs import DocsGenerator
+    from skene_growth.manifest import DocsManifest, GrowthManifest
+
+    try:
+        if (
+            manifest_data.get("version") == "2.0"
+            or "product_overview" in manifest_data
+            or "features" in manifest_data
+        ):
+            manifest = DocsManifest.model_validate(manifest_data)
+        else:
+            manifest = GrowthManifest.model_validate(manifest_data)
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Failed to parse manifest: {exc}")
+        return
+
+    markdown_path = output_path.with_suffix(".md")
+    try:
+        generator = DocsGenerator()
+        markdown_content = generator.generate_analysis(manifest)
+        markdown_path.write_text(markdown_content)
+        console.print(f"[green]Markdown saved to:[/green] {markdown_path}")
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Failed to generate markdown: {exc}")
 
 
 @app.command()

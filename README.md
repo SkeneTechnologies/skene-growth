@@ -92,7 +92,7 @@ uvx skene-growth analyze . --provider anthropic --api-key "your-anthropic-api-ke
 uvx skene-growth analyze . --docs
 ```
 
-**Output:** `./skene-context/growth-manifest.json`
+**Output:** `./skene-context/growth-manifest.json` and `./skene-context/growth-manifest.md`
 
 The `--docs` flag enables documentation mode which produces a v2.0 manifest with additional fields for generating richer documentation.
 
