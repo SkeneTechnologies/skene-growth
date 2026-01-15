@@ -200,7 +200,8 @@ async def test_generate_growth_template_with_business_type():
 
     generated = await generate_growth_template(llm, {"project_name": "Design Studio"}, business_type="design-agency")
 
-    assert generated["id"] is not None
+    # Verify template was generated successfully
+    assert generated["title"] == "Test SaaS PLG Template"
     # Verify prompt includes business type context
     assert llm.last_prompt is not None
     assert "design-agency" in llm.last_prompt or "Business type" in llm.last_prompt

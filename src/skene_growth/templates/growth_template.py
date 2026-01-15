@@ -29,7 +29,7 @@ def load_example_templates() -> list[dict[str, Any]]:
     example_templates = []
 
     if templates_dir.exists():
-        for template_file in templates_dir.glob("*-template-*.json"):
+        for template_file in templates_dir.glob("*-template.json"):
             try:
                 template_data = json.loads(template_file.read_text())
                 example_templates.append(template_data)
