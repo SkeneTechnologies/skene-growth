@@ -1,6 +1,6 @@
 [project]
 name = "skene-growth"
-version = "0.1.4"
+version = "0.1.5"
 description = "PLG analysis toolkit for codebases - analyze code, detect growth opportunities, generate documentation"
 readme = "README.md"
 license = { text = "MIT" }
@@ -42,7 +42,7 @@ dev = [
 skene-growth = "skene_growth.cli.main:app"
 
 [project.urls]
-Homepage = "https://github.com/SkeneTechnologies/skene-growth"
+Homepage = "https://www.skene.ai"
 Documentation = "https://github.com/SkeneTechnologies/skene-growth#readme"
 Repository = "https://github.com/SkeneTechnologies/skene-growth"
 
