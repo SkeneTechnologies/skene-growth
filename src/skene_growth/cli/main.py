@@ -30,7 +30,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from skene_growth import __version__
-from skene_growth.config import load_config
+from skene_growth.config import default_model_for_provider, load_config
 
 app = typer.Typer(
     name="skene-growth",
@@ -110,7 +110,7 @@ def analyze(
         None,
         "--provider",
         "-p",
-        help="LLM provider to use",
+        help="LLM provider to use (openai, gemini, anthropic, ollama)",
     ),
     model: Optional[str] = typer.Option(
         None,
@@ -129,6 +129,17 @@ def analyze(
         "--docs",
         help="Enable documentation mode (collects product overview and features)",
     ),
+    business_type: Optional[str] = typer.Option(
+        None,
+        "--business-type",
+        "-b",
+        help="Business type for growth template (e.g., 'design-agency', 'b2b-saas'). LLM will infer if not provided.",
+    ),
+    product_docs: bool = typer.Option(
+        False,
+        "--product-docs",
+        help="Generate product-docs.md in addition to analysis output",
+    ),
 ):
     """
     Analyze a codebase and generate growth-manifest.json.
@@ -142,6 +153,9 @@ def analyze(
     - Product overview (tagline, value proposition, target audience)
     - User-facing feature documentation
 
+    With --product-docs flag, generates:
+    - product-docs.md: User-friendly documentation of features and roadmap
+
     Examples:
 
         # Analyze current directory (uvx)
@@ -152,6 +166,12 @@ def analyze(
 
         # With API key
         uvx skene-growth analyze . --api-key "your-key"
+
+        # Specify business type for custom growth template
+        uvx skene-growth analyze . --business-type "design-agency"
+
+        # Generate product documentation
+        uvx skene-growth analyze . --product-docs
     """
     # Load config with fallbacks
     config = load_config()
@@ -159,7 +179,10 @@ def analyze(
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
-    resolved_model = model or config.model
+    if model:
+        resolved_model = model
+    else:
+        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
     resolved_output = output or Path(config.output_dir) / "growth-manifest.json"
 
     # LM Studio and Ollama don't require an API key (local servers)
@@ -203,6 +226,8 @@ def analyze(
             resolved_model,
             verbose,
             docs,
+            business_type,
+            product_docs,
         )
     )
 
@@ -214,7 +239,9 @@ async def _run_analysis(
     provider: str,
     model: str,
     verbose: bool,
-    docs: bool = False,
+    docs: Optional[bool] = False,
+    business_type: Optional[str] = None,
+    product_docs: Optional[bool] = False,
 ):
     """Run the async analysis."""
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
@@ -267,10 +294,15 @@ async def _run_analysis(
             # Save output - unwrap "output" key if present
             progress.update(task, description="Saving manifest...")
             output.parent.mkdir(parents=True, exist_ok=True)
-            manifest_data = (
-                result.data.get("output", result.data) if "output" in result.data else result.data
-            )
+            manifest_data = result.data.get("output", result.data) if "output" in result.data else result.data
             output.write_text(json.dumps(manifest_data, indent=2, default=json_serializer))
+            _write_manifest_markdown(manifest_data, output)
+
+            # Generate product docs if requested
+            if product_docs:
+                _write_product_docs(manifest_data, output)
+
+            template_data = await _write_growth_template(llm, manifest_data, business_type)
 
             progress.update(task, description="Complete!")
 
@@ -287,11 +319,16 @@ async def _run_analysis(
 
     # Show quick stats if available
     if result.data:
-        _show_analysis_summary(result.data)
+        _show_analysis_summary(result.data, template_data)
 
 
-def _show_analysis_summary(data: dict):
-    """Display a summary of the analysis results."""
+def _show_analysis_summary(data: dict, template_data: dict | None = None):
+    """Display a summary of the analysis results.
+
+    Args:
+        data: Manifest data
+        template_data: Growth template data (optional)
+    """
     # Unwrap "output" key if present (from GenerateStep)
     if "output" in data and isinstance(data["output"], dict):
         data = data["output"]
@@ -313,10 +350,106 @@ def _show_analysis_summary(data: dict):
         gaps = data["gtm_gaps"]
         table.add_row("GTM Gaps", f"{len(gaps)} opportunities identified")
 
+    # Add growth template summary
+    if template_data:
+        if "lifecycles" in template_data:
+            # New format with lifecycles
+            lifecycle_count = len(template_data["lifecycles"])
+            lifecycle_names = [lc["name"] for lc in template_data["lifecycles"][:3]]
+            lifecycle_summary = ", ".join(lifecycle_names)
+            if lifecycle_count > 3:
+                lifecycle_summary += f", +{lifecycle_count - 3} more"
+            table.add_row("Lifecycle Stages", f"{lifecycle_count} stages: {lifecycle_summary}")
+        elif "visuals" in template_data and "lifecycleVisuals" in template_data["visuals"]:
+            # Legacy format with visuals
+            lifecycle_count = len(template_data["visuals"]["lifecycleVisuals"])
+            lifecycle_names = list(template_data["visuals"]["lifecycleVisuals"].keys())[:3]
+            lifecycle_summary = ", ".join(lifecycle_names)
+            if lifecycle_count > 3:
+                lifecycle_summary += f", +{lifecycle_count - 3} more"
+            table.add_row("Lifecycle Stages", f"{lifecycle_count} stages: {lifecycle_summary}")
+
     console.print(table)
 
 
-@app.command()
+def _write_manifest_markdown(manifest_data: dict, output_path: Path) -> None:
+    """Render a markdown summary next to the JSON manifest."""
+    from skene_growth.docs import DocsGenerator
+    from skene_growth.manifest import DocsManifest, GrowthManifest
+
+    try:
+        if manifest_data.get("version") == "2.0" or "product_overview" in manifest_data or "features" in manifest_data:
+            manifest = DocsManifest.model_validate(manifest_data)
+        else:
+            manifest = GrowthManifest.model_validate(manifest_data)
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Failed to parse manifest: {exc}")
+        return
+
+    markdown_path = output_path.with_suffix(".md")
+    try:
+        generator = DocsGenerator()
+        markdown_content = generator.generate_analysis(manifest)
+        markdown_path.write_text(markdown_content)
+        console.print(f"[green]Markdown saved to:[/green] {markdown_path}")
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Failed to generate markdown: {exc}")
+
+
+def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
+    """Generate and save product documentation alongside analysis output.
+
+    Args:
+        manifest_data: The manifest data dict
+        manifest_path: Path to the growth-manifest.json (used to determine output location)
+    """
+    from skene_growth.docs import DocsGenerator
+    from skene_growth.manifest import DocsManifest, GrowthManifest
+
+    try:
+        # Parse manifest (DocsManifest for v2.0, GrowthManifest otherwise)
+        if manifest_data.get("version") == "2.0" or "product_overview" in manifest_data or "features" in manifest_data:
+            manifest = DocsManifest.model_validate(manifest_data)
+        else:
+            manifest = GrowthManifest.model_validate(manifest_data)
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Failed to parse manifest for product docs: {exc}")
+        return
+
+    # Write to same directory as manifest (./skene-context/)
+    output_dir = manifest_path.parent
+    product_docs_path = output_dir / "product-docs.md"
+
+    try:
+        generator = DocsGenerator()
+        product_content = generator.generate_product_docs(manifest)
+        product_docs_path.write_text(product_content)
+        console.print(f"[green]Product docs saved to:[/green] {product_docs_path}")
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Failed to generate product docs: {exc}")
+
+
+async def _write_growth_template(llm, manifest_data: dict, business_type: Optional[str] = None) -> dict | None:
+    """Generate and save the growth template JSON and Markdown outputs.
+
+    Returns:
+        Template data dict if successful, None if failed
+    """
+    from skene_growth.templates import generate_growth_template, write_growth_template_outputs
+
+    try:
+        template_data = await generate_growth_template(llm, manifest_data, business_type)
+        output_dir = Path("./skene-context")
+        json_path, markdown_path = write_growth_template_outputs(template_data, output_dir)
+        console.print(f"[green]Growth template saved to:[/green] {json_path}")
+        console.print(f"[green]Growth template markdown saved to:[/green] {markdown_path}")
+        return template_data
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Failed to generate growth template: {exc}")
+        return None
+
+
+@app.command(deprecated=True, hidden=True)
 def generate(
     manifest: Optional[Path] = typer.Option(
         None,
@@ -330,119 +463,18 @@ def generate(
         "--output",
         help="Output directory for generated documentation",
     ),
-    template: str = typer.Option(
-        "default",
-        "-t",
-        "--template",
-        help="Documentation template to use",
-    ),
 ):
     """
-    Generate documentation from a growth-manifest.json.
+    [DEPRECATED] Use 'analyze --product-docs' instead.
 
-    Creates markdown documentation including:
-    - Context document (project overview)
-    - Product documentation
-    - SEO-optimized pages
-
-    Examples:
-
-        # Generate docs (auto-detect manifest)
-        uvx skene-growth generate
-
-        # Specify manifest and output
-        uvx skene-growth generate -m ./manifest.json -o ./docs
+    This command has been consolidated into the analyze command.
     """
-    # Auto-detect manifest if not provided
-    if manifest is None:
-        default_paths = [
-            Path("./skene-context/growth-manifest.json"),
-            Path("./growth-manifest.json"),
-            Path("./manifest.json"),
-        ]
-        for p in default_paths:
-            if p.exists():
-                manifest = p
-                break
-
-        if manifest is None:
-            console.print(
-                "[red]Error:[/red] No manifest found. "
-                "Run 'skene-growth analyze' first or specify --manifest."
-            )
-            raise typer.Exit(1)
-
-    if not manifest.exists():
-        console.print(f"[red]Error:[/red] Manifest not found: {manifest}")
-        raise typer.Exit(1)
-
     console.print(
-        Panel.fit(
-            f"[bold blue]Generating documentation[/bold blue]\n"
-            f"Manifest: {manifest}\n"
-            f"Output: {output_dir}\n"
-            f"Template: {template}",
-            title="skene-growth",
-        )
+        "[yellow]Warning:[/yellow] The 'generate' command is deprecated.\n"
+        "Use 'skene-growth analyze --product-docs' instead.\n"
+        "This command will be removed in v0.2.0."
     )
-
-    # Load manifest
-    try:
-        manifest_data = json.loads(manifest.read_text())
-    except Exception as e:
-        console.print(f"[red]Error loading manifest:[/red] {e}")
-        raise typer.Exit(1)
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Generating documentation...", total=None)
-
-        try:
-            from skene_growth.docs import DocsGenerator
-            from skene_growth.manifest import DocsManifest, GrowthManifest
-
-            # Parse manifest - use DocsManifest for v2.0, GrowthManifest otherwise
-            progress.update(task, description="Parsing manifest...")
-            if manifest_data.get("version") == "2.0":
-                manifest_obj = DocsManifest(**manifest_data)
-            else:
-                manifest_obj = GrowthManifest(**manifest_data)
-
-            # Generate docs
-            progress.update(task, description="Generating context document...")
-            generator = DocsGenerator()
-
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            # Generate context doc
-            context_doc = generator.generate_context(manifest_obj)
-            context_path = output_dir / "context.md"
-            context_path.write_text(context_doc)
-
-            # Generate product docs
-            progress.update(task, description="Generating product documentation...")
-            product_doc = generator.generate_product_docs(manifest_obj)
-            product_path = output_dir / "product-docs.md"
-            product_path.write_text(product_doc)
-
-            progress.update(task, description="Complete!")
-
-        except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
-            raise typer.Exit(1)
-
-    console.print(f"\n[green]Success![/green] Documentation generated in: {output_dir}")
-
-    # List generated files
-    table = Table(title="Generated Files")
-    table.add_column("File", style="cyan")
-    table.add_column("Description", style="white")
-    table.add_row("context.md", "Project context document")
-    table.add_row("product-docs.md", "Product documentation")
-    console.print(table)
+    raise typer.Exit(1)
 
 
 @app.command()
@@ -499,10 +531,7 @@ def inject(
                 break
 
     if manifest is None or not manifest.exists():
-        console.print(
-            "[red]Error:[/red] No manifest found. "
-            "Run 'skene-growth analyze' first or specify --manifest."
-        )
+        console.print("[red]Error:[/red] No manifest found. Run 'skene-growth analyze' first or specify --manifest.")
         raise typer.Exit(1)
 
     console.print(

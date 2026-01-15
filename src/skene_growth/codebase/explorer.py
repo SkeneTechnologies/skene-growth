@@ -41,9 +41,7 @@ class CodebaseExplorer:
                            Defaults to DEFAULT_EXCLUDE_FOLDERS if not specified.
         """
         self.base_dir = Path(base_dir).resolve()
-        self.exclude_folders = set(
-            exclude_folders if exclude_folders is not None else DEFAULT_EXCLUDE_FOLDERS
-        )
+        self.exclude_folders = set(exclude_folders if exclude_folders is not None else DEFAULT_EXCLUDE_FOLDERS)
 
     def _resolve_safe_path(self, relative_path: str) -> Path:
         """
@@ -235,9 +233,7 @@ class CodebaseExplorer:
             dirs.sort()
 
         result_tree = (
-            f"{target_path.name}/\n" + "\n".join(tree_lines)
-            if tree_lines
-            else f"{target_path.name}/\n(empty)"
+            f"{target_path.name}/\n" + "\n".join(tree_lines) if tree_lines else f"{target_path.name}/\n(empty)"
         )
 
         return {"path": path, "max_depth": max_depth, "tree": result_tree}

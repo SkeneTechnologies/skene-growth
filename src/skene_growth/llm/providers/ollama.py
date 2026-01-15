@@ -55,10 +55,7 @@ class OllamaClient(LLMClient):
         try:
             from openai import AsyncOpenAI
         except ImportError:
-            raise ImportError(
-                "openai is required for Ollama support. "
-                "Install with: pip install skene-growth[openai]"
-            )
+            raise ImportError("openai is required for Ollama support. Install with: pip install skene-growth[openai]")
 
         self.model_name = model_name
         self.base_url = base_url or os.environ.get("OLLAMA_BASE_URL", DEFAULT_BASE_URL)

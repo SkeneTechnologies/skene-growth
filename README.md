@@ -33,6 +33,10 @@ With the `--docs` flag, it also collects:
 - **Product Overview** - Tagline, value proposition, target audience
 - **Features** - User-facing feature documentation with descriptions and examples
 
+After the manifest is created, skene-growth generates a **custom growth template** (JSON + Markdown)
+tailored to your business type using LLM analysis. The templates use examples in `src/templates/` as 
+reference but create custom lifecycle stages and keywords specific to your product.
+
 ## Installation
 
 ### Option 1: uvx (Recommended)
@@ -47,7 +51,6 @@ Zero installation - runs instantly (requires API key):
 
 ```bash
 uvx skene-growth analyze . --api-key "your-openai-api-key"
-uvx skene-growth generate
 uvx skene-growth validate ./growth-manifest.json
 ```
 
@@ -96,23 +99,32 @@ uvx skene-growth analyze . --provider ollama --model "llama2"
 
 # Enable docs mode (collects product overview and features)
 uvx skene-growth analyze . --docs
+
+# Specify business type for custom growth template
+uvx skene-growth analyze . --business-type "design-agency"
+uvx skene-growth analyze . --business-type "b2b-saas"
+
+# Generate product documentation alongside analysis
+uvx skene-growth analyze . --product-docs
 ```
 
-**Output:** `./skene-context/growth-manifest.json`
+**Output:**
+- `./skene-context/growth-manifest.json` (structured data)
+- `./skene-context/growth-manifest.md` (analysis summary)
+- `./skene-context/growth-template.json` (if --business-type specified)
+- `./skene-context/growth-template.md` (if --business-type specified)
+- `./skene-context/product-docs.md` (if --product-docs flag used)
 
-The `--docs` flag enables documentation mode which produces a v2.0 manifest with additional fields for generating richer documentation.
+**Growth Templates:** The system generates custom templates tailored to your business type, with
+lifecycle stages and keywords specific to your user journey. If no business type is specified,
+the LLM infers it from your codebase.
 
-### `generate` - Generate documentation
+**Flags:**
+- `--docs`: Enable documentation mode (collects product overview and features)
+- `--product-docs`: Generate user-friendly product documentation
+- `--business-type`: Specify business type for custom growth template
 
-```bash
-# Generate docs from manifest (auto-detected)
-uvx skene-growth generate
-
-# Specify manifest and output directory
-uvx skene-growth generate -m ./manifest.json -o ./docs
-```
-
-**Output:** Markdown documentation in `./skene-docs/`
+The `--docs` flag enables documentation mode which produces a v2.0 manifest with additional fields. The `--product-docs` flag generates a user-friendly product documentation file with features and roadmap.
 
 ### `validate` - Validate a manifest
 
@@ -153,7 +165,8 @@ skene-growth supports configuration files for storing defaults:
 provider = "openai"
 
 # Model to use (provider-specific defaults apply if not set)
-# model = "gpt-4o"
+# openai: gpt-4o-mini | gemini: gemini-2.0-flash | anthropic: claude-sonnet-4-20250514 | ollama: llama2
+# model = "gpt-4o-mini"
 
 # Default output directory
 output_dir = "./skene-context"

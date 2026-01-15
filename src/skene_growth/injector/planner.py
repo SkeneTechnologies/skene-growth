@@ -324,9 +324,7 @@ Return JSON with:
         )
 
         # Format tech stack
-        tech_stack_text = ", ".join(
-            [f"{k}: {v}" for k, v in manifest.tech_stack.model_dump().items() if v]
-        )
+        tech_stack_text = ", ".join([f"{k}: {v}" for k, v in manifest.tech_stack.model_dump().items() if v])
 
         # Build prompt
         prompt = self.PLANNING_PROMPT.format(
@@ -361,15 +359,12 @@ Return JSON with:
         # Summarize plans
         plans_summary = "\n\n".join(
             [
-                f"## {plan.loop_name}\n"
-                + "\n".join([f"- {c.description}" for c in plan.code_changes[:5]])
+                f"## {plan.loop_name}\n" + "\n".join([f"- {c.description}" for c in plan.code_changes[:5]])
                 for plan in loop_plans
             ]
         )
 
-        tech_stack_text = ", ".join(
-            [f"{k}: {v}" for k, v in manifest.tech_stack.model_dump().items() if v]
-        )
+        tech_stack_text = ", ".join([f"{k}: {v}" for k, v in manifest.tech_stack.model_dump().items() if v])
 
         prompt = self.INFRASTRUCTURE_PROMPT.format(
             plans_summary=plans_summary,

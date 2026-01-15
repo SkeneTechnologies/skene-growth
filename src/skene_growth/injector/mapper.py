@@ -125,10 +125,7 @@ Return your analysis as JSON with:
 
         # Format growth hubs
         growth_hubs_text = "\n".join(
-            [
-                f"- {hub.feature_name}: {hub.detected_intent} ({hub.file_path})"
-                for hub in manifest.growth_hubs
-            ]
+            [f"- {hub.feature_name}: {hub.detected_intent} ({hub.file_path})" for hub in manifest.growth_hubs]
         )
 
         # Build prompt

@@ -46,8 +46,7 @@ class AnthropicClient(LLMClient):
             from anthropic import AsyncAnthropic
         except ImportError:
             raise ImportError(
-                "anthropic is required for Anthropic support. "
-                "Install with: pip install skene-growth[anthropic]"
+                "anthropic is required for Anthropic support. Install with: pip install skene-growth[anthropic]"
             )
 
         self.model_name = model_name
@@ -85,25 +84,17 @@ class AnthropicClient(LLMClient):
             )
             return response.content[0].text.strip()
         except RateLimitError:
-            logger.warning(
-                f"Rate limit (429) hit on model {self.model_name}, "
-                f"falling back to {self.fallback_model}"
-            )
+            logger.warning(f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}")
             try:
                 response = await self.client.messages.create(
                     model=self.fallback_model,
                     max_tokens=4096,
                     messages=[{"role": "user", "content": prompt}],
                 )
-                logger.info(
-                    f"Successfully generated content using fallback model {self.fallback_model}"
-                )
+                logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
                 return response.content[0].text.strip()
             except Exception as fallback_error:
-                raise RuntimeError(
-                    f"Error calling Anthropic (fallback model {self.fallback_model}): "
-                    f"{fallback_error}"
-                )
+                raise RuntimeError(f"Error calling Anthropic (fallback model {self.fallback_model}): {fallback_error}")
         except Exception as e:
             raise RuntimeError(f"Error calling Anthropic: {e}")
 
@@ -152,16 +143,12 @@ class AnthropicClient(LLMClient):
                         max_tokens=4096,
                         messages=[{"role": "user", "content": prompt}],
                     ) as stream:
-                        logger.info(
-                            "Successfully started streaming with fallback model "
-                            f"{self.fallback_model}"
-                        )
+                        logger.info(f"Successfully started streaming with fallback model {self.fallback_model}")
                         async for text in stream.text_stream:
                             yield text
                 except Exception as fallback_error:
                     raise RuntimeError(
-                        f"Error in streaming generation (fallback model {self.fallback_model}): "
-                        f"{fallback_error}"
+                        f"Error in streaming generation (fallback model {self.fallback_model}): {fallback_error}"
                     )
             else:
                 raise RuntimeError(f"Rate limit error in streaming generation: {model_to_use}")

@@ -77,10 +77,7 @@ class ReadFilesStep(AnalysisStep):
                     continue
 
                 if info_result.get("size", 0) > self.max_file_size:
-                    logger.debug(
-                        f"Skipping {file_path}: too large "
-                        f"({info_result['size']} > {self.max_file_size})"
-                    )
+                    logger.debug(f"Skipping {file_path}: too large ({info_result['size']} > {self.max_file_size})")
                     skipped_files.append(file_path)
                     continue
 

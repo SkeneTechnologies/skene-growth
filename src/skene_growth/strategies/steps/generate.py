@@ -102,9 +102,7 @@ class GenerateStep(AnalysisStep):
             data_to_include = {k: v for k, v in all_data.items() if k in self.include_context_keys}
         else:
             # Exclude large data like file_contents by default
-            data_to_include = {
-                k: v for k, v in all_data.items() if k != "file_contents" and not k.startswith("_")
-            }
+            data_to_include = {k: v for k, v in all_data.items() if k != "file_contents" and not k.startswith("_")}
 
         if data_to_include:
             prompt_parts.extend(

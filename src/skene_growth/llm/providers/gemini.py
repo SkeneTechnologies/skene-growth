@@ -48,8 +48,7 @@ class GoogleGeminiClient(LLMClient):
             from google import genai
         except ImportError:
             raise ImportError(
-                "google-genai is required for Gemini support. "
-                "Install with: pip install skene-growth[gemini]"
+                "google-genai is required for Gemini support. Install with: pip install skene-growth[gemini]"
             )
 
         self.api_key = api_key.get_secret_value()
@@ -97,8 +96,7 @@ class GoogleGeminiClient(LLMClient):
             # If rate limit error, retry with fallback model
             if self._is_rate_limit_error(e):
                 logger.warning(
-                    f"Rate limit (429) hit on model {self.model_name}, "
-                    f"falling back to {self.fallback_model}"
+                    f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}"
                 )
                 try:
                     loop = asyncio.get_event_loop()
@@ -110,14 +108,11 @@ class GoogleGeminiClient(LLMClient):
                             contents=prompt,
                         ),
                     )
-                    logger.info(
-                        f"Successfully generated content using fallback model {self.fallback_model}"
-                    )
+                    logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
                     return response.text.strip()
                 except Exception as fallback_error:
                     raise RuntimeError(
-                        f"Error calling Google Gemini (fallback model {self.fallback_model}): "
-                        f"{fallback_error}"
+                        f"Error calling Google Gemini (fallback model {self.fallback_model}): {fallback_error}"
                     )
             raise RuntimeError(f"Error calling Google Gemini: {e}")
 
@@ -194,13 +189,9 @@ class GoogleGeminiClient(LLMClient):
                             return None, True
 
                     chunk_iterator = iter(response_stream)
-                    logger.info(
-                        f"Successfully started streaming with fallback model {self.fallback_model}"
-                    )
+                    logger.info(f"Successfully started streaming with fallback model {self.fallback_model}")
                     while True:
-                        chunk, done = await loop.run_in_executor(
-                            None, get_next_chunk, chunk_iterator
-                        )
+                        chunk, done = await loop.run_in_executor(None, get_next_chunk, chunk_iterator)
 
                         if done:
                             break
@@ -209,8 +200,7 @@ class GoogleGeminiClient(LLMClient):
                             yield chunk.text
                 except Exception as fallback_error:
                     raise RuntimeError(
-                        f"Error in streaming generation (fallback model {self.fallback_model}): "
-                        f"{fallback_error}"
+                        f"Error in streaming generation (fallback model {self.fallback_model}): {fallback_error}"
                     )
             else:
                 raise RuntimeError(f"Error in streaming generation: {e}")

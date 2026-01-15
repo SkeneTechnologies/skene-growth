@@ -45,10 +45,7 @@ class OpenAIClient(LLMClient):
         try:
             from openai import AsyncOpenAI
         except ImportError:
-            raise ImportError(
-                "openai is required for OpenAI support. "
-                "Install with: pip install skene-growth[openai]"
-            )
+            raise ImportError("openai is required for OpenAI support. Install with: pip install skene-growth[openai]")
 
         self.model_name = model_name
         self.fallback_model = fallback_model or DEFAULT_FALLBACK_MODEL
@@ -84,23 +81,16 @@ class OpenAIClient(LLMClient):
             )
             return response.choices[0].message.content.strip()
         except RateLimitError:
-            logger.warning(
-                f"Rate limit (429) hit on model {self.model_name}, "
-                f"falling back to {self.fallback_model}"
-            )
+            logger.warning(f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}")
             try:
                 response = await self.client.chat.completions.create(
                     model=self.fallback_model,
                     messages=[{"role": "user", "content": prompt}],
                 )
-                logger.info(
-                    f"Successfully generated content using fallback model {self.fallback_model}"
-                )
+                logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
                 return response.choices[0].message.content.strip()
             except Exception as fallback_error:
-                raise RuntimeError(
-                    f"Error calling OpenAI (fallback model {self.fallback_model}): {fallback_error}"
-                )
+                raise RuntimeError(f"Error calling OpenAI (fallback model {self.fallback_model}): {fallback_error}")
         except Exception as e:
             raise RuntimeError(f"Error calling OpenAI: {e}")
 
@@ -151,16 +141,13 @@ class OpenAIClient(LLMClient):
                         messages=[{"role": "user", "content": prompt}],
                         stream=True,
                     )
-                    logger.info(
-                        f"Successfully started streaming with fallback model {self.fallback_model}"
-                    )
+                    logger.info(f"Successfully started streaming with fallback model {self.fallback_model}")
                     async for chunk in stream:
                         if chunk.choices and chunk.choices[0].delta.content:
                             yield chunk.choices[0].delta.content
                 except Exception as fallback_error:
                     raise RuntimeError(
-                        f"Error in streaming generation (fallback model {self.fallback_model}): "
-                        f"{fallback_error}"
+                        f"Error in streaming generation (fallback model {self.fallback_model}): {fallback_error}"
                     )
             else:
                 raise RuntimeError(f"Rate limit error in streaming generation: {model_to_use}")
