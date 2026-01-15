@@ -198,9 +198,7 @@ async def test_generate_growth_template_with_business_type():
     candidate = _build_candidate_template()
     llm = FakeLLM(json.dumps(candidate))
 
-    generated = await generate_growth_template(
-        llm, {"project_name": "Design Studio"}, business_type="design-agency"
-    )
+    generated = await generate_growth_template(llm, {"project_name": "Design Studio"}, business_type="design-agency")
 
     assert generated["id"] is not None
     # Verify prompt includes business type context

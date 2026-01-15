@@ -54,23 +54,17 @@ def _build_prompt(
     # Create manifest description from the manifest data
     manifest_description = json.dumps(manifest_data, indent=2, default=str)
 
-    business_context = (
-        f"Business type: {business_type}" if business_type else "Infer business type from manifest"
-    )
+    business_context = f"Business type: {business_type}" if business_type else "Infer business type from manifest"
 
     return (
         "You are a Product-Led Growth (PLG) template designer. Your task is to create a custom PLG "
         "template structure based on the provided manifest, using the example template as a reference.\n\n"
-
         "## Example Template Structure (Reference):\n"
         f"{example_json}\n\n"
-
         "## Manifest Data (User's Project):\n"
         f"{manifest_description}\n\n"
-
         f"## Business Type Context:\n"
         f"{business_context}\n\n"
-
         "Based on the manifest data, create a custom PLG template that:\n"
         "1. Follows the same JSON structure as the example template\n"
         "2. Has 3-7 lifecycle stages that match the business model and user journey from the manifest\n"
@@ -85,7 +79,7 @@ def _build_prompt(
         '   - **CRITICAL: A "metrics" array with 3-5 metrics**, each metric must have:\n'
         '     * name: A clear metric name (e.g., "Conversion Rate", "Time to Value")\n'
         "     * howToMeasure: A specific description of how to measure this metric\n"
-        '     * healthyBenchmark: A benchmark value indicating what\'s considered healthy '
+        "     * healthyBenchmark: A benchmark value indicating what's considered healthy "
         '(e.g., "> 25%", "< 4 hours")\n\n'
         "4. The lifecycles should represent the complete user journey from first contact to long-term value\n"
         "5. Milestones should be specific, actionable, and measurable\n"
@@ -164,9 +158,7 @@ def _validate_template_structure(template: dict[str, Any]) -> None:
         missing_lifecycle = [field for field in required_lifecycle_fields if field not in lifecycle]
 
         if missing_lifecycle:
-            raise ValueError(
-                f"Lifecycle '{lifecycle_name}' missing required fields: {missing_lifecycle}"
-            )
+            raise ValueError(f"Lifecycle '{lifecycle_name}' missing required fields: {missing_lifecycle}")
 
         # Validate milestones
         if not isinstance(lifecycle.get("milestones"), list):
@@ -185,9 +177,7 @@ def _validate_template_structure(template: dict[str, Any]) -> None:
             )
 
         if len(lifecycle["metrics"]) < 3 or len(lifecycle["metrics"]) > 5:
-            logger.warning(
-                f"Lifecycle '{lifecycle_name}' has {len(lifecycle['metrics'])} metrics (recommended: 3-5)"
-            )
+            logger.warning(f"Lifecycle '{lifecycle_name}' has {len(lifecycle['metrics'])} metrics (recommended: 3-5)")
 
         # Validate each metric has required fields
         for j, metric in enumerate(lifecycle["metrics"]):
@@ -195,17 +185,13 @@ def _validate_template_structure(template: dict[str, Any]) -> None:
             missing_metric = [field for field in required_metric_fields if field not in metric]
 
             if missing_metric:
-                raise ValueError(
-                    f"Lifecycle '{lifecycle_name}', metric {j}: missing fields {missing_metric}"
-                )
+                raise ValueError(f"Lifecycle '{lifecycle_name}', metric {j}: missing fields {missing_metric}")
 
     # Validate metadata
     if not isinstance(template.get("metadata"), dict):
         raise ValueError("Template 'metadata' must be an object")
 
-    logger.info(
-        f"✓ Generated template '{template['title']}' with {len(template['lifecycles'])} lifecycle stages"
-    )
+    logger.info(f"✓ Generated template '{template['title']}' with {len(template['lifecycles'])} lifecycle stages")
     logger.info("✓ All lifecycles include required metrics arrays")
 
 
@@ -229,9 +215,7 @@ async def generate_growth_template(
     example_templates = load_example_templates()
     prompt = _build_prompt(manifest_data, business_type, example_templates)
 
-    logger.info(
-        f"Generating custom growth template{' for ' + business_type if business_type else ''}..."
-    )
+    logger.info(f"Generating custom growth template{' for ' + business_type if business_type else ''}...")
     response = await llm.generate_content(prompt)
 
     parsed = _parse_json_response(response)
@@ -241,8 +225,8 @@ async def generate_growth_template(
     if "metadata" in parsed and isinstance(parsed["metadata"], dict):
         parsed["metadata"]["created_at"] = datetime.now().strftime("%Y-%m-%d")
 
-    template_name = parsed.get('title', parsed.get('name', 'Unknown'))
-    stage_count = len(parsed.get('lifecycles', parsed.get('keywordMappings', {})))
+    template_name = parsed.get("title", parsed.get("name", "Unknown"))
+    stage_count = len(parsed.get("lifecycles", parsed.get("keywordMappings", {})))
     logger.success(f"Generated template: {template_name} with {stage_count} stages")
     return parsed
 

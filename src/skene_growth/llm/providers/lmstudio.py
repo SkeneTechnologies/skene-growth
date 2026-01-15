@@ -52,8 +52,7 @@ class LMStudioClient(LLMClient):
             from openai import AsyncOpenAI
         except ImportError:
             raise ImportError(
-                "openai is required for LM Studio support. "
-                "Install with: pip install skene-growth[openai]"
+                "openai is required for LM Studio support. Install with: pip install skene-growth[openai]"
             )
 
         self.model_name = model_name

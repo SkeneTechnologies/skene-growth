@@ -294,9 +294,7 @@ async def _run_analysis(
             # Save output - unwrap "output" key if present
             progress.update(task, description="Saving manifest...")
             output.parent.mkdir(parents=True, exist_ok=True)
-            manifest_data = (
-                result.data.get("output", result.data) if "output" in result.data else result.data
-            )
+            manifest_data = result.data.get("output", result.data) if "output" in result.data else result.data
             output.write_text(json.dumps(manifest_data, indent=2, default=json_serializer))
             _write_manifest_markdown(manifest_data, output)
 
@@ -380,11 +378,7 @@ def _write_manifest_markdown(manifest_data: dict, output_path: Path) -> None:
     from skene_growth.manifest import DocsManifest, GrowthManifest
 
     try:
-        if (
-            manifest_data.get("version") == "2.0"
-            or "product_overview" in manifest_data
-            or "features" in manifest_data
-        ):
+        if manifest_data.get("version") == "2.0" or "product_overview" in manifest_data or "features" in manifest_data:
             manifest = DocsManifest.model_validate(manifest_data)
         else:
             manifest = GrowthManifest.model_validate(manifest_data)
@@ -414,11 +408,7 @@ def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
 
     try:
         # Parse manifest (DocsManifest for v2.0, GrowthManifest otherwise)
-        if (
-            manifest_data.get("version") == "2.0"
-            or "product_overview" in manifest_data
-            or "features" in manifest_data
-        ):
+        if manifest_data.get("version") == "2.0" or "product_overview" in manifest_data or "features" in manifest_data:
             manifest = DocsManifest.model_validate(manifest_data)
         else:
             manifest = GrowthManifest.model_validate(manifest_data)
@@ -439,9 +429,7 @@ def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
         console.print(f"[yellow]Warning:[/yellow] Failed to generate product docs: {exc}")
 
 
-async def _write_growth_template(
-    llm, manifest_data: dict, business_type: Optional[str] = None
-) -> dict | None:
+async def _write_growth_template(llm, manifest_data: dict, business_type: Optional[str] = None) -> dict | None:
     """Generate and save the growth template JSON and Markdown outputs.
 
     Returns:
@@ -543,10 +531,7 @@ def inject(
                 break
 
     if manifest is None or not manifest.exists():
-        console.print(
-            "[red]Error:[/red] No manifest found. "
-            "Run 'skene-growth analyze' first or specify --manifest."
-        )
+        console.print("[red]Error:[/red] No manifest found. Run 'skene-growth analyze' first or specify --manifest.")
         raise typer.Exit(1)
 
     console.print(
