@@ -93,8 +93,8 @@ async def analyze_codebase(
             api_key = provider
         else:
             raise ValueError(
-                f"API key not configured. Set SKENE_API_KEY environment variable "
-                f"or add api_key to ~/.config/skene-growth/config.toml"
+                "API key not configured. Set SKENE_API_KEY environment variable "
+                "or add api_key to ~/.config/skene-growth/config.toml"
             )
 
     # Initialize components (same as CLI _run_analysis)

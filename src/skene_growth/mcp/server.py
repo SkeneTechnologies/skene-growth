@@ -136,9 +136,7 @@ class SkeneGrowthMCPServer:
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": (
-                                    "Path to clear cache for. If not provided, clears all cache."
-                                ),
+                                "description": ("Path to clear cache for. If not provided, clears all cache."),
                             },
                         },
                     },

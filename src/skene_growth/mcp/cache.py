@@ -11,7 +11,6 @@ from typing import Any
 import aiofiles
 import xxhash
 
-
 # Key files that indicate project changes
 MARKER_FILES = [
     "package.json",
@@ -100,9 +99,7 @@ class AnalysisCache:
 
         return None
 
-    async def set(
-        self, repo_path: Path, params: dict[str, Any], manifest: dict[str, Any]
-    ) -> None:
+    async def set(self, repo_path: Path, params: dict[str, Any], manifest: dict[str, Any]) -> None:
         """Cache analysis result with invalidation markers."""
         cache_key = self._compute_cache_key(repo_path, params)
         marker_hashes = await self._compute_marker_hashes(repo_path)
