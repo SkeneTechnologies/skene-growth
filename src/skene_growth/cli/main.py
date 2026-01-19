@@ -232,7 +232,7 @@ async def _run_analysis(
     provider: str,
     model: str,
     verbose: bool,
-    product_docs: bool = False,
+    product_docs: Optional[bool] = False,
     business_type: Optional[str] = None,
 ):
     """Run the async analysis."""
