@@ -37,9 +37,14 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
 ]
+mcp = [
+    "mcp>=1.0.0",
+    "xxhash>=3.0",
+]
 
 [project.scripts]
 skene-growth = "skene_growth.cli.main:app"
+skene-growth-mcp = "skene_growth.mcp:main"
 
 [project.urls]
 Homepage = "https://www.skene.ai"
