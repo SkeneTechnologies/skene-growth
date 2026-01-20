@@ -388,6 +388,28 @@ ollama serve
 ```
 
 
+## MCP Server
+
+skene-growth includes an MCP server for integration with AI assistants.
+
+Add this to your AI assistant configuration file:
+
+```json
+{
+  "mcpServers": {
+    "skene-growth": {
+      "command": "uvx",
+      "args": ["--from", "skene-growth[mcp]", "skene-growth-mcp"],
+      "env": {
+        "SKENE_API_KEY": "your-openai-api-key"
+      }
+    }
+  }
+}
+```
+
+See [docs/mcp-server.md](docs/mcp-server.md) for more detailed instructions.
+
 ## License
 
 MIT
