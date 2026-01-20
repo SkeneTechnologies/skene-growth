@@ -18,7 +18,19 @@ from mcp.types import Tool
 
 from skene_growth import __version__
 from skene_growth.mcp.cache import AnalysisCache
-from skene_growth.mcp.tools import analyze_codebase, clear_cache, get_manifest
+from skene_growth.mcp.tools import (
+    analyze_features,
+    analyze_growth_hubs,
+    analyze_product_overview,
+    analyze_tech_stack,
+    clear_cache,
+    generate_growth_template_tool,
+    generate_manifest,
+    get_codebase_overview,
+    get_manifest,
+    search_codebase,
+    write_analysis_outputs,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -67,37 +79,69 @@ class SkeneGrowthMCPServer:
         async def list_tools() -> list[Tool]:
             """List available tools."""
             return [
+                # =============================================================
+                # Tier 1: Quick Tools
+                # =============================================================
                 Tool(
-                    name="analyze_codebase",
+                    name="get_codebase_overview",
                     description=(
-                        "Analyze a codebase for growth opportunities using skene-growth. "
-                        "Detects tech stack, growth hubs (features with growth potential), "
-                        "and GTM gaps (missing features). Generates growth-manifest.json, "
-                        "markdown summary, and growth template. "
-                        "With product_docs=true, also generates user-facing documentation."
+                        "Get a quick overview of a codebase structure (<1s). "
+                        "Returns directory tree, file counts by extension, and detected config files. "
+                        "Use this first to understand the project structure before deeper analysis."
                     ),
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": "Absolute path to the repository to analyze",
+                                "description": "Absolute path to the repository",
                             },
-                            "product_docs": {
-                                "type": "boolean",
-                                "description": (
-                                    "Generate v2.0 manifest with product documentation. "
-                                    "Includes product overview, features, and generates product-docs.md"
-                                ),
-                                "default": False,
-                            },
-                            "business_type": {
+                        },
+                        "required": ["path"],
+                    },
+                ),
+                Tool(
+                    name="search_codebase",
+                    description=(
+                        "Search for files matching a glob pattern (<1s). "
+                        "Use patterns like '**/*.py' for Python files or 'src/**/*.ts' for TypeScript in src."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
                                 "type": "string",
-                                "description": (
-                                    "Business type hint for growth template "
-                                    "(e.g., 'b2b-saas', 'marketplace', 'dev-tools'). "
-                                    "LLM will infer if not provided."
-                                ),
+                                "description": "Absolute path to the repository",
+                            },
+                            "pattern": {
+                                "type": "string",
+                                "description": "Glob pattern (e.g., '**/*.py', 'src/**/*.ts')",
+                            },
+                            "directory": {
+                                "type": "string",
+                                "description": "Subdirectory to search in (default: '.')",
+                                "default": ".",
+                            },
+                        },
+                        "required": ["path", "pattern"],
+                    },
+                ),
+                # =============================================================
+                # Tier 2: Analysis Phase Tools (uses LLM)
+                # =============================================================
+                Tool(
+                    name="analyze_tech_stack",
+                    description=(
+                        "Analyze the technology stack of a codebase (5-15s). "
+                        "Detects framework, language, database, authentication, and deployment. "
+                        "Results are cached independently."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Absolute path to the repository",
                             },
                             "force_refresh": {
                                 "type": "boolean",
@@ -108,6 +152,157 @@ class SkeneGrowthMCPServer:
                         "required": ["path"],
                     },
                 ),
+                Tool(
+                    name="analyze_product_overview",
+                    description=(
+                        "Extract product overview from README and documentation (5-15s). "
+                        "Returns product name, tagline, description, value proposition. "
+                        "Results are cached independently."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Absolute path to the repository",
+                            },
+                            "force_refresh": {
+                                "type": "boolean",
+                                "description": "Skip cache and force re-analysis",
+                                "default": False,
+                            },
+                        },
+                        "required": ["path"],
+                    },
+                ),
+                Tool(
+                    name="analyze_growth_hubs",
+                    description=(
+                        "Identify growth hubs (viral/growth features) in the codebase (5-15s). "
+                        "Finds features like invitations, sharing, referrals, payments. "
+                        "Results are cached independently."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Absolute path to the repository",
+                            },
+                            "force_refresh": {
+                                "type": "boolean",
+                                "description": "Skip cache and force re-analysis",
+                                "default": False,
+                            },
+                        },
+                        "required": ["path"],
+                    },
+                ),
+                Tool(
+                    name="analyze_features",
+                    description=(
+                        "Document user-facing features from the codebase (5-15s). "
+                        "Extracts feature information from source files. "
+                        "Results are cached independently."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Absolute path to the repository",
+                            },
+                            "force_refresh": {
+                                "type": "boolean",
+                                "description": "Skip cache and force re-analysis",
+                                "default": False,
+                            },
+                        },
+                        "required": ["path"],
+                    },
+                ),
+                # =============================================================
+                # Tier 3: Generation Tools
+                # =============================================================
+                Tool(
+                    name="generate_manifest",
+                    description=(
+                        "Generate a GrowthManifest from cached analysis results (5-15s). "
+                        "IMPORTANT: Call analyze_tech_stack and analyze_growth_hubs FIRST to populate the cache. "
+                        "For product_docs=true, also call analyze_product_overview and analyze_features first. "
+                        "This tool combines the cached phase results into the final manifest."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Absolute path to the repository",
+                            },
+                            "product_docs": {
+                                "type": "boolean",
+                                "description": "Generate DocsManifest v2.0 with product documentation",
+                                "default": False,
+                            },
+                            "force_refresh": {
+                                "type": "boolean",
+                                "description": "Skip cache and force re-analysis",
+                                "default": False,
+                            },
+                        },
+                        "required": ["path"],
+                    },
+                ),
+                Tool(
+                    name="generate_growth_template",
+                    description=(
+                        "Generate a PLG growth template from a manifest (5-15s). "
+                        "Creates a custom template with lifecycle stages, milestones, and metrics."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Absolute path to the repository",
+                            },
+                            "business_type": {
+                                "type": "string",
+                                "description": (
+                                    "Business type hint (e.g., 'b2b-saas', 'marketplace'). "
+                                    "LLM will infer if not provided."
+                                ),
+                            },
+                        },
+                        "required": ["path"],
+                    },
+                ),
+                Tool(
+                    name="write_analysis_outputs",
+                    description=(
+                        "Write analysis outputs to disk (<1s). "
+                        "Writes growth-manifest.json, growth-manifest.md, and optionally "
+                        "product-docs.md and growth-template files."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Absolute path to the repository",
+                            },
+                            "product_docs": {
+                                "type": "boolean",
+                                "description": "Generate product-docs.md",
+                                "default": False,
+                            },
+                        },
+                        "required": ["path"],
+                    },
+                ),
+                # =============================================================
+                # Utility Tools
+                # =============================================================
                 Tool(
                     name="get_manifest",
                     description=(
@@ -147,21 +342,80 @@ class SkeneGrowthMCPServer:
         async def call_tool(name: str, arguments: dict[str, Any]) -> Any:
             """Handle tool calls."""
             try:
-                if name == "analyze_codebase":
-                    result = await analyze_codebase(
+                cache = self.cache if self.cache_enabled else _NoOpCache()
+
+                # Tier 1: Quick Tools
+                if name == "get_codebase_overview":
+                    result = await get_codebase_overview(path=arguments["path"])
+
+                elif name == "search_codebase":
+                    result = await search_codebase(
                         path=arguments["path"],
-                        cache=self.cache if self.cache_enabled else _NoOpCache(),
-                        product_docs=arguments.get("product_docs", False),
-                        business_type=arguments.get("business_type"),
+                        pattern=arguments["pattern"],
+                        directory=arguments.get("directory", "."),
+                    )
+
+                # Tier 2: Analysis Phase Tools
+                elif name == "analyze_tech_stack":
+                    result = await analyze_tech_stack(
+                        path=arguments["path"],
+                        cache=cache,
                         force_refresh=arguments.get("force_refresh", False),
                     )
+
+                elif name == "analyze_product_overview":
+                    result = await analyze_product_overview(
+                        path=arguments["path"],
+                        cache=cache,
+                        force_refresh=arguments.get("force_refresh", False),
+                    )
+
+                elif name == "analyze_growth_hubs":
+                    result = await analyze_growth_hubs(
+                        path=arguments["path"],
+                        cache=cache,
+                        force_refresh=arguments.get("force_refresh", False),
+                    )
+
+                elif name == "analyze_features":
+                    result = await analyze_features(
+                        path=arguments["path"],
+                        cache=cache,
+                        force_refresh=arguments.get("force_refresh", False),
+                    )
+
+                # Tier 3: Generation Tools
+                elif name == "generate_manifest":
+                    result = await generate_manifest(
+                        path=arguments["path"],
+                        cache=cache,
+                        auto_analyze=False,  # Require phase tools to be called first
+                        product_docs=arguments.get("product_docs", False),
+                        force_refresh=arguments.get("force_refresh", False),
+                    )
+
+                elif name == "generate_growth_template":
+                    result = await generate_growth_template_tool(
+                        path=arguments["path"],
+                        business_type=arguments.get("business_type"),
+                    )
+
+                elif name == "write_analysis_outputs":
+                    result = await write_analysis_outputs(
+                        path=arguments["path"],
+                        product_docs=arguments.get("product_docs", False),
+                    )
+
+                # Utility Tools
                 elif name == "get_manifest":
                     result = await get_manifest(path=arguments["path"])
+
                 elif name == "clear_cache":
                     result = await clear_cache(
                         cache=self.cache,
                         path=arguments.get("path"),
                     )
+
                 else:
                     return [{"type": "text", "text": f"Unknown tool: {name}", "isError": True}]
 

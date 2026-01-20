@@ -11,6 +11,15 @@ from typing import Any
 import aiofiles
 import xxhash
 
+# Phase-specific cache key prefixes
+PHASE_PREFIXES = {
+    "tech_stack": "tech_stack",
+    "product_overview": "product_overview",
+    "growth_hubs": "growth_hubs",
+    "features": "features",
+    "manifest": "manifest",
+}
+
 # Key files that indicate project changes
 MARKER_FILES = [
     "package.json",
@@ -227,3 +236,92 @@ class AnalysisCache:
                 await f.write(json.dumps(entry.to_dict(), indent=2, default=str))
         except OSError:
             pass
+
+    # Phase-specific cache methods for granular tool caching
+
+    def _compute_phase_cache_key(self, repo_path: Path, phase: str) -> str:
+        """Compute cache key for a specific analysis phase."""
+        if phase not in PHASE_PREFIXES:
+            raise ValueError(f"Unknown phase: {phase}. Valid phases: {list(PHASE_PREFIXES.keys())}")
+
+        key_data = {
+            "repo_path": str(repo_path.resolve()),
+            "phase": phase,
+        }
+        key_str = json.dumps(key_data, sort_keys=True)
+        return f"{PHASE_PREFIXES[phase]}_{xxhash.xxh64(key_str.encode()).hexdigest()}"
+
+    async def get_phase(self, repo_path: Path, phase: str) -> dict[str, Any] | None:
+        """Get cached result for a specific analysis phase.
+
+        Args:
+            repo_path: Path to the repository
+            phase: Phase name (tech_stack, product_overview, growth_hubs, features, manifest)
+
+        Returns:
+            Cached phase data if valid, None otherwise
+        """
+        cache_key = self._compute_phase_cache_key(repo_path, phase)
+
+        # Check memory cache first
+        if cache_key in self._memory_cache:
+            entry = self._memory_cache[cache_key]
+            if await self._is_valid(entry, repo_path):
+                return entry.manifest  # manifest field stores the phase data
+            else:
+                del self._memory_cache[cache_key]
+
+        # Check disk cache
+        entry = await self._load_from_disk(cache_key)
+        if entry and await self._is_valid(entry, repo_path):
+            self._memory_cache[cache_key] = entry
+            return entry.manifest
+
+        return None
+
+    async def set_phase(self, repo_path: Path, phase: str, data: dict[str, Any]) -> None:
+        """Cache result for a specific analysis phase.
+
+        Args:
+            repo_path: Path to the repository
+            phase: Phase name (tech_stack, product_overview, growth_hubs, features, manifest)
+            data: Phase analysis data to cache
+        """
+        cache_key = self._compute_phase_cache_key(repo_path, phase)
+        marker_hashes = await self._compute_marker_hashes(repo_path)
+        dir_mtimes = self._get_directory_mtimes(repo_path)
+
+        entry = CacheEntry(
+            manifest=data,  # Store phase data in manifest field
+            metadata={"phase": phase, "repo_path": str(repo_path.resolve())},
+            created_at=time.time(),
+            marker_hashes=marker_hashes,
+            dir_mtimes=dir_mtimes,
+        )
+
+        self._memory_cache[cache_key] = entry
+        await self._save_to_disk(cache_key, entry)
+
+    async def clear_phase(self, repo_path: Path, phase: str) -> bool:
+        """Clear cache for a specific analysis phase.
+
+        Args:
+            repo_path: Path to the repository
+            phase: Phase name to clear
+
+        Returns:
+            True if cache was cleared, False if no cache existed
+        """
+        cache_key = self._compute_phase_cache_key(repo_path, phase)
+        cleared = False
+
+        if cache_key in self._memory_cache:
+            del self._memory_cache[cache_key]
+            cleared = True
+
+        cache_file = self.cache_dir / f"{cache_key}.json"
+        if cache_file.exists():
+            cache_file.unlink()
+            cleared = True
+
+        return cleared

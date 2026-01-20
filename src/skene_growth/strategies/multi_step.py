@@ -70,6 +70,7 @@ class MultiStepStrategy(AnalysisStrategy):
         llm: LLMClient,
         request: str,
         on_progress: ProgressCallback | None = None,
+        initial_context: dict | None = None,
     ) -> AnalysisResult:
         """
         Execute the multi-step analysis.
@@ -82,6 +83,7 @@ class MultiStepStrategy(AnalysisStrategy):
             llm: LLM client for generation
             request: User's analysis request
             on_progress: Optional callback for progress updates
+            initial_context: Optional initial data to seed the context with
 
         Returns:
             AnalysisResult with combined data from all steps
@@ -89,6 +91,11 @@ class MultiStepStrategy(AnalysisStrategy):
         # Initialize context
         context = AnalysisContext(request=request)
         context.metadata.total_steps = len(self.steps)
+
+        # Seed context with initial data if provided
+        if initial_context:
+            for key, value in initial_context.items():
+                context.set(key, value)
         context.metadata.model_name = llm.get_model_name()
         context.metadata.provider_name = llm.get_provider_name()
 
