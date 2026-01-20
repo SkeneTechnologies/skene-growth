@@ -257,7 +257,8 @@ class SkeneGrowthMCPServer:
                     name="generate_growth_template",
                     description=(
                         "Generate a PLG growth template from a manifest (5-15s). "
-                        "Creates a custom template with lifecycle stages, milestones, and metrics."
+                        "Creates a custom template with lifecycle stages, milestones, and metrics. "
+                        "Results are cached independently."
                     ),
                     inputSchema={
                         "type": "object",
@@ -273,6 +274,11 @@ class SkeneGrowthMCPServer:
                                     "LLM will infer if not provided."
                                 ),
                             },
+                            "force_refresh": {
+                                "type": "boolean",
+                                "description": "Skip cache and force re-generation",
+                                "default": False,
+                            },
                         },
                         "required": ["path"],
                     },
@@ -280,10 +286,11 @@ class SkeneGrowthMCPServer:
                 Tool(
                     name="write_analysis_outputs",
                     description=(
-                        "Write analysis outputs to disk (5-15s). "
-                        "Writes growth-manifest.json, growth-manifest.md, growth-template.json, "
-                        "growth-template.md, and optionally product-docs.md. "
-                        "The growth template is auto-generated from the manifest."
+                        "Write analysis outputs to disk (<1s). "
+                        "Writes growth-manifest.json, growth-manifest.md, and optionally "
+                        "product-docs.md, growth-template.json, growth-template.md. "
+                        "IMPORTANT: Run generate_manifest and generate_growth_template FIRST "
+                        "to populate the cache before calling this tool."
                     ),
                     inputSchema={
                         "type": "object",
@@ -296,13 +303,6 @@ class SkeneGrowthMCPServer:
                                 "type": "boolean",
                                 "description": "Generate product-docs.md",
                                 "default": False,
-                            },
-                            "business_type": {
-                                "type": "string",
-                                "description": (
-                                    "Business type hint for template generation "
-                                    "(e.g., 'b2b-saas', 'marketplace'). LLM will infer if not provided."
-                                ),
                             },
                         },
                         "required": ["path"],
@@ -405,14 +405,16 @@ class SkeneGrowthMCPServer:
                 elif name == "generate_growth_template":
                     result = await generate_growth_template_tool(
                         path=arguments["path"],
+                        cache=cache,
                         business_type=arguments.get("business_type"),
+                        force_refresh=arguments.get("force_refresh", False),
                     )
 
                 elif name == "write_analysis_outputs":
                     result = await write_analysis_outputs(
                         path=arguments["path"],
+                        cache=cache,
                         product_docs=arguments.get("product_docs", False),
-                        business_type=arguments.get("business_type"),
                     )
 
                 # Utility Tools
@@ -442,6 +444,12 @@ class _NoOpCache:
         return None
 
     async def set(self, *args, **kwargs):
+        pass
+
+    async def get_phase(self, *args, **kwargs):
+        return None
+
+    async def set_phase(self, *args, **kwargs):
         pass
 
     async def clear(self, *args, **kwargs):

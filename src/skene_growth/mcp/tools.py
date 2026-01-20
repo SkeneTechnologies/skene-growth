@@ -687,15 +687,21 @@ async def generate_manifest(
 
 async def generate_growth_template_tool(
     path: str,
+    cache: AnalysisCache,
     manifest_data: dict[str, Any] | None = None,
     business_type: str | None = None,
+    force_refresh: bool = False,
 ) -> dict[str, Any]:
     """Generate a PLG growth template from a manifest.
 
+    Results are cached independently from other analysis phases.
+
     Args:
         path: Absolute path to the repository (for context)
-        manifest_data: Manifest data to use (or read from disk if None)
+        cache: Analysis cache instance
+        manifest_data: Manifest data to use (or read from disk/cache if None)
         business_type: Business type hint (e.g., 'b2b-saas', 'marketplace')
+        force_refresh: Skip cache and force re-generation
 
     Returns:
         Generated growth template data
@@ -707,44 +713,64 @@ async def generate_growth_template_tool(
     if not repo_path.exists():
         raise ValueError(f"Path does not exist: {repo_path}")
 
-    # If no manifest provided, try to load from disk
+    # Check cache first
+    if not force_refresh:
+        cached = await cache.get_phase(repo_path, "growth_template")
+        if cached:
+            return {
+                "template": cached,
+                "cached": True,
+            }
+
+    # If no manifest provided, try to load from cache or disk
     if manifest_data is None:
-        manifest_result = await get_manifest(path)
-        if not manifest_result.get("exists"):
-            raise ValueError("No manifest found. Run generate_manifest first.")
-        manifest_data = manifest_result.get("manifest", {})
+        manifest_data = await cache.get_phase(repo_path, "manifest")
+        if manifest_data is None:
+            manifest_result = await get_manifest(path)
+            if not manifest_result.get("exists"):
+                raise ValueError("No manifest found. Run generate_manifest first.")
+            manifest_data = manifest_result.get("manifest", {})
 
     llm = _get_llm_client()
     template = await generate_growth_template(llm, manifest_data, business_type)
 
+    # Cache the result
+    await cache.set_phase(repo_path, "growth_template", template)
+
     return {
         "template": template,
-        "business_type": business_type,
+        "cached": False,
     }
 
 
 async def write_analysis_outputs(
     path: str,
+    cache: AnalysisCache,
     manifest_data: dict[str, Any] | None = None,
     template_data: dict[str, Any] | None = None,
     product_docs: bool = False,
-    business_type: str | None = None,
 ) -> dict[str, Any]:
     """Write analysis outputs to disk.
+
+    This is a pure I/O operation (<1s) - no LLM calls. Reads data from cache
+    if not explicitly provided.
 
     Writes:
     - growth-manifest.json
     - growth-manifest.md
     - product-docs.md (if product_docs=True)
-    - growth-template.json (auto-generated if not provided)
-    - growth-template.md (auto-generated if not provided)
+    - growth-template.json (if available in cache or provided)
+    - growth-template.md (if available in cache or provided)
+
+    IMPORTANT: Run generate_manifest and generate_growth_template first to
+    populate the cache before calling this tool.
 
     Args:
         path: Absolute path to the repository
-        manifest_data: Manifest data to write (or read from disk if None)
-        template_data: Template data to write (auto-generated if None)
+        cache: Analysis cache instance
+        manifest_data: Manifest data to write (or read from cache/disk if None)
+        template_data: Template data to write (or read from cache if None)
         product_docs: Generate product-docs.md
-        business_type: Business type hint for template generation (e.g., 'b2b-saas')
 
     Returns:
         Paths to written files
@@ -756,12 +782,20 @@ async def write_analysis_outputs(
     if not repo_path.exists():
         raise ValueError(f"Path does not exist: {repo_path}")
 
-    # If no manifest provided, try to load from disk
+    # If no manifest provided, try to load from cache or disk
     if manifest_data is None:
-        manifest_result = await get_manifest(path)
-        if not manifest_result.get("exists"):
-            raise ValueError("No manifest found. Run generate_manifest first.")
-        manifest_data = manifest_result.get("manifest", {})
+        manifest_data = await cache.get_phase(repo_path, "manifest")
+        if manifest_data is None:
+            manifest_result = await get_manifest(path)
+            if not manifest_result.get("exists"):
+                raise ValueError(
+                    "No manifest found. Run generate_manifest first to populate the cache."
+                )
+            manifest_data = manifest_result.get("manifest", {})
+
+    # If no template provided, try to load from cache
+    if template_data is None:
+        template_data = await cache.get_phase(repo_path, "growth_template")
 
     output_dir = repo_path / "skene-context"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -782,16 +816,7 @@ async def write_analysis_outputs(
         _write_product_docs(manifest_data, manifest_path)
         written_files.append(str(output_dir / "product-docs.md"))
 
-    # Generate template if not provided
-    if template_data is None:
-        template_result = await generate_growth_template_tool(
-            path=path,
-            manifest_data=manifest_data,
-            business_type=business_type,
-        )
-        template_data = template_result.get("template")
-
-    # Write template
+    # Write template if available
     if template_data:
         json_path, md_path = write_growth_template_outputs(template_data, output_dir)
         written_files.append(str(json_path))
