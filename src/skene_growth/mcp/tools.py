@@ -788,9 +788,7 @@ async def write_analysis_outputs(
         if manifest_data is None:
             manifest_result = await get_manifest(path)
             if not manifest_result.get("exists"):
-                raise ValueError(
-                    "No manifest found. Run generate_manifest first to populate the cache."
-                )
+                raise ValueError("No manifest found. Run generate_manifest first to populate the cache.")
             manifest_data = manifest_result.get("manifest", {})
 
     # If no template provided, try to load from cache
