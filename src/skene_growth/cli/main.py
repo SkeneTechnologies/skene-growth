@@ -607,6 +607,267 @@ def inject(
 
 
 @app.command()
+def objectives(
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM provider (or set SKENE_API_KEY env var)",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider to use (openai, gemini, anthropic, ollama)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model name (e.g., gemini-2.0-flash)",
+    ),
+    output: Optional[Path] = typer.Option(
+        None,
+        "-o",
+        "--output",
+        help="Output path for growth-objectives.md",
+    ),
+    quarter: Optional[str] = typer.Option(
+        None,
+        "-q",
+        "--quarter",
+        help="Quarter label (e.g., 'Q1', 'Q2 2024')",
+    ),
+    manifest: Optional[Path] = typer.Option(
+        None,
+        "--manifest",
+        help="Path to growth-manifest.json (auto-detected if not specified)",
+    ),
+    template: Optional[Path] = typer.Option(
+        None,
+        "--template",
+        help="Path to growth-template.json (auto-detected if not specified)",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "-v",
+        "--verbose",
+        help="Enable verbose output",
+    ),
+    guidance: Optional[str] = typer.Option(
+        None,
+        "-g",
+        "--guidance",
+        help="Guidance text to influence objective selection (e.g., 'Focus on onboarding' or 'Prioritize retention metrics')",
+    ),
+):
+    """
+    Generate 3 prioritized growth objectives from manifest and template.
+
+    Reads existing growth-manifest.json and growth-template.json files,
+    then uses an LLM to generate 3 targeted growth objectives based on
+    lifecycle stages and identified gaps.
+
+    Examples:
+
+        # Generate objectives (auto-detect manifest and template)
+        uvx skene-growth objectives
+
+        # Specify quarter label
+        uvx skene-growth objectives --quarter "Q1 2024"
+
+        # With guidance to focus on specific areas
+        uvx skene-growth objectives --guidance "I want all objectives to focus on onboarding"
+
+        # With specific files
+        uvx skene-growth objectives --manifest ./my-manifest.json --template ./my-template.json
+
+        # With API key
+        uvx skene-growth objectives --api-key "your-key"
+    """
+    # Load config with fallbacks
+    config = load_config()
+
+    # Apply config defaults
+    resolved_api_key = api_key or config.api_key
+    resolved_provider = provider or config.provider
+    if model:
+        resolved_model = model
+    else:
+        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
+    resolved_output = output or Path(config.output_dir) / "growth-objectives.md"
+
+    # Auto-detect manifest
+    if manifest is None:
+        default_manifest_paths = [
+            Path("./skene-context/growth-manifest.json"),
+            Path("./growth-manifest.json"),
+        ]
+        for p in default_manifest_paths:
+            if p.exists():
+                manifest = p
+                break
+
+    if manifest is None or not manifest.exists():
+        console.print(
+            "[red]Error:[/red] No manifest found. Run 'skene-growth analyze' first or specify --manifest."
+        )
+        raise typer.Exit(1)
+
+    # Auto-detect template
+    if template is None:
+        default_template_paths = [
+            Path("./skene-context/growth-template.json"),
+            Path("./growth-template.json"),
+        ]
+        for p in default_template_paths:
+            if p.exists():
+                template = p
+                break
+
+    if template is None or not template.exists():
+        console.print(
+            "[red]Error:[/red] No template found. Run 'skene-growth analyze' first or specify --template."
+        )
+        raise typer.Exit(1)
+
+    # LM Studio and Ollama don't require an API key (local servers)
+    is_local_provider = resolved_provider.lower() in (
+        "lmstudio",
+        "lm-studio",
+        "lm_studio",
+        "ollama",
+    )
+
+    if not resolved_api_key:
+        if is_local_provider:
+            resolved_api_key = resolved_provider  # Dummy key for local server
+        else:
+            console.print(
+                "[yellow]Warning:[/yellow] No API key provided. "
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.toml"
+            )
+            console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
+            raise typer.Exit(1)
+
+    console.print(
+        Panel.fit(
+            f"[bold blue]Generating growth objectives[/bold blue]\n"
+            f"Manifest: {manifest}\n"
+            f"Template: {template}\n"
+            f"Provider: {resolved_provider}\n"
+            f"Model: {resolved_model}\n"
+            f"Quarter: {quarter or 'Not specified'}\n"
+            f"Guidance: {guidance or 'Not specified'}",
+            title="skene-growth",
+        )
+    )
+
+    # Run async objectives generation
+    asyncio.run(
+        _run_objectives(
+            manifest,
+            template,
+            resolved_output,
+            resolved_api_key,
+            resolved_provider,
+            resolved_model,
+            quarter,
+            guidance,
+            verbose,
+        )
+    )
+
+
+async def _run_objectives(
+    manifest_path: Path,
+    template_path: Path,
+    output: Path,
+    api_key: str,
+    provider: str,
+    model: str,
+    quarter: Optional[str],
+    guidance: Optional[str],
+    verbose: bool,
+):
+    """Run the async objectives generation."""
+    from skene_growth.llm import create_llm_client
+    from skene_growth.objectives import generate_objectives, write_objectives_output
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Initializing...", total=None)
+
+        try:
+            # Load manifest and template
+            progress.update(task, description="Loading manifest...")
+            manifest_data = json.loads(manifest_path.read_text())
+
+            progress.update(task, description="Loading template...")
+            template_data = json.loads(template_path.read_text())
+
+            # Connect to LLM
+            progress.update(task, description="Connecting to LLM provider...")
+            llm = create_llm_client(provider, SecretStr(api_key), model)
+
+            # Generate objectives
+            progress.update(task, description="Generating growth objectives...")
+            markdown_content = await generate_objectives(
+                llm=llm,
+                manifest_data=manifest_data,
+                template_data=template_data,
+                quarter=quarter,
+                guidance=guidance,
+            )
+
+            # Write output
+            progress.update(task, description="Saving objectives...")
+            write_objectives_output(markdown_content, output)
+
+            progress.update(task, description="Complete!")
+
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+            if verbose:
+                import traceback
+
+                console.print(traceback.format_exc())
+            raise typer.Exit(1)
+
+    console.print(f"\n[green]Success![/green] Objectives saved to: {output}")
+
+    # Show preview
+    _show_objectives_preview(markdown_content)
+
+
+def _show_objectives_preview(markdown_content: str):
+    """Display a preview of the generated objectives."""
+    table = Table(title="Growth Objectives Preview")
+    table.add_column("Lifecycle", style="cyan")
+    table.add_column("Metric", style="white")
+    table.add_column("Target", style="green")
+
+    # Parse the markdown to extract objectives
+    lines = markdown_content.split("\n")
+    current_lifecycle = None
+
+    for line in lines:
+        if line.startswith("## "):
+            current_lifecycle = line[3:].strip()
+        elif line.startswith("- **Metric:**"):
+            metric = line.replace("- **Metric:**", "").strip()
+        elif line.startswith("- **Target:**"):
+            target = line.replace("- **Target:**", "").strip()
+            if current_lifecycle:
+                table.add_row(current_lifecycle, metric, target)
+
+    console.print(table)
+
+
+@app.command()
 def validate(
     manifest: Path = typer.Argument(
         ...,
