@@ -19,6 +19,8 @@ import httpx
 from rich.console import Console
 from rich.prompt import Prompt
 
+from skene_growth.config import load_config
+
 console = Console()
 
 
@@ -33,31 +35,106 @@ def _load_json_file(file_path: Path) -> dict[str, Any] | list[Any]:
         raise ValueError(f"Invalid JSON in {file_path}: {e}")
 
 
-def _load_skene_config(skene_context_path: Path) -> dict[str, Any]:
-    """Load skene.json configuration file."""
+def _parse_markdown_objectives(file_path: Path) -> list[dict[str, Any]]:
+    """Parse growth objectives from Markdown format.
+    
+    Expected format:
+    ## SECTION_NAME
+    - **Metric:** Metric Name
+    - **Target:** target value
+    - **Tolerance:** tolerance
+    """
+    objectives = []
+    
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    lines = content.split("\n")
+    current_section = None
+    current_objective = {}
+    
+    for line in lines:
+        line = line.strip()
+        
+        # Skip empty lines, main header, horizontal rules, and footer
+        if not line or line.startswith("# ") or line.startswith("---") or line.startswith("*"):
+            continue
+        
+        # Check for section headers (## SECTION_NAME)
+        if line.startswith("##"):
+            # Save previous objective if exists
+            if current_objective.get("metric_id"):
+                objectives.append(current_objective)
+                current_objective = {}
+            current_section = line.replace("##", "").strip()
+            continue
+        
+        # Parse metric fields
+        if line.startswith("- **Metric:**"):
+            metric_name = line.replace("- **Metric:**", "").strip()
+            current_objective["metric_id"] = metric_name.lower().replace(" ", "_")
+            current_objective["name"] = metric_name
+        elif line.startswith("- **Source:**"):
+            source = line.replace("- **Source:**", "").strip()
+            current_objective["source"] = source
+            current_objective["source_id"] = source
+        elif line.startswith("- **Target:**"):
+            target = line.replace("- **Target:**", "").strip()
+            current_objective["target"] = target
+        elif line.startswith("- **Tolerance:**"):
+            tolerance = line.replace("- **Tolerance:**", "").strip()
+            current_objective["tolerance"] = tolerance
+    
+    # Add last objective if exists
+    if current_objective.get("metric_id"):
+        objectives.append(current_objective)
+    
+    return objectives
+
+
+def _load_skene_config(skene_context_path: Path) -> dict[str, Any] | None:
+    """Load skene.json configuration file. Returns None if not found."""
     skene_json_path = skene_context_path / "skene.json"
     
     if not skene_json_path.exists():
-        console.print(f"[yellow]Warning:[/yellow] skene.json not found at {skene_json_path}")
-        console.print("Please provide the path to skene.json:")
-        user_path = Prompt.ask("Path to skene.json", default=str(skene_json_path))
-        skene_json_path = Path(user_path)
-        
-        if not skene_json_path.exists():
-            raise FileNotFoundError(f"skene.json not found at {skene_json_path}")
+        return None
     
-    return _load_json_file(skene_json_path)
+    try:
+        return _load_json_file(skene_json_path)
+    except Exception:
+        return None
 
 
 def _load_growth_objectives(skene_context_path: Path) -> list[dict[str, Any]]:
-    """Load growth objectives file."""
-    # Try common names for growth objectives file
-    possible_names = [
+    """Load growth objectives file.
+    
+    Checks in this order:
+    1. Filename from config.toml (growth_objectives_file) in skene-context directory
+    2. Common filenames in skene-context directory
+    3. Prompt user if still not found
+    """
+    # Get filename from config if specified
+    config = load_config()
+    config_filename = config.get("growth_objectives_file")
+    
+    # Build list of possible filenames to try
+    possible_names = []
+    
+    # If config specifies a filename, try it first
+    if config_filename:
+        possible_names.append(config_filename)
+    
+    # Add default and common names (default is growth-objectives.md)
+    possible_names.extend([
+        "growth-objectives.md",
         "growth-objectives.json",
         "growth_objectives.json",
         "growth-objectives",
         "growth_objectives",
-    ]
+    ])
     
     objectives_path = None
     for name in possible_names:
@@ -66,6 +143,7 @@ def _load_growth_objectives(skene_context_path: Path) -> list[dict[str, Any]]:
             objectives_path = candidate
             break
     
+    # If still not found, prompt user
     if objectives_path is None:
         console.print(f"[yellow]Warning:[/yellow] Growth objectives file not found in {skene_context_path}")
         console.print("Please provide the path to growth objectives file:")
@@ -75,6 +153,11 @@ def _load_growth_objectives(skene_context_path: Path) -> list[dict[str, Any]]:
         if not objectives_path.exists():
             raise FileNotFoundError(f"Growth objectives file not found at {objectives_path}")
     
+    # Handle Markdown files
+    if objectives_path.suffix == ".md":
+        return _parse_markdown_objectives(objectives_path)
+    
+    # Handle JSON files
     data = _load_json_file(objectives_path)
     
     # Handle both array and object with array property
@@ -110,51 +193,33 @@ def _get_source_config(source_id: str, skene_config: dict[str, Any]) -> dict[str
     return None
 
 
-def _prompt_for_source_config(source_id: str) -> dict[str, Any]:
-    """Prompt user for source configuration when not found in skene.json."""
-    console.print(f"[yellow]Source '{source_id}' not found in skene.json[/yellow]")
-    console.print("Please provide source configuration:")
-    
-    source_type = Prompt.ask("Source type (api, database, manual)", default="manual")
-    
-    config = {
-        "id": source_id,
-        "type": source_type,
-    }
-    
-    if source_type == "api":
-        config["url"] = Prompt.ask("API URL/endpoint")
-        source_auth = Prompt.ask("Authentication method (api_key, bearer, none)", default="none")
-        config["auth"] = source_auth
-        
-        if source_auth == "api_key":
-            config["api_key"] = Prompt.ask("API key", password=True)
-            config["api_key_header"] = Prompt.ask("API key header name", default="X-API-Key")
-        elif source_auth == "bearer":
-            config["bearer_token"] = Prompt.ask("Bearer token", password=True)
-        
-        # Optional: JSON path to extract value from response
-        config["value_path"] = Prompt.ask("JSON path to value (e.g., 'data.count' or leave empty)", default="")
-    
-    elif source_type == "database":
-        config["connection_string"] = Prompt.ask("Database connection string", password=True)
-        config["query"] = Prompt.ask("SQL query to fetch value")
-    
-    return config
-
-
-def _prompt_for_manual_value(metric_id: str, source_id: str, reason: str = "") -> float:
-    """Prompt user to manually enter a metric value."""
+def _prompt_for_manual_value(metric_id: str, source_id: str | None = None, reason: str = "", example: str | None = None) -> str:
+    """Prompt user to manually enter a metric value (accepts any text)."""
     if reason:
         console.print(f"[yellow]{reason}[/yellow]")
-    console.print(f"Please enter the value for metric '[bold]{metric_id}[/bold]' (source: {source_id}):")
     
-    while True:
-        value_str = Prompt.ask("Value")
-        try:
-            return float(value_str)
-        except ValueError:
-            console.print("[red]Invalid number. Please enter a numeric value.[/red]")
+    display_text = f"Please enter the value for metric '[bold]{metric_id}[/bold]'"
+    if source_id:
+        display_text += f" (source: {source_id})"
+    display_text += ":"
+    console.print(display_text)
+    
+    # Add example if provided
+    if example:
+        console.print(f"[dim]Example: {example}[/dim]")
+    else:
+        # Default examples based on common metric types
+        if "rate" in metric_id.lower() or "percentage" in metric_id.lower():
+            console.print("[dim]Example: 95% or 0.95[/dim]")
+        elif "count" in metric_id.lower() or "number" in metric_id.lower():
+            console.print("[dim]Example: 150 or 1,234[/dim]")
+        elif "time" in metric_id.lower() or "duration" in metric_id.lower() or "minutes" in metric_id.lower():
+            console.print("[dim]Example: 2.5 minutes or 150 seconds[/dim]")
+        else:
+            console.print("[dim]Example: Any text or number value[/dim]")
+    
+    value = Prompt.ask("Value")
+    return value
 
 
 def _extract_value_from_json(data: Any, path: str) -> Any:
@@ -180,7 +245,7 @@ def _extract_value_from_json(data: Any, path: str) -> Any:
     return current
 
 
-def _fetch_from_api(source_config: dict[str, Any], metric_id: str) -> float | None:
+def _fetch_from_api(source_config: dict[str, Any], metric_id: str) -> str | None:
     """Fetch data from an API source."""
     url = source_config.get("url")
     if not url:
@@ -213,7 +278,7 @@ def _fetch_from_api(source_config: dict[str, Any], metric_id: str) -> float | No
             value = _extract_value_from_json(data, value_path)
             
             if value is not None:
-                return float(value)
+                return str(value)
             return None
             
     except httpx.HTTPStatusError as e:
@@ -227,7 +292,7 @@ def _fetch_from_api(source_config: dict[str, Any], metric_id: str) -> float | No
         return None
 
 
-def _fetch_from_database(source_config: dict[str, Any], metric_id: str) -> float | None:
+def _fetch_from_database(source_config: dict[str, Any], metric_id: str) -> str | None:
     """Fetch data from a database source."""
     connection_string = source_config.get("connection_string")
     query = source_config.get("query")
@@ -249,7 +314,7 @@ def _fetch_from_database(source_config: dict[str, Any], metric_id: str) -> float
             result = cursor.fetchone()
             conn.close()
             if result:
-                return float(result[0])
+                return str(result[0])
             return None
         except ImportError:
             pass
@@ -265,7 +330,7 @@ def _fetch_from_database(source_config: dict[str, Any], metric_id: str) -> float
                 result = cursor.fetchone()
                 conn.close()
                 if result:
-                    return float(result[0])
+                    return str(result[0])
             return None
         except ImportError:
             pass
@@ -324,6 +389,8 @@ def _fetch_data_from_source(source_config: dict[str, Any], metric_id: str) -> di
                 reason=f"Could not fetch automatically from {source_type} source."
             )
         fetch_method = "manual"
+        # When manually entered, source is N/A
+        source_id = "N/A"
     
     return {
         "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -356,12 +423,14 @@ def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
     Fetch data from sources defined in skene.json and store in daily logs.
     
     This function:
-    1. Reads skene.json for source configurations
+    1. Optionally reads skene.json for source configurations (if exists)
     2. Reads growth objectives to determine what metrics to fetch
-    3. For each objective, attempts to fetch from configured source
-    4. Falls back to manual input if automatic fetch fails
-    5. Saves results to daily_logs/daily_logs_YYYY_MM_DD.json
-    6. Skips metrics already logged today (deduplication)
+    3. For each objective:
+       - If source found in skene.json, attempts automatic fetch (API/database)
+       - If source not found or skene.json missing, prompts user for value directly
+       - Falls back to manual input if automatic fetch fails
+    4. Saves results to daily_logs/daily_logs_YYYY_MM_DD.json
+    5. Skips metrics already logged today (deduplication)
     
     Args:
         skene_context_path: Path to skene-context directory. Defaults to ./skene-context
@@ -370,7 +439,7 @@ def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
         Path to the created/updated daily log file
     
     Raises:
-        FileNotFoundError: If required files are not found
+        FileNotFoundError: If growth objectives file is not found
         ValueError: If configuration is invalid
     """
     # Determine skene-context path
@@ -387,9 +456,12 @@ def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
         if not skene_context_path.exists():
             raise FileNotFoundError(f"skene-context directory not found at {skene_context_path}")
     
-    # Load configuration
-    console.print("[bold]Loading configuration...[/bold]")
+    # Load configuration (optional - skene.json may not exist)
     skene_config = _load_skene_config(skene_context_path)
+    if skene_config is None:
+        console.print("[dim]skene.json not found - will prompt for values directly[/dim]")
+    else:
+        console.print("[bold]Loading configuration...[/bold]")
     
     # Load growth objectives
     console.print("[bold]Loading growth objectives...[/bold]")
@@ -430,13 +502,9 @@ def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
             console.print(f"[yellow]Warning:[/yellow] Skipping invalid objective: {objective}")
             continue
         
-        # Get source ID from objective
+        # Get source ID and metric ID from objective
         source_id = objective.get("source") or objective.get("source_id")
         metric_id = objective.get("metric_id") or objective.get("id") or objective.get("name")
-        
-        if not source_id:
-            console.print(f"[yellow]Warning:[/yellow] Objective missing source: {objective}")
-            continue
         
         if not metric_id:
             console.print(f"[yellow]Warning:[/yellow] Objective missing metric_id: {objective}")
@@ -448,15 +516,33 @@ def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
             skipped_count += 1
             continue
         
-        # Get source configuration
-        source_config = _get_source_config(source_id, skene_config)
+        # Try to get source configuration from skene.json if available
+        source_config = None
+        if skene_config and source_id:
+            source_config = _get_source_config(source_id, skene_config)
         
+        # If no skene.json or source not found, prompt directly for value
         if source_config is None:
-            # Prompt user for source configuration
-            source_config = _prompt_for_source_config(source_id)
+            if source_id:
+                console.print(f"[dim]Source '{source_id}' not found in skene.json - manual entry[/dim]")
+            else:
+                console.print(f"[dim]No source specified - manual entry[/dim]")
+            
+            # Get example from objective if available (from Target field)
+            example = objective.get("target")
+            value = _prompt_for_manual_value(metric_id, source_id, example=example)
+            entry = {
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "metric_id": metric_id,
+                "value": value,
+                "source": "N/A",
+                "status": "verified",
+                "fetch_method": "manual",
+            }
+        else:
+            # Fetch data from source (with manual fallback)
+            entry = _fetch_data_from_source(source_config, metric_id)
         
-        # Fetch data from source (with manual fallback)
-        entry = _fetch_data_from_source(source_config, metric_id)
         new_entries.append(entry)
         console.print(f"[green]✓[/green] Logged metric '{metric_id}': {entry['value']}")
     
