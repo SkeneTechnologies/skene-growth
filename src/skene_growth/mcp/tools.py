@@ -4,8 +4,7 @@ These tools reuse the same analysis logic as the CLI to ensure consistent behavi
 Tools are organized into tiers:
 - Tier 1: Quick tools (no LLM) - get_codebase_overview, search_codebase
 - Tier 2: Analysis phase tools - analyze_tech_stack, analyze_product_overview, etc.
-- Tier 3: Generation tools - generate_manifest, generate_growth_template, etc.
-- Tier 4: Backwards compatible - analyze_codebase (full analysis)
+- Tier 3: Generation tools - generate_manifest, generate_growth_template, write_analysis_outputs
 """
 
 from __future__ import annotations
@@ -729,6 +728,7 @@ async def write_analysis_outputs(
     manifest_data: dict[str, Any] | None = None,
     template_data: dict[str, Any] | None = None,
     product_docs: bool = False,
+    business_type: str | None = None,
 ) -> dict[str, Any]:
     """Write analysis outputs to disk.
 
@@ -736,14 +736,15 @@ async def write_analysis_outputs(
     - growth-manifest.json
     - growth-manifest.md
     - product-docs.md (if product_docs=True)
-    - growth-template.json (if template_data provided)
-    - growth-template.md (if template_data provided)
+    - growth-template.json (auto-generated if not provided)
+    - growth-template.md (auto-generated if not provided)
 
     Args:
         path: Absolute path to the repository
         manifest_data: Manifest data to write (or read from disk if None)
-        template_data: Template data to write (optional)
+        template_data: Template data to write (auto-generated if None)
         product_docs: Generate product-docs.md
+        business_type: Business type hint for template generation (e.g., 'b2b-saas')
 
     Returns:
         Paths to written files
@@ -781,7 +782,16 @@ async def write_analysis_outputs(
         _write_product_docs(manifest_data, manifest_path)
         written_files.append(str(output_dir / "product-docs.md"))
 
-    # Write template if provided
+    # Generate template if not provided
+    if template_data is None:
+        template_result = await generate_growth_template_tool(
+            path=path,
+            manifest_data=manifest_data,
+            business_type=business_type,
+        )
+        template_data = template_result.get("template")
+
+    # Write template
     if template_data:
         json_path, md_path = write_growth_template_outputs(template_data, output_dir)
         written_files.append(str(json_path))
@@ -790,143 +800,6 @@ async def write_analysis_outputs(
     return {
         "output_dir": str(output_dir),
         "written_files": written_files,
-    }
-
-
-# =============================================================================
-# Tier 4: Backwards Compatible (Full Analysis)
-# =============================================================================
-
-
-async def analyze_codebase(
-    path: str,
-    cache: AnalysisCache,
-    product_docs: bool = False,
-    business_type: str | None = None,
-    force_refresh: bool = False,
-    on_progress: Any = None,
-) -> dict[str, Any]:
-    """Analyze a codebase for growth opportunities.
-
-    This function uses the same analysis logic as the CLI's `analyze` command.
-
-    Args:
-        path: Absolute path to the repository to analyze
-        cache: Analysis cache instance
-        product_docs: Generate v2.0 manifest with product documentation
-        business_type: Business type hint (e.g., 'b2b-saas', 'marketplace')
-        force_refresh: Skip cache and force re-analysis
-        on_progress: Optional progress callback
-
-    Returns:
-        Analysis result with manifest data
-    """
-    from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
-    from skene_growth.codebase import CodebaseExplorer
-    from skene_growth.llm import create_llm_client
-
-    repo_path = Path(path).resolve()
-
-    if not repo_path.exists():
-        raise ValueError(f"Path does not exist: {repo_path}")
-
-    if not repo_path.is_dir():
-        raise ValueError(f"Path is not a directory: {repo_path}")
-
-    # Build cache params
-    params = {
-        "product_docs": product_docs,
-        "business_type": business_type,
-        "repo_path": str(repo_path),
-    }
-
-    # Check cache unless force refresh
-    if not force_refresh:
-        cached_entry = await cache.get(repo_path, params)
-        if cached_entry:
-            return {
-                "manifest": cached_entry.manifest,
-                "cached": True,
-                "analysis_time": 0,
-                "manifest_path": str(repo_path / "skene-context" / "growth-manifest.json"),
-            }
-
-    # Load config (same as CLI)
-    config = load_config()
-
-    # Resolve API key
-    api_key = os.environ.get("SKENE_API_KEY") or config.api_key
-    provider = os.environ.get("SKENE_PROVIDER") or config.provider
-    model = os.environ.get("SKENE_MODEL") or config.get("model") or default_model_for_provider(provider)
-
-    # Local providers don't need API key
-    is_local_provider = provider.lower() in ("lmstudio", "lm-studio", "lm_studio", "ollama")
-
-    if not api_key:
-        if is_local_provider:
-            api_key = provider
-        else:
-            raise ValueError(
-                "API key not configured. Set SKENE_API_KEY environment variable "
-                "or add api_key to ~/.config/skene-growth/config.toml"
-            )
-
-    # Initialize components (same as CLI _run_analysis)
-    import time
-
-    start_time = time.time()
-
-    codebase = CodebaseExplorer(repo_path)
-    llm = create_llm_client(provider, SecretStr(api_key), model)
-
-    # Create analyzer based on mode
-    if product_docs:
-        analyzer = DocsAnalyzer()
-        request_msg = "Generate documentation for this project"
-    else:
-        analyzer = ManifestAnalyzer()
-        request_msg = "Analyze this codebase for growth opportunities"
-
-    # Run analysis
-    result = await analyzer.run(
-        codebase=codebase,
-        llm=llm,
-        request=request_msg,
-        on_progress=on_progress,
-    )
-
-    if not result.success:
-        raise RuntimeError(f"Analysis failed: {result.error}")
-
-    # Extract manifest (same as CLI)
-    manifest_data = result.data.get("output", result.data) if "output" in result.data else result.data
-
-    # Save manifest to disk (same locations as CLI)
-    output_dir = repo_path / "skene-context"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "growth-manifest.json"
-    output_path.write_text(json.dumps(manifest_data, indent=2, default=_json_serializer))
-
-    # Generate markdown summary
-    _write_manifest_markdown(manifest_data, output_path)
-
-    # Generate product docs if requested
-    if product_docs:
-        _write_product_docs(manifest_data, output_path)
-
-    # Generate growth template
-    await _write_growth_template(llm, manifest_data, business_type)
-
-    analysis_time = time.time() - start_time
-
-    # Cache result
-    await cache.set(repo_path, params, manifest_data)
-
-    return {
-        "manifest": manifest_data,
-        "cached": False,
-        "analysis_time": round(analysis_time, 2),
-        "manifest_path": str(output_path),
     }
 
 

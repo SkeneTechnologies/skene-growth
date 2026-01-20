@@ -280,9 +280,10 @@ class SkeneGrowthMCPServer:
                 Tool(
                     name="write_analysis_outputs",
                     description=(
-                        "Write analysis outputs to disk (<1s). "
-                        "Writes growth-manifest.json, growth-manifest.md, and optionally "
-                        "product-docs.md and growth-template files."
+                        "Write analysis outputs to disk (5-15s). "
+                        "Writes growth-manifest.json, growth-manifest.md, growth-template.json, "
+                        "growth-template.md, and optionally product-docs.md. "
+                        "The growth template is auto-generated from the manifest."
                     ),
                     inputSchema={
                         "type": "object",
@@ -295,6 +296,13 @@ class SkeneGrowthMCPServer:
                                 "type": "boolean",
                                 "description": "Generate product-docs.md",
                                 "default": False,
+                            },
+                            "business_type": {
+                                "type": "string",
+                                "description": (
+                                    "Business type hint for template generation "
+                                    "(e.g., 'b2b-saas', 'marketplace'). LLM will infer if not provided."
+                                ),
                             },
                         },
                         "required": ["path"],
@@ -404,6 +412,7 @@ class SkeneGrowthMCPServer:
                     result = await write_analysis_outputs(
                         path=arguments["path"],
                         product_docs=arguments.get("product_docs", False),
+                        business_type=arguments.get("business_type"),
                     )
 
                 # Utility Tools
