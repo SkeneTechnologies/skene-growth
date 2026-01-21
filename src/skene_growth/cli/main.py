@@ -797,7 +797,62 @@ def daily_logs(
     from skene_growth.logs import fetch_daily_logs
 
     try:
-        context_path = skene_context or Path("./skene-context")
+        # Determine context path: CLI arg > config output_dir > default
+        config = load_config()
+        if skene_context:
+            context_path = Path(skene_context)
+        else:
+            context_path = Path(config.output_dir)
+        
+        # Ensure context directory exists
+        context_path.mkdir(parents=True, exist_ok=True)
+        
+        # Check for skene.json and create if missing
+        skene_json_path = context_path / "skene.json"
+        if not skene_json_path.exists():
+            sample_skene_json = """{
+  "_comment": "This file configures data sources for daily logs collection.",
+  "_description": "The skene.json file defines data sources and objectives for tracking growth metrics.",
+  "_usage": "Run 'skene-growth daily-logs' to fetch data from the configured sources.",
+  "_fields": {
+    "sources": "Array of data source configurations (e.g., APIs, databases, files)",
+    "objectives": "Array of growth objectives to track (references to growth-objectives file)",
+    "config": "Optional configuration for data fetching (timeouts, retries, etc.)"
+  },
+  "_example_structure": {
+    "sources": [
+      {
+        "name": "analytics_api",
+        "type": "api",
+        "endpoint": "https://api.example.com/analytics",
+        "auth": {
+          "type": "bearer",
+          "token_env": "ANALYTICS_API_TOKEN"
+        }
+      }
+    ],
+    "objectives": [
+      {
+        "id": "user_acquisition",
+        "source": "analytics_api",
+        "metric": "new_users",
+        "period": "daily"
+      }
+    ],
+    "config": {
+      "timeout": 30,
+      "retries": 3
+    }
+  },
+  "sources": [],
+  "objectives": [],
+  "config": {}
+}
+"""
+            skene_json_path.write_text(sample_skene_json)
+            console.print(f"[yellow]Created sample skene.json at:[/yellow] {skene_json_path}")
+            console.print("[dim]Please edit this file to configure your data sources and objectives.[/dim]")
+        
         log_file_path = fetch_daily_logs(context_path)
         
         if log_file_path:
