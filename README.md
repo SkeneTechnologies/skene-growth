@@ -28,10 +28,11 @@ skene-growth scans your codebase and generates a **growth manifest** containing:
 - **Growth Hubs** - Features with growth potential (signup flows, sharing, invites, billing)
 - **GTM Gaps** - Missing features that could drive user acquisition and retention
 
-With the `--docs` flag, it also collects:
+With the `--product-docs` flag, it also collects:
 
 - **Product Overview** - Tagline, value proposition, target audience
 - **Features** - User-facing feature documentation with descriptions and examples
+- **Product Docs** - Generates user-friendly product-docs.md file
 
 After the manifest is created, skene-growth generates a **custom growth template** (JSON + Markdown)
 tailored to your business type using LLM analysis. The templates use examples in `src/templates/` as 
@@ -97,14 +98,11 @@ uvx skene-growth analyze . --provider lmstudio --model "your-loaded-model"
 # Use Ollama (local server) - Experimental
 uvx skene-growth analyze . --provider ollama --model "llama2"
 
-# Enable docs mode (collects product overview and features)
-uvx skene-growth analyze . --docs
-
 # Specify business type for custom growth template
 uvx skene-growth analyze . --business-type "design-agency"
 uvx skene-growth analyze . --business-type "b2b-saas"
 
-# Generate product documentation alongside analysis
+# Generate product documentation (collects product overview and features)
 uvx skene-growth analyze . --product-docs
 ```
 
@@ -120,11 +118,10 @@ lifecycle stages and keywords specific to your user journey. If no business type
 the LLM infers it from your codebase.
 
 **Flags:**
-- `--docs`: Enable documentation mode (collects product overview and features)
-- `--product-docs`: Generate user-friendly product documentation
+- `--product-docs`: Generate user-friendly product documentation (collects product overview, features, and generates product-docs.md)
 - `--business-type`: Specify business type for custom growth template
 
-The `--docs` flag enables documentation mode which produces a v2.0 manifest with additional fields. The `--product-docs` flag generates a user-friendly product documentation file with features and roadmap.
+The `--product-docs` flag enables enhanced analysis mode which collects product overview and feature documentation, producing a v2.0 manifest with additional fields and a user-friendly product-docs.md file.
 
 ### `validate` - Validate a manifest
 
@@ -287,9 +284,9 @@ The `growth-manifest.json` output contains:
 }
 ```
 
-### Docs Mode Schema (v2.0)
+### Product Docs Schema (v2.0)
 
-When using `--docs` flag, the manifest includes additional fields:
+When using `--product-docs` flag, the manifest includes additional fields:
 
 ```json
 {
