@@ -650,7 +650,8 @@ def objectives(
         None,
         "-g",
         "--guidance",
-        help="Guidance text to influence objective selection (e.g., 'Focus on onboarding' or 'Prioritize retention metrics')",
+        help="Guidance text to influence objective selection (e.g., 'Focus on onboarding' or 'Prioritize retention "
+        "metrics')",
     ),
 ):
     """
@@ -701,9 +702,7 @@ def objectives(
                 break
 
     if manifest is None or not manifest.exists():
-        console.print(
-            "[red]Error:[/red] No manifest found. Run 'skene-growth analyze' first or specify --manifest."
-        )
+        console.print("[red]Error:[/red] No manifest found. Run 'skene-growth analyze' first or specify --manifest.")
         raise typer.Exit(1)
 
     # Auto-detect template
@@ -718,9 +717,7 @@ def objectives(
                 break
 
     if template is None or not template.exists():
-        console.print(
-            "[red]Error:[/red] No template found. Run 'skene-growth analyze' first or specify --template."
-        )
+        console.print("[red]Error:[/red] No template found. Run 'skene-growth analyze' first or specify --template.")
         raise typer.Exit(1)
 
     # LM Studio and Ollama don't require an API key (local servers)
@@ -1052,12 +1049,12 @@ def daily_logs(
     try:
         context_path = skene_context or Path("./skene-context")
         log_file_path = fetch_daily_logs(context_path)
-        
+
         if log_file_path:
             console.print(f"\n[green]✓[/green] Daily logs successfully created: {log_file_path}")
         else:
             console.print("[yellow]No data was fetched[/yellow]")
-            
+
     except FileNotFoundError as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
