@@ -17,16 +17,21 @@ from skene_growth.codebase import (
 )
 from skene_growth.config import Config, load_config
 from skene_growth.docs import DocsGenerator, PSEOBuilder
-from skene_growth.injector import (
+from skene_growth.planner import (
     CodeChange,
     GrowthLoop,
     GrowthLoopCatalog,
-    InjectionPlan,
-    InjectionPlanner,
+    Plan,
+    Planner,
     InjectionPoint,
-    LoopInjectionPlan,
+    LoopPlan,
     LoopMapper,
     LoopMapping,
+)
+from skene_growth.growth_loops import (
+    select_growth_loops,
+    select_single_loop,
+    write_growth_loops_output,
 )
 from skene_growth.llm import LLMClient, create_llm_client
 from skene_growth.manifest import (
@@ -87,14 +92,18 @@ __all__ = [
     # Documentation
     "DocsGenerator",
     "PSEOBuilder",
-    # Injection
+    # Planner (formerly Injection)
     "GrowthLoop",
     "GrowthLoopCatalog",
     "LoopMapper",
     "LoopMapping",
     "InjectionPoint",
-    "InjectionPlanner",
-    "InjectionPlan",
-    "LoopInjectionPlan",
+    "Planner",
+    "Plan",
+    "LoopPlan",
     "CodeChange",
+    # Growth Loops Selection
+    "select_growth_loops",
+    "select_single_loop",
+    "write_growth_loops_output",
 ]

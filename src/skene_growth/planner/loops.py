@@ -4,7 +4,9 @@ Growth loop catalog and definitions.
 Defines common growth loops that can be injected into codebases.
 """
 
-from typing import Literal
+import csv
+from pathlib import Path
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -40,6 +42,52 @@ class GrowthLoop(BaseModel):
     )
 
 
+class CSVGrowthLoop(BaseModel):
+    """
+    A growth loop loaded from CSV with full schema.
+    
+    This model matches the actual growth_loops.csv schema.
+    """
+    
+    loop_name: str = Field(description="Loop Name from CSV")
+    plg_stage: str = Field(description="PLG Stage (Acquisition, Activation, etc.)")
+    goal: str = Field(description="Goal (Sell)")
+    user_story: str = Field(description="User Story (The Narrative)")
+    ui_ux_delivery: str = Field(default="", description="UI/UX Delivery")
+    trigger: str = Field(description="Trigger (Detection)")
+    action: str = Field(description="Action (What Skene Does)")
+    value: str = Field(description="Value (ROI)")
+    proof_metric: str = Field(default="", description="Proof Metric & Analytics")
+    action_summary: str = Field(default="", description="Action (Summary)")
+    value_summary: str = Field(default="", description="Value (Summary)")
+    industry_benchmark: str = Field(default="", description="Industry Average ROI (Benchmark)")
+    system_pattern: str = Field(default="", description="System Pattern")
+    implementation: str = Field(default="", description="Implementation (Stack)")
+
+
+class SelectedGrowthLoop(BaseModel):
+    """
+    A growth loop selected by the LLM with implementation details.
+    """
+    
+    loop_name: str = Field(description="Loop Name from CSV")
+    plg_stage: str = Field(description="PLG Stage")
+    goal: str = Field(description="Goal from CSV")
+    user_story: str = Field(default="", description="User Story from CSV")
+    action: str = Field(default="", description="Action from CSV")
+    value: str = Field(default="", description="Value/ROI from CSV")
+    implementation: str = Field(default="", description="Implementation Stack from CSV")
+    why_selected: str = Field(description="LLM explanation of why this loop was selected")
+    implementation_steps: list[str] = Field(
+        default_factory=list,
+        description="Actionable implementation steps"
+    )
+    success_metrics: list[str] = Field(
+        default_factory=list,
+        description="How to measure success"
+    )
+
+
 class GrowthLoopCatalog:
     """
     Catalog of common growth loops.
@@ -55,7 +103,8 @@ class GrowthLoopCatalog:
 
     def __init__(self):
         """Initialize the catalog with built-in loops."""
-        self._loops = self._build_default_catalog()
+        self._loops: dict[str, GrowthLoop] = self._build_default_catalog()
+        self._csv_loops: list[dict[str, Any]] = []
 
     def get_all(self) -> list[GrowthLoop]:
         """Get all growth loops in the catalog."""
@@ -75,37 +124,85 @@ class GrowthLoopCatalog:
         """Add a custom loop to the catalog."""
         self._loops[loop.id] = loop
 
-    def load_from_csv(self, csv_path: str) -> list[GrowthLoop]:
+    def get_csv_loops(self) -> list[dict[str, Any]]:
+        """Get all loops loaded from CSV with full data."""
+        return self._csv_loops
+
+    def load_from_csv(self, csv_path: str) -> list[dict[str, Any]]:
         """
         Load growth loops from a CSV file.
 
-        Expected columns: id, name, category, description, trigger, action, reward
+        Handles the actual growth_loops.csv schema with columns:
+        - Loop Name, PLG Stage, Goal (Sell), User Story, UI/UX Delivery,
+        - Trigger (Detection), Action (What Skene Does), Value (ROI),
+        - Proof Metric & Analytics, Action (Summary), Value (Summary),
+        - Industry Average ROI (Benchmark), System Pattern, Implementation (Stack)
 
         Args:
             csv_path: Path to the CSV file
 
         Returns:
-            List of loaded loops
+            List of loop dictionaries with all CSV data
         """
-        import csv
-        from pathlib import Path
-
         loaded = []
-        with Path(csv_path).open() as f:
+        
+        with Path(csv_path).open(encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                loop = GrowthLoop(
-                    id=row.get("id", ""),
-                    name=row.get("name", ""),
-                    category=row.get("category", "activation"),
-                    description=row.get("description", ""),
-                    trigger=row.get("trigger", ""),
-                    action=row.get("action", ""),
-                    reward=row.get("reward", ""),
+                # Map CSV columns to our model
+                loop_data = {
+                    "loop_name": row.get("Loop Name", "").strip(),
+                    "plg_stage": row.get("PLG Stage", "").strip(),
+                    "goal": row.get("Goal (Sell)", "").strip(),
+                    "user_story": row.get("User Story (The Narrative)", "").strip(),
+                    "ui_ux_delivery": row.get("UI/UX Delivery", "").strip(),
+                    "trigger": row.get("Trigger (Detection)", "").strip(),
+                    "action": row.get("Action (What Skene Does)", "").strip(),
+                    "value": row.get("Value (ROI)", "").strip(),
+                    "proof_metric": row.get("Proof Metric & Analytics", "").strip(),
+                    "action_summary": row.get("Action (Summary)", "").strip(),
+                    "value_summary": row.get("Value (Summary)", "").strip(),
+                    "industry_benchmark": row.get("Industry Average ROI (Benchmark)", "").strip(),
+                    "system_pattern": row.get("System Pattern", "").strip(),
+                    "implementation": row.get("Implementation (Stack)", "").strip(),
+                }
+                
+                # Skip empty rows
+                if not loop_data["loop_name"]:
+                    continue
+                
+                loaded.append(loop_data)
+                
+                # Also create a GrowthLoop for backward compatibility
+                # Map PLG Stage to category
+                stage_to_category = {
+                    "acquisition": "acquisition",
+                    "activation": "activation",
+                    "retention": "retention",
+                    "referral": "referral",
+                    "revenue": "revenue",
+                    "monetization": "revenue",
+                    "expansion": "revenue",
+                }
+                category = stage_to_category.get(
+                    loop_data["plg_stage"].lower(), 
+                    "activation"
                 )
-                self._loops[loop.id] = loop
-                loaded.append(loop)
+                
+                # Create simplified GrowthLoop
+                loop_id = loop_data["loop_name"].lower().replace(" ", "-").replace('"', '').replace("'", "")
+                growth_loop = GrowthLoop(
+                    id=loop_id,
+                    name=loop_data["loop_name"],
+                    category=category,
+                    description=loop_data["user_story"],
+                    trigger=loop_data["trigger"],
+                    action=loop_data["action"],
+                    reward=loop_data["value"],
+                )
+                self._loops[loop_id] = growth_loop
 
+        self._csv_loops = loaded
         return loaded
 
     def _build_default_catalog(self) -> dict[str, GrowthLoop]:

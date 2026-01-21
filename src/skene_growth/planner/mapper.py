@@ -7,7 +7,7 @@ Maps growth loops to potential injection points in a codebase.
 from pydantic import BaseModel, Field
 
 from skene_growth.codebase import CodebaseExplorer
-from skene_growth.injector.loops import GrowthLoop
+from skene_growth.planner.loops import GrowthLoop
 from skene_growth.llm import LLMClient
 from skene_growth.manifest import GrowthHub, GrowthManifest
 
@@ -263,7 +263,6 @@ Return your analysis as JSON with:
 
         # Try to extract JSON from response
         try:
-            # Try direct parse
             data = json.loads(response.strip())
         except json.JSONDecodeError:
             # Try to find JSON in response

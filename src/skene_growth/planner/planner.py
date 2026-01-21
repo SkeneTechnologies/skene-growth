@@ -1,7 +1,7 @@
 """
-Injection plan generator.
+Plan generator.
 
-Creates detailed implementation plans for injecting growth loops into a codebase.
+Creates detailed implementation plans for growth loops in a codebase.
 """
 
 from datetime import datetime
@@ -10,8 +10,8 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from skene_growth.codebase import CodebaseExplorer
-from skene_growth.injector.loops import GrowthLoop, GrowthLoopCatalog
-from skene_growth.injector.mapper import LoopMapper, LoopMapping
+from skene_growth.planner.loops import GrowthLoop, GrowthLoopCatalog
+from skene_growth.planner.mapper import LoopMapper, LoopMapping
 from skene_growth.llm import LLMClient
 from skene_growth.manifest import GrowthManifest
 
@@ -32,7 +32,7 @@ class CodeChange(BaseModel):
     )
 
 
-class LoopInjectionPlan(BaseModel):
+class LoopPlan(BaseModel):
     """Implementation plan for a single growth loop."""
 
     loop_id: str = Field(description="The growth loop ID")
@@ -53,14 +53,14 @@ class LoopInjectionPlan(BaseModel):
     )
 
 
-class InjectionPlan(BaseModel):
-    """Complete injection plan for all growth loops."""
+class Plan(BaseModel):
+    """Complete plan for all growth loops."""
 
     version: str = Field(default="1.0", description="Plan version")
     project_name: str = Field(description="Target project name")
     generated_at: datetime = Field(default_factory=datetime.now)
     manifest_summary: str = Field(description="Summary of the growth manifest")
-    loop_plans: list[LoopInjectionPlan] = Field(
+    loop_plans: list[LoopPlan] = Field(
         default_factory=list,
         description="Plans for each growth loop",
     )
@@ -74,22 +74,22 @@ class InjectionPlan(BaseModel):
     )
 
 
-class InjectionPlanner:
+class Planner:
     """
-    Generates detailed implementation plans for growth loop injection.
+    Generates detailed implementation plans for growth loops.
 
     Takes loop mappings and generates actionable code changes
     that can be implemented manually or via automation.
 
     Example:
-        planner = InjectionPlanner()
+        planner = Planner()
         plan = await planner.generate_plan(
             manifest=manifest,
             mappings=mappings,
             llm=llm,
             codebase=codebase,
         )
-        plan.save_json("./injection-plan.json")
+        plan.save_json("./growth-plan.json")
     """
 
     # Prompt for generating detailed implementation plans
@@ -149,9 +149,9 @@ Return JSON with:
         mappings: list[LoopMapping],
         llm: LLMClient,
         codebase: CodebaseExplorer,
-    ) -> InjectionPlan:
+    ) -> Plan:
         """
-        Generate a complete injection plan.
+        Generate a complete plan.
 
         Args:
             manifest: The project's growth manifest
@@ -160,7 +160,7 @@ Return JSON with:
             codebase: Access to the codebase
 
         Returns:
-            Complete injection plan
+            Complete plan
         """
         # Filter to applicable mappings with injection points
         applicable = [m for m in mappings if m.is_applicable and m.injection_points]
@@ -182,7 +182,7 @@ Return JSON with:
             llm=llm,
         )
 
-        return InjectionPlan(
+        return Plan(
             project_name=manifest.project_name,
             manifest_summary=manifest.description or f"Growth manifest for {manifest.project_name}",
             loop_plans=loop_plans,
@@ -197,9 +197,9 @@ Return JSON with:
         llm: LLMClient,
         catalog: GrowthLoopCatalog | None = None,
         categories: list[str] | None = None,
-    ) -> InjectionPlan:
+    ) -> Plan:
         """
-        Generate injection plan using the loop catalog.
+        Generate plan using the loop catalog.
 
         Convenience method that handles mapping and planning in one call.
 
@@ -211,7 +211,7 @@ Return JSON with:
             categories: Filter to specific categories
 
         Returns:
-            Complete injection plan
+            Complete plan
         """
         catalog = catalog or GrowthLoopCatalog()
         mapper = LoopMapper()
@@ -244,7 +244,7 @@ Return JSON with:
         self,
         manifest: GrowthManifest,
         catalog: GrowthLoopCatalog | None = None,
-    ) -> InjectionPlan:
+    ) -> Plan:
         """
         Generate a quick plan without LLM (heuristic-based).
 
@@ -256,7 +256,7 @@ Return JSON with:
             catalog: Loop catalog (uses default if None)
 
         Returns:
-            Basic injection plan
+            Basic plan
         """
         catalog = catalog or GrowthLoopCatalog()
         mapper = LoopMapper()
@@ -277,19 +277,19 @@ Return JSON with:
         # Sort by priority
         loop_plans.sort(key=lambda p: p.priority, reverse=True)
 
-        return InjectionPlan(
+        return Plan(
             project_name=manifest.project_name,
             manifest_summary=manifest.description or f"Growth manifest for {manifest.project_name}",
             loop_plans=loop_plans,
             implementation_order=[p.loop_id for p in loop_plans],
         )
 
-    def save_plan(self, plan: InjectionPlan, output_path: Path | str) -> Path:
+    def save_plan(self, plan: Plan, output_path: Path | str) -> Path:
         """
-        Save injection plan to JSON file.
+        Save plan to JSON file.
 
         Args:
-            plan: The injection plan
+            plan: The plan
             output_path: Path to save to
 
         Returns:
@@ -305,7 +305,7 @@ Return JSON with:
         mapping: LoopMapping,
         manifest: GrowthManifest,
         llm: LLMClient,
-    ) -> LoopInjectionPlan:
+    ) -> LoopPlan:
         """Generate detailed plan for a single loop."""
         # Get loop details from catalog
         catalog = GrowthLoopCatalog()
@@ -348,7 +348,7 @@ Return JSON with:
 
     async def _identify_shared_infrastructure(
         self,
-        loop_plans: list[LoopInjectionPlan],
+        loop_plans: list[LoopPlan],
         manifest: GrowthManifest,
         llm: LLMClient,
     ) -> tuple[list[CodeChange], list[str]]:
@@ -375,7 +375,7 @@ Return JSON with:
 
         return self._parse_infrastructure_response(response, loop_plans)
 
-    def _generate_basic_plan(self, mapping: LoopMapping) -> LoopInjectionPlan:
+    def _generate_basic_plan(self, mapping: LoopMapping) -> LoopPlan:
         """Generate basic plan without LLM."""
         code_changes = []
 
@@ -389,7 +389,7 @@ Return JSON with:
                     )
                 )
 
-        return LoopInjectionPlan(
+        return LoopPlan(
             loop_id=mapping.loop_id,
             loop_name=mapping.loop_name,
             priority=mapping.priority,
@@ -403,8 +403,8 @@ Return JSON with:
         response: str,
         mapping: LoopMapping,
         loop: GrowthLoop,
-    ) -> LoopInjectionPlan:
-        """Parse LLM response into LoopInjectionPlan."""
+    ) -> LoopPlan:
+        """Parse LLM response into LoopPlan."""
         import json
         import re
 
@@ -437,7 +437,7 @@ Return JSON with:
             except Exception:
                 continue
 
-        return LoopInjectionPlan(
+        return LoopPlan(
             loop_id=loop.id,
             loop_name=loop.name,
             priority=mapping.priority,
@@ -450,7 +450,7 @@ Return JSON with:
     def _parse_infrastructure_response(
         self,
         response: str,
-        loop_plans: list[LoopInjectionPlan],
+        loop_plans: list[LoopPlan],
     ) -> tuple[list[CodeChange], list[str]]:
         """Parse infrastructure analysis response."""
         import json
