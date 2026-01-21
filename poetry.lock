@@ -1308,4 +1308,4 @@ dev = ["pytest", "pytest-asyncio", "ruff"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "945cd6542d0c55c60ffb49f953b82669fa38f2b39c3e81d1e869d5b513bdeb29"
+content-hash = "0fd5541fda62482a427c05b7d6ccbb2c821fa58d3b5ab924b0adfb5ecd417def"
