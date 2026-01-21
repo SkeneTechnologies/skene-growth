@@ -1026,5 +1026,56 @@ verbose = false
         console.print("\n[dim]Tip: Run 'skene-growth config --init' to create a config file[/dim]")
 
 
+@app.command()
+def daily_logs(
+    skene_context: Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--context",
+        help="Path to skene-context directory (default: ./skene-context)",
+    ),
+):
+    """
+    Fetch data from sources defined in skene.json and store in daily logs.
+
+    This command:
+    1. Reads skene.json from skene-context directory
+    2. Reads growth-objectives file
+    3. Fetches data from configured sources for each objective
+    4. Stores results in skene-context/daily_logs/daily_logs_YYYY_MM_DD.json
+
+    If files are not found or sources are missing, you'll be prompted to provide
+    the necessary information interactively.
+
+    Examples:
+
+        # Use default skene-context directory
+        uvx skene-growth daily-logs
+
+        # Specify custom skene-context path
+        uvx skene-growth daily-logs --context ./my-context
+    """
+    from skene_growth.logs import fetch_daily_logs
+
+    try:
+        context_path = skene_context or Path("./skene-context")
+        log_file_path = fetch_daily_logs(context_path)
+        
+        if log_file_path:
+            console.print(f"\n[green]✓[/green] Daily logs successfully created: {log_file_path}")
+        else:
+            console.print("[yellow]No data was fetched[/yellow]")
+            
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+    except ValueError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Unexpected error:[/red] {e}")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
