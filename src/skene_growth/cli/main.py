@@ -609,7 +609,6 @@ def objectives(
     provider: Optional[str] = typer.Option(
         None,
         "--provider",
-        "-p",
         help="LLM provider to use (openai, gemini, anthropic, ollama)",
     ),
     model: Optional[str] = typer.Option(
@@ -646,11 +645,11 @@ def objectives(
         "--verbose",
         help="Enable verbose output",
     ),
-    guidance: Optional[str] = typer.Option(
+    prompt: Optional[str] = typer.Option(
         None,
-        "-g",
-        "--guidance",
-        help="Guidance text to influence objective selection (e.g., 'Focus on onboarding' or 'Prioritize retention metrics')",
+        "-p",
+        "--prompt",
+        help="Prompt text to influence objective selection (e.g., 'Focus on onboarding' or 'Prioritize retention metrics')",
     ),
 ):
     """
@@ -668,8 +667,8 @@ def objectives(
         # Specify quarter label
         uvx skene-growth objectives --quarter "Q1 2024"
 
-        # With guidance to focus on specific areas
-        uvx skene-growth objectives --guidance "I want all objectives to focus on onboarding"
+        # With prompt to focus on specific areas
+        uvx skene-growth objectives --prompt "I want all objectives to focus on onboarding"
 
         # With specific files
         uvx skene-growth objectives --manifest ./my-manifest.json --template ./my-template.json
@@ -750,7 +749,7 @@ def objectives(
             f"Provider: {resolved_provider}\n"
             f"Model: {resolved_model}\n"
             f"Quarter: {quarter or 'Not specified'}\n"
-            f"Guidance: {guidance or 'Not specified'}",
+            f"Prompt: {prompt or 'Not specified'}",
             title="skene-growth",
         )
     )
@@ -765,7 +764,7 @@ def objectives(
             resolved_provider,
             resolved_model,
             quarter,
-            guidance,
+            prompt,
             verbose,
         )
     )
@@ -779,7 +778,7 @@ async def _run_objectives(
     provider: str,
     model: str,
     quarter: Optional[str],
-    guidance: Optional[str],
+    prompt: Optional[str],
     verbose: bool,
 ):
     """Run the async objectives generation."""
@@ -812,7 +811,7 @@ async def _run_objectives(
                 manifest_data=manifest_data,
                 template_data=template_data,
                 quarter=quarter,
-                guidance=guidance,
+                guidance=prompt,
             )
 
             # Write output
