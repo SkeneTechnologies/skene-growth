@@ -124,11 +124,6 @@ def analyze(
         "--verbose",
         help="Enable verbose output",
     ),
-    docs: bool = typer.Option(
-        False,
-        "--docs",
-        help="Enable documentation mode (collects product overview and features)",
-    ),
     business_type: Optional[str] = typer.Option(
         None,
         "--business-type",
@@ -138,7 +133,7 @@ def analyze(
     product_docs: bool = typer.Option(
         False,
         "--product-docs",
-        help="Generate product-docs.md in addition to analysis output",
+        help="Generate product-docs.md with user-facing feature documentation",
     ),
 ):
     """
@@ -149,12 +144,10 @@ def analyze(
     - Growth hubs (features with growth potential)
     - GTM gaps (missing features that could drive growth)
 
-    With --docs flag, also collects:
-    - Product overview (tagline, value proposition, target audience)
-    - User-facing feature documentation
-
-    With --product-docs flag, generates:
-    - product-docs.md: User-friendly documentation of features and roadmap
+    With --product-docs flag:
+    - Collects product overview (tagline, value proposition, target audience)
+    - Collects user-facing feature documentation from codebase
+    - Generates product-docs.md: User-friendly documentation of features and roadmap
 
     Examples:
 
@@ -204,7 +197,8 @@ def analyze(
             console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
             raise typer.Exit(1)
 
-    mode_str = "docs" if docs else "growth"
+    # If product docs are requested, use docs mode to collect features
+    mode_str = "docs" if product_docs else "growth"
     console.print(
         Panel.fit(
             f"[bold blue]Analyzing codebase[/bold blue]\n"
@@ -225,9 +219,8 @@ def analyze(
             resolved_provider,
             resolved_model,
             verbose,
-            docs,
-            business_type,
             product_docs,
+            business_type,
         )
     )
 
@@ -239,9 +232,8 @@ async def _run_analysis(
     provider: str,
     model: str,
     verbose: bool,
-    docs: Optional[bool] = False,
-    business_type: Optional[str] = None,
     product_docs: Optional[bool] = False,
+    business_type: Optional[str] = None,
 ):
     """Run the async analysis."""
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
@@ -265,7 +257,7 @@ async def _run_analysis(
 
             # Create analyzer
             progress.update(task, description="Creating analyzer...")
-            if docs:
+            if product_docs:
                 analyzer = DocsAnalyzer()
                 request_msg = "Generate documentation for this project"
             else:
