@@ -688,7 +688,7 @@ async def _run_plan_llm_mode(
     from pydantic import SecretStr
 
     from skene_growth.llm import create_llm_client
-    from skene_growth.planner import GrowthLoopCatalog, load_daily_logs_summary, Planner
+    from skene_growth.planner import GrowthLoopCatalog, Planner, load_daily_logs_summary
 
     # Check API key for LLM mode
     is_local_provider = provider.lower() in (

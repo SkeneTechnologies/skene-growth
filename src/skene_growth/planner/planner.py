@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from skene_growth.llm import LLMClient
 from skene_growth.manifest import GrowthManifest
-from skene_growth.planner.loops import GrowthLoop, GrowthLoopCatalog, SelectedGrowthLoop
+from skene_growth.planner.loops import GrowthLoopCatalog, SelectedGrowthLoop
 from skene_growth.planner.mapper import LoopMapper, LoopMapping
 
 
@@ -250,7 +250,7 @@ class Planner:
         """
         Select growth loops using LLM based on objectives and context.
 
-        Selects loops incrementally, ensuring diversity and alignment 
+        Selects loops incrementally, ensuring diversity and alignment
         with growth objectives.
 
         Args:
@@ -266,12 +266,12 @@ class Planner:
         """
         catalog = catalog or GrowthLoopCatalog()
         csv_loops = self._catalog_to_csv_format(catalog)
-        
+
         selected_loops: list[SelectedGrowthLoop] = []
 
         for iteration in range(1, num_loops + 1):
             logger.info(f"Selecting loop {iteration} of {num_loops}...")
-            
+
             loop = await self._select_single_loop(
                 llm=llm,
                 manifest_data=manifest_data,
@@ -281,7 +281,7 @@ class Planner:
                 previously_selected=selected_loops,
                 iteration=iteration,
             )
-            
+
             selected_loops.append(loop)
             logger.success(f"Selected: {loop.loop_name}")
 
@@ -393,7 +393,7 @@ class Planner:
         """Convert catalog loops to CSV format for LLM prompts."""
         # Get CSV loops from catalog (already in the right format)
         csv_loops = catalog.get_csv_loops()
-        
+
         # If we have CSV loops, use them directly
         if csv_loops:
             formatted = []
@@ -411,7 +411,7 @@ class Planner:
                     "Value Summary": loop.get("value_summary", ""),
                 })
             return formatted
-        
+
         # Fallback: convert GrowthLoop objects to CSV format
         formatted = []
         for loop in catalog.get_all():
@@ -451,7 +451,7 @@ class Planner:
 
         response = await llm.generate_content(prompt)
         loop = self._parse_single_loop_response(response, csv_loops)
-        
+
         return loop
 
     def _build_selection_prompt(
@@ -490,8 +490,8 @@ class Planner:
 **IMPORTANT:** Use these metrics to identify weak areas. Prioritize loops that address underperforming metrics.
 """
 
-        return f"""You are a Product-Led Growth (PLG) strategist. Your task is to select the SINGLE most impactful growth
-loop for this project.
+        return f"""You are a Product-Led Growth (PLG) strategist. Your task is to select the SINGLE most impactful
+growth loop for this project.
 
 ## Iteration {iteration} of 3
 Select ONE growth loop that would have the highest impact given the current context.
@@ -540,7 +540,10 @@ Return ONLY a JSON object (not an array) in this format:
   "action": "Action from CSV",
   "value": "Value from CSV",
   "implementation": "Implementation from CSV",
-  "why_selected": "Detailed explanation of WHY this specific loop was chosen for THIS project. Reference the loop by name.",
+  "why_selected": (
+    "Detailed explanation of WHY this specific loop was chosen for THIS project. "
+    "Reference the loop by name."
+  ),
   "implementation_steps": [
     "Step 1: Specific action (reference loop name)",
     "Step 2: Specific action (reference loop name)",
@@ -556,30 +559,30 @@ Return ONLY a JSON object (not an array) in this format:
     def _format_manifest_summary(self, manifest_data: dict[str, Any]) -> str:
         """Format manifest data into a readable summary."""
         lines = []
-        
+
         if "project_name" in manifest_data:
             lines.append(f"**Project:** {manifest_data['project_name']}")
-        
+
         if "description" in manifest_data:
             lines.append(f"**Description:** {manifest_data['description']}")
-        
+
         if "tech_stack" in manifest_data:
             tech = manifest_data["tech_stack"]
             lines.append("\n**Tech Stack:**")
             for key, value in tech.items():
                 if value:
                     lines.append(f"- {key}: {value}")
-        
+
         if "growth_hubs" in manifest_data and manifest_data["growth_hubs"]:
             lines.append(f"\n**Existing Growth Hubs:** {len(manifest_data['growth_hubs'])} detected")
             for hub in manifest_data["growth_hubs"][:3]:
                 lines.append(f"- {hub.get('feature_name', 'Unknown')}")
-        
+
         if "gtm_gaps" in manifest_data and manifest_data["gtm_gaps"]:
             lines.append(f"\n**GTM Gaps:** {len(manifest_data['gtm_gaps'])} identified")
             for gap in manifest_data["gtm_gaps"][:3]:
                 lines.append(f"- {gap.get('feature_name', 'Unknown')} (priority: {gap.get('priority', 'N/A')})")
-        
+
         return "\n".join(lines)
 
     def _format_available_loops(self, csv_loops: list[dict[str, Any]]) -> str:
@@ -607,36 +610,36 @@ Return ONLY a JSON object (not an array) in this format:
         json_match = re.search(r"```json\s*(\{.*?\})\s*```", response, re.DOTALL)
         if not json_match:
             json_match = re.search(r"(\{.*\})", response, re.DOTALL)
-        
+
         if not json_match:
             raise ValueError("Could not find JSON in LLM response")
-        
+
         try:
             data = json.loads(json_match.group(1))
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in LLM response: {e}")
-        
+
         # Validate loop name exists in catalog
         loop_name = data.get("loop_name", "")
         matching_loop = next(
-            (l for l in csv_loops if l.get("Loop Name") == loop_name),
+            (loop for loop in csv_loops if loop.get("Loop Name") == loop_name),
             None
         )
-        
+
         if not matching_loop:
             # Try fuzzy match
             loop_name_lower = loop_name.lower()
             matching_loop = next(
-                (l for l in csv_loops if l.get("Loop Name", "").lower() == loop_name_lower),
+                (loop for loop in csv_loops if loop.get("Loop Name", "").lower() == loop_name_lower),
                 None
             )
-        
+
         if not matching_loop:
             raise ValueError(
                 f"Selected loop '{loop_name}' not found in catalog. "
-                f"Available loops: {[l.get('Loop Name') for l in csv_loops[:5]]}..."
+                f"Available loops: {[loop.get('Loop Name') for loop in csv_loops[:5]]}..."
             )
-        
+
         return SelectedGrowthLoop(
             loop_name=data.get("loop_name") or "",
             plg_stage=data.get("plg_stage") or "",

@@ -113,7 +113,8 @@ Return ONLY a JSON object (not an array) in this format:
     "Metric 1: How to measure [Loop Name] effectiveness...",
     "Metric 2: How to measure..."
   ],
-  "technical_example": "Code snippet or detailed technical implementation using the project's tech stack. Include file names, function signatures, and actual code that demonstrates the implementation."
+  "technical_example": "Code snippet or detailed technical implementation using the project's tech stack. " \
+    "Include file names, function signatures, and actual code that demonstrates the implementation."
 }}
 ```
 

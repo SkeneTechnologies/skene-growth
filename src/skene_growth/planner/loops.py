@@ -80,7 +80,9 @@ class SelectedGrowthLoop(BaseModel):
     why_selected: str = Field(description="LLM explanation of why this loop was selected")
     implementation_steps: list[str] = Field(default_factory=list, description="Actionable implementation steps")
     success_metrics: list[str] = Field(default_factory=list, description="How to measure success")
-    technical_example: str = Field(default="", description="Technical implementation example using the project's tech stack")
+    technical_example: str = Field(
+        default="", description="Technical implementation example using the project's tech stack"
+    )
 
 
 class GrowthLoopCatalog:
