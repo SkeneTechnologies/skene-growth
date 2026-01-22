@@ -132,11 +132,9 @@ class GrowthLoopCatalog:
         """
         Load growth loops from a CSV file.
 
-        Handles the actual growth_loops.csv schema with columns:
-        - Loop Name, PLG Stage, Goal (Sell), User Story, UI/UX Delivery,
-        - Trigger (Detection), Action (What Skene Does), Value (ROI),
-        - Proof Metric & Analytics, Action (Summary), Value (Summary),
-        - Industry Average ROI (Benchmark), System Pattern, Implementation (Stack)
+        Handles two CSV schemas:
+        1. Simple format: id,name,category,description,trigger,action,reward,implementation_hints,required_components,metrics
+        2. Detailed format: Loop Name, PLG Stage, Goal (Sell), User Story, UI/UX Delivery, etc.
 
         Args:
             csv_path: Path to the CSV file
@@ -149,27 +147,55 @@ class GrowthLoopCatalog:
         with Path(csv_path).open(encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                # Map CSV columns to our model
-                loop_data = {
-                    "loop_name": row.get("Loop Name", "").strip(),
-                    "plg_stage": row.get("PLG Stage", "").strip(),
-                    "goal": row.get("Goal (Sell)", "").strip(),
-                    "user_story": row.get("User Story (The Narrative)", "").strip(),
-                    "ui_ux_delivery": row.get("UI/UX Delivery", "").strip(),
-                    "trigger": row.get("Trigger (Detection)", "").strip(),
-                    "action": row.get("Action (What Skene Does)", "").strip(),
-                    "value": row.get("Value (ROI)", "").strip(),
-                    "proof_metric": row.get("Proof Metric & Analytics", "").strip(),
-                    "action_summary": row.get("Action (Summary)", "").strip(),
-                    "value_summary": row.get("Value (Summary)", "").strip(),
-                    "industry_benchmark": row.get("Industry Average ROI (Benchmark)", "").strip(),
-                    "system_pattern": row.get("System Pattern", "").strip(),
-                    "implementation": row.get("Implementation (Stack)", "").strip(),
-                }
-                
-                # Skip empty rows
-                if not loop_data["loop_name"]:
-                    continue
+                # Check which format we have
+                if "Loop Name" in row or "PLG Stage" in row:
+                    # Detailed format
+                    loop_data = {
+                        "loop_name": row.get("Loop Name", "").strip(),
+                        "plg_stage": row.get("PLG Stage", "").strip(),
+                        "goal": row.get("Goal (Sell)", "").strip(),
+                        "user_story": row.get("User Story (The Narrative)", "").strip(),
+                        "ui_ux_delivery": row.get("UI/UX Delivery", "").strip(),
+                        "trigger": row.get("Trigger (Detection)", "").strip(),
+                        "action": row.get("Action (What Skene Does)", "").strip(),
+                        "value": row.get("Value (ROI)", "").strip(),
+                        "proof_metric": row.get("Proof Metric & Analytics", "").strip(),
+                        "action_summary": row.get("Action (Summary)", "").strip(),
+                        "value_summary": row.get("Value (Summary)", "").strip(),
+                        "industry_benchmark": row.get("Industry Average ROI (Benchmark)", "").strip(),
+                        "system_pattern": row.get("System Pattern", "").strip(),
+                        "implementation": row.get("Implementation (Stack)", "").strip(),
+                    }
+                    # Skip empty rows
+                    if not loop_data["loop_name"]:
+                        continue
+                else:
+                    # Simple format: id,name,category,description,trigger,action,reward,...
+                    loop_name = row.get("name", "").strip()
+                    if not loop_name:
+                        continue
+                    
+                    # Map simple format to detailed format structure
+                    loop_data = {
+                        "loop_name": loop_name,
+                        "plg_stage": row.get("category", "").strip(),
+                        "goal": "",
+                        "user_story": row.get("description", "").strip(),
+                        "ui_ux_delivery": "",
+                        "trigger": row.get("trigger", "").strip(),
+                        "action": row.get("action", "").strip(),
+                        "value": row.get("reward", "").strip(),
+                        "proof_metric": row.get("metrics", "").strip(),
+                        "action_summary": row.get("action", "").strip(),
+                        "value_summary": row.get("reward", "").strip(),
+                        "industry_benchmark": "",
+                        "system_pattern": row.get("required_components", "").strip(),
+                        "implementation": row.get("implementation_hints", "").strip(),
+                        # Also include original fields for compatibility
+                        "id": row.get("id", "").strip(),
+                        "category": row.get("category", "").strip(),
+                        "description": row.get("description", "").strip(),
+                    }
                 
                 loaded.append(loop_data)
                 

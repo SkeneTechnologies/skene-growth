@@ -119,11 +119,14 @@ Create a detailed implementation plan with:
 4. Implementation order (what depends on what)
 5. Testing approach
 
+**IMPORTANT:** When describing code changes and testing notes, always refer to the loop by its name (e.g., "The {loop_name} loop requires..." or "For {loop_name}, implement..."). This helps readers understand which specific loop each change relates to.
+
 Return JSON with:
 - estimated_complexity: "low" | "medium" | "high"
 - code_changes: array of {{file_path, change_type, description, code_snippet, dependencies}}
+  - In descriptions, reference the loop name (e.g., "Add {loop_name} tracking hook")
 - new_dependencies: array of package names
-- testing_notes: string with testing guidance
+- testing_notes: string with testing guidance (reference the loop name when describing what to test)
 """
 
     INFRASTRUCTURE_PROMPT = """

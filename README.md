@@ -214,7 +214,7 @@ uvx skene-growth plan --objectives ./my-objectives.md --daily-logs ./my-logs
 ```
 
 **Output:**
-- `./skene-growth-plan.md` (default) or custom path specified with `-o`
+- `./skene-context/skene-growth-plan.md` (default) or custom path specified with `-o`
 
 **Flags:**
 - `-m, --manifest`: Path to growth-manifest.json (auto-detected if not specified)
@@ -288,6 +288,33 @@ When you run `daily-logs`, it reads the `sources` array from `skene.json` to det
 
 **Flags:**
 - `-c, --context`: Path to skene-context directory (default: `./skene-context` or config-defined `output_dir`)
+- `--list-metrics`: List metrics that need values (useful for AI/non-interactive mode)
+- `--values`: JSON string with metric values: `'{"metric_id": "value", ...}'` (automatically enables non-interactive mode)
+
+**Non-interactive mode (for AI assistants):**
+
+When running `daily-logs` in non-interactive mode (e.g., via AI chat), use these steps:
+
+1. **List required metrics:**
+   ```bash
+   uvx skene-growth daily-logs --list-metrics
+   ```
+   This outputs the metrics that need values, including their IDs, names, and targets.
+
+2. **Provide values and run:**
+   ```bash
+   # Using JSON string (--values automatically enables non-interactive mode)
+   uvx skene-growth daily-logs --values '{"user_acquisition": "150", "retention_rate": "95%"}'
+   ```
+
+   The values format is a JSON object with metric IDs as keys:
+   ```json
+   {
+     "user_acquisition": "150",
+     "retention_rate": "95%",
+     "daily_active_users": "1,234"
+   }
+   ```
 
 ### `config` - Manage configuration
 

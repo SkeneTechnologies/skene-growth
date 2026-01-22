@@ -492,7 +492,7 @@ def plan(
         help="Path to daily_logs directory (auto-detected if not specified)",
     ),
     output: Path = typer.Option(
-        "./skene-growth-plan.md",
+        "./skene-context/skene-growth-plan.md",
         "-o",
         "--output",
         help="Output path for growth plan (markdown)",
@@ -745,6 +745,7 @@ async def _run_plan_llm_mode(
                 console.print(f"Loaded loops from: {csv_path}")
             else:
                 # Use built-in CSV from package
+                csv_loaded = False
                 try:
                     # Python 3.9+
                     from importlib.resources import files
@@ -757,7 +758,13 @@ async def _run_plan_llm_mode(
                         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
                             f.write(csv_file.read_text())
                             catalog.load_from_csv(f.name)
-                    else:
+                            csv_loaded = True
+                except Exception as e:
+                    if verbose:
+                        console.print(f"[dim]importlib.resources method failed: {e}[/dim]")
+                
+                if not csv_loaded:
+                    try:
                         # Fall back to finding the file relative to the package
                         import skene_growth
 
@@ -765,11 +772,25 @@ async def _run_plan_llm_mode(
                         builtin_csv = package_dir / "assets" / "growth_loops.csv"
                         if builtin_csv.exists():
                             catalog.load_from_csv(str(builtin_csv))
-                except Exception:
-                    # Fall back to relative path
-                    builtin_csv = Path(__file__).parent.parent.parent / "assets" / "growth_loops.csv"
-                    if builtin_csv.exists():
-                        catalog.load_from_csv(str(builtin_csv))
+                            csv_loaded = True
+                            if verbose:
+                                console.print(f"[dim]Loaded CSV from: {builtin_csv}[/dim]")
+                    except Exception as e:
+                        if verbose:
+                            console.print(f"[dim]Package path method failed: {e}[/dim]")
+                
+                if not csv_loaded:
+                    # Final fallback to relative path
+                    try:
+                        builtin_csv = Path(__file__).parent.parent.parent / "assets" / "growth_loops.csv"
+                        if builtin_csv.exists():
+                            catalog.load_from_csv(str(builtin_csv))
+                            csv_loaded = True
+                            if verbose:
+                                console.print(f"[dim]Loaded CSV from fallback: {builtin_csv}[/dim]")
+                    except Exception as e:
+                        if verbose:
+                            console.print(f"[dim]Fallback path method failed: {e}[/dim]")
 
             csv_loops = catalog.get_csv_loops()
             if not csv_loops:
@@ -1433,6 +1454,16 @@ def daily_logs(
         "--context",
         help="Path to skene-context directory (default: ./skene-context)",
     ),
+    list_metrics: bool = typer.Option(
+        False,
+        "--list-metrics",
+        help="List metrics that need values (useful for non-interactive mode)",
+    ),
+    values: Optional[str] = typer.Option(
+        None,
+        "--values",
+        help="JSON string with metric values: '{\"metric_id\": \"value\", ...}' (enables non-interactive mode)",
+    ),
 ):
     """
     Fetch data from sources defined in skene.json and store in daily logs.
@@ -1444,21 +1475,77 @@ def daily_logs(
     4. Stores results in skene-context/daily_logs/daily_logs_YYYY_MM_DD.json
 
     If files are not found or sources are missing, you'll be prompted to provide
-    the necessary information interactively.
+    the necessary information interactively. Use --values for non-interactive mode.
 
     Examples:
 
-        # Use default skene-context directory
+        # Use default skene-context directory (interactive)
         uvx skene-growth daily-logs
 
         # Specify custom skene-context path
         uvx skene-growth daily-logs --context ./my-context
+
+        # List required metrics (for AI/non-interactive use)
+        uvx skene-growth daily-logs --list-metrics
+
+        # Non-interactive mode with JSON string (--values automatically enables non-interactive)
+        uvx skene-growth daily-logs --values '{"user_acquisition": "150", "retention_rate": "95%"}'
     """
-    from skene_growth.logs import fetch_daily_logs
+    from skene_growth.logs import fetch_daily_logs, list_required_metrics
+    import json
 
     try:
         context_path = skene_context or Path("./skene-context")
-        log_file_path = fetch_daily_logs(context_path)
+        
+        # Handle --list-metrics flag
+        if list_metrics:
+            required_metrics = list_required_metrics(context_path)
+            if not required_metrics:
+                console.print("[green]✓[/green] No metrics need values (all already logged today)")
+                return
+            
+            console.print(f"\n[bold]Required metrics ({len(required_metrics)}):[/bold]\n")
+            metrics_output = []
+            for metric in required_metrics:
+                metric_info = {
+                    "metric_id": metric["metric_id"],
+                    "name": metric["name"],
+                    "source_id": metric.get("source_id"),
+                    "target": metric.get("target"),
+                }
+                metrics_output.append(metric_info)
+                console.print(f"  • [bold]{metric['metric_id']}[/bold] ({metric['name']})")
+                if metric.get("source_id"):
+                    console.print(f"    Source: {metric['source_id']}")
+                if metric.get("target"):
+                    console.print(f"    Target: {metric['target']}")
+            
+            # Also output as JSON for easy parsing
+            console.print(f"\n[dim]JSON format:[/dim]")
+            console.print(json.dumps(metrics_output, indent=2))
+            return
+        
+        # Parse provided values (if present, enables non-interactive mode)
+        provided_values = None
+        non_interactive = False
+        
+        if values:
+            non_interactive = True
+            try:
+                parsed = json.loads(values)
+                if not isinstance(parsed, dict):
+                    console.print(f"[red]Error:[/red] --values must be a JSON object, got {type(parsed).__name__}")
+                    raise typer.Exit(1)
+                provided_values = parsed
+            except json.JSONDecodeError as e:
+                console.print(f"[red]Error:[/red] Invalid JSON in --values: {e}")
+                raise typer.Exit(1)
+        
+        log_file_path = fetch_daily_logs(
+            context_path,
+            provided_values=provided_values,
+            non_interactive=non_interactive,
+        )
         
         if log_file_path:
             console.print(f"\n[green]✓[/green] Daily logs successfully created: {log_file_path}")

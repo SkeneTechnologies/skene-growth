@@ -86,20 +86,22 @@ Select exactly ONE growth loop and provide:
 3. 3-5 implementation steps tailored to the codebase
 4. 2-3 success metrics to track
 
+**IMPORTANT:** When providing explanations, implementation steps, and success metrics, always refer to the loop by its name. For example, mention "The [Loop Name] loop" or "[Loop Name]" when explaining why it was selected, what it does, or how to implement it. This helps readers understand which specific loop the information relates to.
+
 Return ONLY a JSON object (not an array) in this format:
 ```json
 {{
   "loop_name": "Exact Loop Name from CSV",
   "plg_stage": "PLG Stage",
   "goal": "Goal from CSV",
-  "why_selected": "Detailed explanation specific to this project...",
+  "why_selected": "Detailed explanation specific to this project. Reference the loop name (e.g., 'The [Loop Name] loop addresses...')",
   "implementation_steps": [
-    "Step 1: Specific action...",
+    "Step 1: Specific action for [Loop Name]...",
     "Step 2: Specific action...",
     "Step 3: Specific action..."
   ],
   "success_metrics": [
-    "Metric 1: How to measure...",
+    "Metric 1: How to measure [Loop Name] effectiveness...",
     "Metric 2: How to measure..."
   ]
 }}
@@ -364,6 +366,16 @@ def load_daily_logs_summary(daily_logs_dir: Path) -> str | None:
                 if key not in all_metrics:
                     all_metrics[key] = []
                 all_metrics[key].append({"date": date, "value": value})
+        elif isinstance(data, list):
+            # Handle list format: [{"metric_id": "...", "value": "..."}, ...]
+            for entry in data:
+                if isinstance(entry, dict):
+                    metric_id = entry.get("metric_id") or entry.get("metric")
+                    value = entry.get("value")
+                    if metric_id and value is not None:
+                        if metric_id not in all_metrics:
+                            all_metrics[metric_id] = []
+                        all_metrics[metric_id].append({"date": date, "value": value})
     
     # Identify weak areas (metrics below target or declining)
     weak_areas = []
@@ -383,11 +395,21 @@ def load_daily_logs_summary(daily_logs_dir: Path) -> str | None:
     lines.append("**Latest Metrics:**")
     if recent_logs:
         latest = recent_logs[0]
-        for key, value in latest.get("data", {}).items():
-            if isinstance(value, dict):
-                lines.append(f"- {key}: {json.dumps(value)}")
-            else:
-                lines.append(f"- {key}: {value}")
+        latest_data = latest.get("data", {})
+        if isinstance(latest_data, dict):
+            for key, value in latest_data.items():
+                if isinstance(value, dict):
+                    lines.append(f"- {key}: {json.dumps(value)}")
+                else:
+                    lines.append(f"- {key}: {value}")
+        elif isinstance(latest_data, list):
+            # Handle list format: [{"metric_id": "...", "value": "..."}, ...]
+            for entry in latest_data:
+                if isinstance(entry, dict):
+                    metric_id = entry.get("metric_id") or entry.get("metric")
+                    value = entry.get("value")
+                    if metric_id and value is not None:
+                        lines.append(f"- {metric_id}: {value}")
     
     return "\n".join(lines)
 
