@@ -17,23 +17,19 @@ from skene_growth.codebase import (
 )
 from skene_growth.config import Config, load_config
 from skene_growth.docs import DocsGenerator, PSEOBuilder
-from skene_growth.injector import (
-    CodeChange,
-    GrowthLoop,
-    GrowthLoopCatalog,
-    InjectionPlan,
-    InjectionPlanner,
-    InjectionPoint,
-    LoopInjectionPlan,
-    LoopMapper,
-    LoopMapping,
-)
 from skene_growth.llm import LLMClient, create_llm_client
 from skene_growth.manifest import (
     GrowthHub,
     GrowthManifest,
     GTMGap,
     TechStack,
+)
+from skene_growth.planner import (
+    GrowthLoop,
+    GrowthLoopCatalog,
+    Planner,
+    SelectedGrowthLoop,
+    load_daily_logs_summary,
 )
 from skene_growth.strategies import (
     AnalysisContext,
@@ -50,7 +46,7 @@ from skene_growth.strategies.steps import (
     SelectFilesStep,
 )
 
-__version__ = "0.1.7b1"
+__version__ = "0.1.7b2"
 
 __all__ = [
     # Analyzers
@@ -87,14 +83,10 @@ __all__ = [
     # Documentation
     "DocsGenerator",
     "PSEOBuilder",
-    # Injection
+    # Planner
     "GrowthLoop",
     "GrowthLoopCatalog",
-    "LoopMapper",
-    "LoopMapping",
-    "InjectionPoint",
-    "InjectionPlanner",
-    "InjectionPlan",
-    "LoopInjectionPlan",
-    "CodeChange",
+    "SelectedGrowthLoop",
+    "Planner",
+    "load_daily_logs_summary",
 ]

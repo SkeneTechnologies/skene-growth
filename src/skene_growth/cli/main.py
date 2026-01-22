@@ -3,13 +3,13 @@ CLI for skene-growth PLG analysis toolkit.
 
 Primary usage (uvx - zero installation):
     uvx skene-growth analyze .
-    uvx skene-growth generate
-    uvx skene-growth inject --csv loops.csv
+    uvx skene-growth plan
+    uvx skene-growth objectives
 
 Alternative usage (pip install):
     skene-growth analyze .
-    skene-growth generate
-    skene-growth inject --csv loops.csv
+    skene-growth plan
+    skene-growth objectives
 
 Configuration files (optional):
     Project-level: ./.skene-growth.toml
@@ -470,7 +470,7 @@ def generate(
 
 
 @app.command()
-def inject(
+def plan(
     csv: Optional[Path] = typer.Option(
         None,
         "--csv",
@@ -478,39 +478,82 @@ def inject(
     ),
     manifest: Optional[Path] = typer.Option(
         None,
-        "-m",
         "--manifest",
         help="Path to growth-manifest.json",
     ),
+    objectives_path: Optional[Path] = typer.Option(
+        None,
+        "--objectives",
+        help="Path to growth-objectives.md (auto-detected if not specified)",
+    ),
+    daily_logs_dir: Optional[Path] = typer.Option(
+        None,
+        "--daily-logs",
+        help="Path to daily_logs directory (auto-detected if not specified)",
+    ),
     output: Path = typer.Option(
-        "./skene-injection-plan.json",
+        "./skene-context/skene-growth-plan.md",
         "-o",
         "--output",
-        help="Output path for injection plan",
+        help="Output path for growth plan (markdown)",
     ),
-    dry_run: bool = typer.Option(
-        True,
-        "--dry-run/--execute",
-        help="Generate plan only (dry-run) or execute changes",
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM provider (or set SKENE_API_KEY env var)",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider to use (openai, gemini, anthropic, ollama)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model name (e.g., gemini-2.0-flash)",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "-v",
+        "--verbose",
+        help="Enable verbose output",
     ),
 ):
     """
-    Map growth loops to codebase and generate an injection plan.
+    Generate a growth plan by mapping growth loops to codebase.
 
-    Analyzes the codebase to find optimal locations for implementing
-    growth loops like referrals, sharing, onboarding, etc.
+    **Conditional Behavior:**
+    - If objectives.md AND daily_logs/ exist: Uses LLM-based intelligent selection (selects 3 loops)
+    - Otherwise: Uses comprehensive mapping (all applicable loops from catalog)
 
     Examples:
 
-        # Generate injection plan with built-in loops
-        uvx skene-growth inject
+        # Generate growth plan (auto-detects mode based on available files)
+        uvx skene-growth plan
 
         # Use custom loops from CSV
-        uvx skene-growth inject --csv loops.csv
+        uvx skene-growth plan --csv loops.csv
 
-        # Specify manifest
-        uvx skene-growth inject -m ./manifest.json
+        # Specify manifest and use LLM mode
+        uvx skene-growth plan --manifest ./manifest.json --api-key "your-key"
+
+        # Force comprehensive mapping mode
+        uvx skene-growth plan --objectives "" --daily-logs ""
     """
+    # Load config with fallbacks
+    config = load_config()
+
+    # Apply config defaults
+    resolved_api_key = api_key or config.api_key
+    resolved_provider = provider or config.provider
+    if model:
+        resolved_model = model
+    else:
+        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
+
     # Auto-detect manifest
     if manifest is None:
         default_paths = [
@@ -526,49 +569,312 @@ def inject(
         console.print("[red]Error:[/red] No manifest found. Run 'skene-growth analyze' first or specify --manifest.")
         raise typer.Exit(1)
 
+    # Auto-detect objectives
+    if objectives_path is None:
+        default_objectives_paths = [
+            Path("./skene-context/growth-objectives.md"),
+            Path("./growth-objectives.md"),
+        ]
+        for p in default_objectives_paths:
+            if p.exists():
+                objectives_path = p
+                break
+
+    # Auto-detect daily logs
+    if daily_logs_dir is None:
+        default_daily_logs_paths = [
+            Path("./skene-context/daily_logs"),
+            Path("./daily_logs"),
+        ]
+        for p in default_daily_logs_paths:
+            if p.exists() and p.is_dir():
+                daily_logs_dir = p
+                break
+
+    # Check if we have full context for LLM mode
+    has_objectives = objectives_path and objectives_path.exists()
+    has_daily_logs = daily_logs_dir and daily_logs_dir.exists()
+    use_llm_mode = has_objectives and has_daily_logs
+
+    # Determine mode
+    if use_llm_mode:
+        mode_str = "LLM-based intelligent selection (objectives + logs detected)"
+    else:
+        mode_str = "Comprehensive mapping (objectives or logs missing)"
+        missing = []
+        if not has_objectives:
+            missing.append("objectives")
+        if not has_daily_logs:
+            missing.append("daily_logs")
+        if missing:
+            console.print(f"[yellow]Note:[/yellow] Missing {', '.join(missing)} - using comprehensive mapping mode")
+
     console.print(
         Panel.fit(
-            f"[bold blue]Generating injection plan[/bold blue]\n"
+            f"[bold blue]Generating growth plan[/bold blue]\n"
             f"Manifest: {manifest}\n"
+            f"Objectives: {objectives_path or 'Not found'}\n"
+            f"Daily Logs: {daily_logs_dir or 'Not found'}\n"
             f"Loops CSV: {csv or 'Using built-in catalog'}\n"
-            f"Mode: {'Dry run' if dry_run else 'Execute'}",
+            f"Mode: {mode_str}",
             title="skene-growth",
         )
     )
+
+    # Run async plan generation
+    asyncio.run(
+        _run_plan(
+            manifest_path=manifest,
+            objectives_path=objectives_path,
+            daily_logs_dir=daily_logs_dir,
+            csv_path=csv,
+            output_path=output,
+            api_key=resolved_api_key,
+            provider=resolved_provider,
+            model=resolved_model,
+            use_llm_mode=use_llm_mode,
+            verbose=verbose,
+        )
+    )
+
+
+async def _run_plan(
+    manifest_path: Path,
+    objectives_path: Path | None,
+    daily_logs_dir: Path | None,
+    csv_path: Path | None,
+    output_path: Path,
+    api_key: str | None,
+    provider: str,
+    model: str,
+    use_llm_mode: bool,
+    verbose: bool,
+):
+    """Run plan generation with conditional behavior."""
+    if use_llm_mode:
+        # LLM-based intelligent selection (3 loops)
+        await _run_plan_llm_mode(
+            manifest_path=manifest_path,
+            objectives_path=objectives_path,
+            daily_logs_dir=daily_logs_dir,
+            csv_path=csv_path,
+            output_path=output_path,
+            api_key=api_key,
+            provider=provider,
+            model=model,
+            verbose=verbose,
+        )
+    else:
+        # Comprehensive mapping (all loops)
+        _run_plan_comprehensive_mode(
+            manifest_path=manifest_path,
+            csv_path=csv_path,
+            output_path=output_path,
+        )
+
+
+async def _run_plan_llm_mode(
+    manifest_path: Path,
+    objectives_path: Path,
+    daily_logs_dir: Path | None,
+    csv_path: Path | None,
+    output_path: Path,
+    api_key: str | None,
+    provider: str,
+    model: str,
+    verbose: bool,
+):
+    """Run LLM-based intelligent growth loops selection (3 loops)."""
+    from pydantic import SecretStr
+
+    from skene_growth.llm import create_llm_client
+    from skene_growth.planner import GrowthLoopCatalog, Planner, load_daily_logs_summary
+
+    # Check API key for LLM mode
+    is_local_provider = provider.lower() in (
+        "lmstudio",
+        "lm-studio",
+        "lm_studio",
+        "ollama",
+    )
+
+    if not api_key:
+        if is_local_provider:
+            api_key = provider  # Dummy key for local server
+        else:
+            console.print(
+                "[yellow]Warning:[/yellow] No API key provided. "
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.toml"
+            )
+            raise typer.Exit(1)
 
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        task = progress.add_task("Generating injection plan...", total=None)
+        task = progress.add_task("Initializing...", total=None)
 
         try:
-            from skene_growth.injector import GrowthLoopCatalog, InjectionPlanner
-            from skene_growth.manifest import GrowthManifest
-
             # Load manifest
             progress.update(task, description="Loading manifest...")
-            manifest_data = json.loads(manifest.read_text())
+            manifest_data = json.loads(manifest_path.read_text())
+
+            # Load objectives
+            progress.update(task, description="Loading objectives...")
+            objectives_content = objectives_path.read_text()
+
+            # Load daily logs summary
+            progress.update(task, description="Loading daily logs...")
+            daily_logs_summary = None
+            if daily_logs_dir and daily_logs_dir.exists():
+                daily_logs_summary = load_daily_logs_summary(daily_logs_dir)
+
+            # Load CSV loops
+            progress.update(task, description="Loading growth loops catalog...")
+            catalog = GrowthLoopCatalog()
+
+            # Use built-in CSV if not specified
+            if csv_path and csv_path.exists():
+                catalog.load_from_csv(str(csv_path))
+                console.print(f"Loaded loops from: {csv_path}")
+            else:
+                # Use built-in CSV from package
+                csv_loaded = False
+                try:
+                    # Python 3.9+
+                    from importlib.resources import files
+
+                    csv_file = files("skene_growth").joinpath("../assets/growth_loops.csv")
+                    if hasattr(csv_file, "read_text"):
+                        # It's a Traversable
+                        import tempfile
+
+                        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+                            f.write(csv_file.read_text())
+                            catalog.load_from_csv(f.name)
+                            csv_loaded = True
+                except Exception as e:
+                    if verbose:
+                        console.print(f"[dim]importlib.resources method failed: {e}[/dim]")
+
+                if not csv_loaded:
+                    try:
+                        # Fall back to finding the file relative to the package
+                        import skene_growth
+
+                        package_dir = Path(skene_growth.__file__).parent.parent
+                        builtin_csv = package_dir / "assets" / "growth_loops.csv"
+                        if builtin_csv.exists():
+                            catalog.load_from_csv(str(builtin_csv))
+                            csv_loaded = True
+                            if verbose:
+                                console.print(f"[dim]Loaded CSV from: {builtin_csv}[/dim]")
+                    except Exception as e:
+                        if verbose:
+                            console.print(f"[dim]Package path method failed: {e}[/dim]")
+
+                if not csv_loaded:
+                    # Final fallback to relative path
+                    try:
+                        builtin_csv = Path(__file__).parent.parent.parent / "assets" / "growth_loops.csv"
+                        if builtin_csv.exists():
+                            catalog.load_from_csv(str(builtin_csv))
+                            csv_loaded = True
+                            if verbose:
+                                console.print(f"[dim]Loaded CSV from fallback: {builtin_csv}[/dim]")
+                    except Exception as e:
+                        if verbose:
+                            console.print(f"[dim]Fallback path method failed: {e}[/dim]")
+
+            csv_loops = catalog.get_csv_loops()
+            if not csv_loops:
+                console.print("[red]Error:[/red] No growth loops found in catalog")
+                raise typer.Exit(1)
+
+            # Connect to LLM
+            progress.update(task, description="Connecting to LLM provider...")
+            llm = create_llm_client(provider, SecretStr(api_key), model)
+
+            # Initialize planner
+            planner = Planner()
+
+            # Select growth loops (3 iterations)
+            progress.update(task, description="Selecting growth loops...")
+            selected_loops = await planner.select_loops(
+                llm=llm,
+                manifest_data=manifest_data,
+                objectives_content=objectives_content,
+                catalog=catalog,
+                daily_logs_summary=daily_logs_summary,
+                num_loops=3,
+            )
+
+            # Write output
+            progress.update(task, description="Writing output...")
+            planner.write_selected_loops_markdown(
+                selected_loops=selected_loops,
+                manifest_data=manifest_data,
+                output_path=output_path,
+                has_daily_logs=daily_logs_summary is not None,
+            )
+
+            progress.update(task, description="Complete!")
+
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+            if verbose:
+                import traceback
+
+                console.print(traceback.format_exc())
+            raise typer.Exit(1)
+
+    console.print(f"\n[green]Success![/green] Growth plan saved to: {output_path}")
+
+    # Show summary
+    _show_plan_loops_summary(selected_loops)
+
+
+def _run_plan_comprehensive_mode(
+    manifest_path: Path,
+    csv_path: Path | None,
+    output_path: Path,
+):
+    """Run comprehensive mapping mode for growth loops."""
+    from skene_growth.manifest import GrowthManifest
+    from skene_growth.planner import GrowthLoopCatalog, Planner
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Generating growth plan...", total=None)
+
+        try:
+            # Load manifest
+            progress.update(task, description="Loading manifest...")
+            manifest_data = json.loads(manifest_path.read_text())
             manifest_obj = GrowthManifest(**manifest_data)
 
             # Load or create catalog
             progress.update(task, description="Loading growth loops...")
             catalog = GrowthLoopCatalog()
 
-            if csv and csv.exists():
-                catalog.load_from_csv(str(csv))
-                console.print(f"Loaded loops from: {csv}")
+            if csv_path and csv_path.exists():
+                catalog.load_from_csv(str(csv_path))
+                console.print(f"Loaded loops from: {csv_path}")
 
-            # Generate plan
+            # Generate comprehensive plan
             progress.update(task, description="Mapping loops to codebase...")
-            planner = InjectionPlanner()
-            plan = planner.generate_quick_plan(manifest_obj, catalog)
+            planner = Planner()
+            growth_plan = planner.generate_quick_plan(manifest_obj, catalog)
 
-            # Save plan
-            progress.update(task, description="Saving injection plan...")
-            output.parent.mkdir(parents=True, exist_ok=True)
-            planner.save_plan(plan, output)
+            # Convert to markdown format
+            progress.update(task, description="Writing output...")
+            markdown_content = _format_comprehensive_plan_markdown(growth_plan)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(markdown_content)
 
             progress.update(task, description="Complete!")
 
@@ -576,26 +882,158 @@ def inject(
             console.print(f"[red]Error:[/red] {e}")
             raise typer.Exit(1)
 
-    console.print(f"\n[green]Success![/green] Injection plan saved to: {output}")
+    console.print(f"\n[green]Success![/green] Growth plan saved to: {output_path}")
 
     # Show summary
-    if plan.loop_plans:
-        table = Table(title="Injection Plan Summary")
+    if growth_plan.loop_plans:
+        table = Table(title="Growth Plan Summary")
         table.add_column("Loop", style="cyan")
         table.add_column("Priority", style="yellow")
         table.add_column("Changes", style="white")
 
-        for lp in plan.loop_plans[:5]:
+        for lp in growth_plan.loop_plans[:10]:
             table.add_row(
                 lp.loop_name,
                 str(lp.priority),
                 str(len(lp.code_changes)),
             )
 
-        if len(plan.loop_plans) > 5:
-            table.add_row("...", "...", f"+{len(plan.loop_plans) - 5} more")
+        if len(growth_plan.loop_plans) > 10:
+            table.add_row("...", "...", f"+{len(growth_plan.loop_plans) - 10} more")
 
         console.print(table)
+
+
+def _format_comprehensive_plan_markdown(plan) -> str:
+    """Format a Plan object as comprehensive markdown."""
+    from datetime import datetime
+
+    lines = [
+        "# Growth Loops Implementation Plan",
+        "",
+        f"*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
+        "*Mode: Comprehensive mapping (all applicable loops)*",
+        "",
+    ]
+
+    if plan.manifest_summary:
+        lines.extend(
+            [
+                "## Project Summary",
+                plan.manifest_summary,
+                "",
+                "---",
+                "",
+            ]
+        )
+
+    if plan.shared_infrastructure:
+        lines.extend(
+            [
+                "## Shared Infrastructure",
+                "",
+                "The following infrastructure changes are needed across multiple loops:",
+                "",
+            ]
+        )
+        for i, change in enumerate(plan.shared_infrastructure, 1):
+            lines.append(f"{i}. {change.description}")
+            if change.file_path:
+                lines.append(f"   - File: `{change.file_path}`")
+        lines.extend(["", "---", ""])
+
+    if plan.loop_plans:
+        lines.extend(
+            [
+                "## Growth Loops",
+                "",
+            ]
+        )
+
+        for i, lp in enumerate(plan.loop_plans, 1):
+            lines.extend(
+                [
+                    f"## Loop {i}: {lp.loop_name}",
+                    "",
+                    f"**Loop ID:** {lp.loop_id}",
+                    f"**Priority:** {lp.priority}/10",
+                    f"**Complexity:** {lp.estimated_complexity}",
+                    "",
+                ]
+            )
+
+            if lp.code_changes:
+                lines.append("### Implementation Steps")
+                for j, change in enumerate(lp.code_changes, 1):
+                    lines.append(f"{j}. {change.description}")
+                    if change.file_path:
+                        lines.append(f"   - File: `{change.file_path}`")
+                    if change.code_snippet:
+                        lines.append("   ```")
+                        lines.append(change.code_snippet)
+                        lines.append("   ```")
+                lines.append("")
+
+            if lp.new_dependencies:
+                lines.extend(
+                    [
+                        "### New Dependencies",
+                        "",
+                    ]
+                )
+                for dep in lp.new_dependencies:
+                    lines.append(f"- {dep}")
+                lines.append("")
+
+            if lp.testing_notes:
+                lines.extend(
+                    [
+                        "### Testing Notes",
+                        lp.testing_notes,
+                        "",
+                    ]
+                )
+
+            lines.append("---")
+            lines.append("")
+
+    if plan.implementation_order:
+        lines.extend(
+            [
+                "## Recommended Implementation Order",
+                "",
+                "Based on dependencies and priorities:",
+                "",
+            ]
+        )
+        for i, loop_id in enumerate(plan.implementation_order, 1):
+            # Find loop name
+            loop_name = next((lp.loop_name for lp in plan.loop_plans if lp.loop_id == loop_id), loop_id)
+            lines.append(f"{i}. {loop_name} (`{loop_id}`)")
+        lines.append("")
+
+    lines.append("*Growth loops plan generated by skene-growth (comprehensive mapping mode).*")
+
+    return "\n".join(lines)
+
+
+def _show_plan_loops_summary(selected_loops):
+    """Display a summary of the selected growth loops."""
+    table = Table(title="Selected Growth Loops")
+    table.add_column("#", style="dim")
+    table.add_column("Loop Name", style="cyan")
+    table.add_column("PLG Stage", style="yellow")
+    table.add_column("Goal", style="white")
+
+    for i, loop in enumerate(selected_loops, 1):
+        table.add_row(
+            str(i),
+            loop.loop_name[:40] + "..." if len(loop.loop_name) > 40 else loop.loop_name,
+            loop.plg_stage,
+            loop.goal[:30] + "..." if len(loop.goal) > 30 else loop.goal,
+        )
+
+    console.print(table)
 
 
 @app.command()
@@ -609,7 +1047,6 @@ def objectives(
     provider: Optional[str] = typer.Option(
         None,
         "--provider",
-        "-p",
         help="LLM provider to use (openai, gemini, anthropic, ollama)",
     ),
     model: Optional[str] = typer.Option(
@@ -646,11 +1083,11 @@ def objectives(
         "--verbose",
         help="Enable verbose output",
     ),
-    guidance: Optional[str] = typer.Option(
+    prompt: Optional[str] = typer.Option(
         None,
-        "-g",
-        "--guidance",
-        help="Guidance text to influence objective selection (e.g., 'Focus on onboarding' or 'Prioritize retention "
+        "-p",
+        "--prompt",
+        help="Prompt text to influence objective selection (e.g., 'Focus on onboarding' or 'Prioritize retention "
         "metrics')",
     ),
 ):
@@ -669,8 +1106,8 @@ def objectives(
         # Specify quarter label
         uvx skene-growth objectives --quarter "Q1 2024"
 
-        # With guidance to focus on specific areas
-        uvx skene-growth objectives --guidance "I want all objectives to focus on onboarding"
+        # With prompt to focus on specific areas
+        uvx skene-growth objectives --prompt "I want all objectives to focus on onboarding"
 
         # With specific files
         uvx skene-growth objectives --manifest ./my-manifest.json --template ./my-template.json
@@ -747,7 +1184,7 @@ def objectives(
             f"Provider: {resolved_provider}\n"
             f"Model: {resolved_model}\n"
             f"Quarter: {quarter or 'Not specified'}\n"
-            f"Guidance: {guidance or 'Not specified'}",
+            f"Prompt: {prompt or 'Not specified'}",
             title="skene-growth",
         )
     )
@@ -762,7 +1199,7 @@ def objectives(
             resolved_provider,
             resolved_model,
             quarter,
-            guidance,
+            prompt,
             verbose,
         )
     )
@@ -776,7 +1213,7 @@ async def _run_objectives(
     provider: str,
     model: str,
     quarter: Optional[str],
-    guidance: Optional[str],
+    prompt: Optional[str],
     verbose: bool,
 ):
     """Run the async objectives generation."""
@@ -809,7 +1246,7 @@ async def _run_objectives(
                 manifest_data=manifest_data,
                 template_data=template_data,
                 quarter=quarter,
-                guidance=guidance,
+                guidance=prompt,
             )
 
             # Write output
@@ -1023,6 +1460,16 @@ def daily_logs(
         "--context",
         help="Path to skene-context directory (default: ./skene-context)",
     ),
+    list_metrics: bool = typer.Option(
+        False,
+        "--list-metrics",
+        help="List metrics that need values (useful for non-interactive mode)",
+    ),
+    values: Optional[str] = typer.Option(
+        None,
+        "--values",
+        help='JSON string with metric values: \'{"metric_id": "value", ...}\' (enables non-interactive mode)',
+    ),
 ):
     """
     Fetch data from sources defined in skene.json and store in daily logs.
@@ -1034,21 +1481,78 @@ def daily_logs(
     4. Stores results in skene-context/daily_logs/daily_logs_YYYY_MM_DD.json
 
     If files are not found or sources are missing, you'll be prompted to provide
-    the necessary information interactively.
+    the necessary information interactively. Use --values for non-interactive mode.
 
     Examples:
 
-        # Use default skene-context directory
+        # Use default skene-context directory (interactive)
         uvx skene-growth daily-logs
 
         # Specify custom skene-context path
         uvx skene-growth daily-logs --context ./my-context
+
+        # List required metrics (for AI/non-interactive use)
+        uvx skene-growth daily-logs --list-metrics
+
+        # Non-interactive mode with JSON string (--values automatically enables non-interactive)
+        uvx skene-growth daily-logs --values '{"user_acquisition": "150", "retention_rate": "95%"}'
     """
-    from skene_growth.logs import fetch_daily_logs
+    import json
+
+    from skene_growth.logs import fetch_daily_logs, list_required_metrics
 
     try:
         context_path = skene_context or Path("./skene-context")
-        log_file_path = fetch_daily_logs(context_path)
+
+        # Handle --list-metrics flag
+        if list_metrics:
+            required_metrics = list_required_metrics(context_path)
+            if not required_metrics:
+                console.print("[green]✓[/green] No metrics need values (all already logged today)")
+                return
+
+            console.print(f"\n[bold]Required metrics ({len(required_metrics)}):[/bold]\n")
+            metrics_output = []
+            for metric in required_metrics:
+                metric_info = {
+                    "metric_id": metric["metric_id"],
+                    "name": metric["name"],
+                    "source_id": metric.get("source_id"),
+                    "target": metric.get("target"),
+                }
+                metrics_output.append(metric_info)
+                console.print(f"  • [bold]{metric['metric_id']}[/bold] ({metric['name']})")
+                if metric.get("source_id"):
+                    console.print(f"    Source: {metric['source_id']}")
+                if metric.get("target"):
+                    console.print(f"    Target: {metric['target']}")
+
+            # Also output as JSON for easy parsing
+            console.print("\n[dim]JSON format:[/dim]")
+            console.print(json.dumps(metrics_output, indent=2))
+            return
+
+        # Parse provided values (if present, enables non-interactive mode)
+        provided_values = None
+        non_interactive = False
+
+        if values:
+            non_interactive = True
+            try:
+                parsed = json.loads(values)
+                if not isinstance(parsed, dict):
+                    console.print(f"[red]Error:[/red] --values must be a JSON object, got {type(parsed).__name__}")
+                    raise typer.Exit(1)
+                provided_values = parsed
+            except json.JSONDecodeError as e:
+                console.print(f"[red]Error:[/red] Invalid JSON in --values: {e}")
+                raise typer.Exit(1)
+
+        log_file_path = fetch_daily_logs(
+            context_path,
+            provided_values=provided_values,
+            non_interactive=non_interactive,
+        )
 
         if log_file_path:
             console.print(f"\n[green]✓[/green] Daily logs successfully created: {log_file_path}")

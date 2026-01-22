@@ -22,6 +22,10 @@ share/python-wheels/
 *.egg
 /MANIFEST
 
+#generated test files
+uv.lock
+skene-context/
+
 # Virtual environments
 .env
 .venv

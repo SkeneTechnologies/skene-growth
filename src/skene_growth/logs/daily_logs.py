@@ -193,8 +193,39 @@ def _get_source_config(source_id: str, skene_config: dict[str, Any]) -> dict[str
     return None
 
 
-def _prompt_for_manual_value(metric_id: str, source_id: str | None = None, reason: str = "", example: str | None = None) -> str:
-    """Prompt user to manually enter a metric value (accepts any text)."""
+def _prompt_for_manual_value(
+    metric_id: str, 
+    source_id: str | None = None, 
+    reason: str = "", 
+    example: str | None = None,
+    provided_values: dict[str, str] | None = None,
+    non_interactive: bool = False,
+) -> str:
+    """Prompt user to manually enter a metric value (accepts any text).
+    
+    Args:
+        metric_id: The metric identifier
+        source_id: Optional source ID
+        reason: Optional reason message
+        example: Optional example value
+        provided_values: Optional dict of metric_id -> value for non-interactive mode
+        non_interactive: If True, raise error instead of prompting when value not provided
+    
+    Returns:
+        The metric value as a string
+    """
+    # Check if value was provided in non-interactive mode
+    if provided_values is not None and metric_id in provided_values:
+        return provided_values[metric_id]
+    
+    # In non-interactive mode, raise error if value not provided
+    if non_interactive:
+        raise ValueError(
+            f"Metric '{metric_id}' requires a value but none was provided. "
+            f"Use --values or --values-file to provide values, or use --list-metrics to see required metrics."
+        )
+    
+    # Interactive mode: prompt user
     if reason:
         console.print(f"[yellow]{reason}[/yellow]")
     
@@ -343,7 +374,12 @@ def _fetch_from_database(source_config: dict[str, Any], metric_id: str) -> str |
         return None
 
 
-def _fetch_data_from_source(source_config: dict[str, Any], metric_id: str) -> dict[str, Any]:
+def _fetch_data_from_source(
+    source_config: dict[str, Any], 
+    metric_id: str,
+    provided_values: dict[str, str] | None = None,
+    non_interactive: bool = False,
+) -> dict[str, Any]:
     """
     Fetch data from a configured source.
     
@@ -353,6 +389,8 @@ def _fetch_data_from_source(source_config: dict[str, Any], metric_id: str) -> di
     Args:
         source_config: Source configuration from skene.json
         metric_id: The metric identifier to fetch
+        provided_values: Optional dict of metric_id -> value for non-interactive mode
+        non_interactive: If True, raise error instead of prompting when value not provided
     
     Returns:
         Data point dict with timestamp, metric_id, value, source, and status
@@ -381,12 +419,19 @@ def _fetch_data_from_source(source_config: dict[str, Any], metric_id: str) -> di
     # Fallback to manual input if automatic fetch failed or source is manual type
     if value is None:
         if source_type == "manual":
-            value = _prompt_for_manual_value(metric_id, source_id)
+            value = _prompt_for_manual_value(
+                metric_id, 
+                source_id,
+                provided_values=provided_values,
+                non_interactive=non_interactive,
+            )
         else:
             value = _prompt_for_manual_value(
                 metric_id, 
                 source_id, 
-                reason=f"Could not fetch automatically from {source_type} source."
+                reason=f"Could not fetch automatically from {source_type} source.",
+                provided_values=provided_values,
+                non_interactive=non_interactive,
             )
         fetch_method = "manual"
         # When manually entered, source is N/A
@@ -402,12 +447,22 @@ def _fetch_data_from_source(source_config: dict[str, Any], metric_id: str) -> di
     }
 
 
-def _get_daily_log_file_path(skene_context_path: Path) -> Path:
-    """Get the path for today's daily log file."""
-    daily_logs_dir = skene_context_path / "daily_logs"
-    daily_logs_dir.mkdir(parents=True, exist_ok=True)
+def _get_daily_log_file_path(skene_context_path: Path, create_dir: bool = True) -> Path:
+    """Get the path for today's daily log file.
     
-    today = datetime.now()
+    Args:
+        skene_context_path: Path to skene-context directory
+        create_dir: If True, create the daily_logs directory if it doesn't exist
+    
+    Returns:
+        Path to today's daily log file
+    """
+    daily_logs_dir = skene_context_path / "daily_logs"
+    if create_dir:
+        daily_logs_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Use UTC for consistency with timestamps
+    today = datetime.utcnow()
     filename = f"daily_logs_{today.year:04d}_{today.month:02d}_{today.day:02d}.json"
     
     return daily_logs_dir / filename
@@ -418,7 +473,79 @@ def _get_existing_metric_ids(existing_data: list[dict[str, Any]]) -> set[str]:
     return {entry.get("metric_id") for entry in existing_data if isinstance(entry, dict) and entry.get("metric_id")}
 
 
-def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
+def list_required_metrics(skene_context_path: Path | str | None = None) -> list[dict[str, Any]]:
+    """
+    List metrics that need values for today's daily log.
+    
+    This is useful for non-interactive mode to determine what values need to be provided.
+    
+    Args:
+        skene_context_path: Path to skene-context directory. Defaults to ./skene-context
+    
+    Returns:
+        List of dicts with metric_id, name, source_id, and target (if available)
+    """
+    # Determine skene-context path
+    if skene_context_path is None:
+        skene_context_path = Path("./skene-context")
+    else:
+        skene_context_path = Path(skene_context_path)
+    
+    if not skene_context_path.exists():
+        raise FileNotFoundError(f"skene-context directory not found at {skene_context_path}")
+    
+    # Load growth objectives
+    objectives = _load_growth_objectives(skene_context_path)
+    
+    if not objectives:
+        return []
+    
+    # Get today's log file path (don't create directory for read-only operation)
+    log_file_path = _get_daily_log_file_path(skene_context_path, create_dir=False)
+    
+    # Check existing data for deduplication
+    existing_data: list[dict[str, Any]] = []
+    if log_file_path.exists():
+        try:
+            loaded = _load_json_file(log_file_path)
+            if isinstance(loaded, list):
+                existing_data = loaded
+        except Exception:
+            pass
+    
+    existing_metric_ids = _get_existing_metric_ids(existing_data)
+    
+    # Build list of required metrics
+    required_metrics = []
+    for objective in objectives:
+        if not isinstance(objective, dict):
+            continue
+        
+        metric_id = objective.get("metric_id") or objective.get("id") or objective.get("name")
+        if not metric_id:
+            continue
+        
+        # Skip if already logged today
+        if metric_id in existing_metric_ids:
+            continue
+        
+        source_id = objective.get("source") or objective.get("source_id")
+        
+        required_metrics.append({
+            "metric_id": metric_id,
+            "name": objective.get("name", metric_id),
+            "source_id": source_id,
+            "target": objective.get("target"),
+        })
+    
+    return required_metrics
+
+
+def fetch_daily_logs(
+    skene_context_path: Path | str | None = None,
+    provided_values: dict[str, str] | None = None,
+    non_interactive: bool = False,
+) -> Path:
     """
     Fetch data from sources defined in skene.json and store in daily logs.
     
@@ -434,13 +561,15 @@ def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
     
     Args:
         skene_context_path: Path to skene-context directory. Defaults to ./skene-context
+        provided_values: Optional dict mapping metric_id -> value for non-interactive mode
+        non_interactive: If True, raise errors instead of prompting when values are missing
     
     Returns:
         Path to the created/updated daily log file
     
     Raises:
         FileNotFoundError: If growth objectives file is not found
-        ValueError: If configuration is invalid
+        ValueError: If configuration is invalid or required values missing in non-interactive mode
     """
     # Determine skene-context path
     if skene_context_path is None:
@@ -449,6 +578,8 @@ def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
         skene_context_path = Path(skene_context_path)
     
     if not skene_context_path.exists():
+        if non_interactive:
+            raise FileNotFoundError(f"skene-context directory not found at {skene_context_path}")
         console.print(f"[yellow]Warning:[/yellow] skene-context directory not found at {skene_context_path}")
         user_path = Prompt.ask("Path to skene-context directory", default=str(skene_context_path))
         skene_context_path = Path(user_path)
@@ -530,7 +661,13 @@ def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
             
             # Get example from objective if available (from Target field)
             example = objective.get("target")
-            value = _prompt_for_manual_value(metric_id, source_id, example=example)
+            value = _prompt_for_manual_value(
+                metric_id, 
+                source_id, 
+                example=example,
+                provided_values=provided_values,
+                non_interactive=non_interactive,
+            )
             entry = {
                 "timestamp": datetime.utcnow().isoformat() + "Z",
                 "metric_id": metric_id,
@@ -541,7 +678,7 @@ def fetch_daily_logs(skene_context_path: Path | str | None = None) -> Path:
             }
         else:
             # Fetch data from source (with manual fallback)
-            entry = _fetch_data_from_source(source_config, metric_id)
+            entry = _fetch_data_from_source(source_config, metric_id, provided_values, non_interactive)
         
         new_entries.append(entry)
         console.print(f"[green]✓[/green] Logged metric '{metric_id}': {entry['value']}")
