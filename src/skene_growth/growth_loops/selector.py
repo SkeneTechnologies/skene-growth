@@ -86,11 +86,16 @@ Select exactly ONE growth loop and provide:
 2. Why this specific loop was selected for THIS project (be specific)
 3. 3-5 implementation steps tailored to the codebase
 4. 2-3 success metrics to track
+5. A technical implementation example using the project's tech stack
 
 **IMPORTANT:**
 When providing explanations, implementation steps, and success metrics, always refer to the loop by its
 name. For example, mention "The [Loop Name] loop" or "[Loop Name]" when explaining why it was selected, what it does, or
 how to implement it. This helps readers understand which specific loop the information relates to.
+
+For the **technical_example**, write a code snippet or detailed technical implementation guide that demonstrates
+how to implement this loop using the project's detected tech stack (Framework, Language, Database, etc.).
+The example should be concrete, practical, and directly applicable to the codebase.
 
 Return ONLY a JSON object (not an array) in this format:
 ```json
@@ -107,7 +112,8 @@ Return ONLY a JSON object (not an array) in this format:
   "success_metrics": [
     "Metric 1: How to measure [Loop Name] effectiveness...",
     "Metric 2: How to measure..."
-  ]
+  ],
+  "technical_example": "Code snippet or detailed technical implementation using the project's tech stack. Include file names, function signatures, and actual code that demonstrates the implementation."
 }}
 ```
 
@@ -236,6 +242,7 @@ def _parse_single_loop_response(
         why_selected=data.get("why_selected", ""),
         implementation_steps=data.get("implementation_steps", []),
         success_metrics=data.get("success_metrics", []),
+        technical_example=data.get("technical_example", ""),
     )
 
 
@@ -303,6 +310,15 @@ def _format_actionable_markdown(
             for j, step in enumerate(loop.implementation_steps, 1):
                 lines.append(f"{j}. {step}")
             lines.append("")
+
+        if loop.technical_example:
+            lines.extend(
+                [
+                    "### Technical Implementation Example",
+                    loop.technical_example,
+                    "",
+                ]
+            )
 
         if loop.success_metrics:
             lines.append("### Success Metrics")

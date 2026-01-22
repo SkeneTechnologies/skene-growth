@@ -687,13 +687,8 @@ async def _run_plan_llm_mode(
     """Run LLM-based intelligent growth loops selection (3 loops)."""
     from pydantic import SecretStr
 
-    from skene_growth.growth_loops import (
-        load_daily_logs_summary,
-        select_growth_loops,
-        write_growth_loops_output,
-    )
     from skene_growth.llm import create_llm_client
-    from skene_growth.planner import GrowthLoopCatalog
+    from skene_growth.planner import GrowthLoopCatalog, load_daily_logs_summary, Planner
 
     # Check API key for LLM mode
     is_local_provider = provider.lower() in (
@@ -801,23 +796,23 @@ async def _run_plan_llm_mode(
             progress.update(task, description="Connecting to LLM provider...")
             llm = create_llm_client(provider, SecretStr(api_key), model)
 
-            # Define progress callback
-            def on_progress(message: str, pct: float):
-                progress.update(task, description=message)
+            # Initialize planner
+            planner = Planner()
 
             # Select growth loops (3 iterations)
-            selected_loops = await select_growth_loops(
+            progress.update(task, description="Selecting growth loops...")
+            selected_loops = await planner.select_loops(
                 llm=llm,
                 manifest_data=manifest_data,
                 objectives_content=objectives_content,
-                csv_loops=csv_loops,
+                catalog=catalog,
                 daily_logs_summary=daily_logs_summary,
-                on_progress=on_progress,
+                num_loops=3,
             )
 
             # Write output
             progress.update(task, description="Writing output...")
-            write_growth_loops_output(
+            planner.write_selected_loops_markdown(
                 selected_loops=selected_loops,
                 manifest_data=manifest_data,
                 output_path=output_path,

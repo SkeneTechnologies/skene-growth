@@ -1,14 +1,12 @@
 """
 Growth loop to codebase mapper.
 
-Maps growth loops to potential injection points in a codebase.
+Maps growth loops to potential injection points in a codebase using heuristic keyword matching.
 """
 
 from pydantic import BaseModel, Field
 
-from skene_growth.codebase import CodebaseExplorer
-from skene_growth.llm import LLMClient
-from skene_growth.manifest import GrowthHub, GrowthManifest
+from skene_growth.manifest import GrowthHub
 from skene_growth.planner.loops import GrowthLoop
 
 
@@ -49,130 +47,15 @@ class LoopMapping(BaseModel):
 
 class LoopMapper:
     """
-    Maps growth loops to potential injection points in a codebase.
-
-    Uses the growth manifest and codebase explorer to identify
-    where growth loops could be implemented.
+    Maps growth loops to potential injection points using heuristic keyword matching.
 
     Example:
         mapper = LoopMapper()
-        mappings = await mapper.map_loops(
-            manifest=manifest,
-            loops=[invite_loop, share_loop],
-            codebase=codebase,
-            llm=llm,
+        mappings = mapper.map_from_hubs(
+            growth_hubs=manifest.growth_hubs,
+            loops=catalog.get_all(),
         )
     """
-
-    # Prompt for mapping loops to code
-    MAPPING_PROMPT = """
-Analyze this codebase and identify where the following growth loop could be implemented.
-
-## Growth Loop: {loop_name}
-- **Category**: {category}
-- **Description**: {description}
-- **Trigger**: {trigger}
-- **Action**: {action}
-- **Reward**: {reward}
-
-## Required Components
-{required_components}
-
-## Implementation Hints
-{implementation_hints}
-
-## Codebase Context
-{codebase_context}
-
-## Growth Hubs Already Identified
-{growth_hubs}
-
-## Task
-1. Determine if this growth loop is applicable to this codebase
-2. If applicable, identify specific files/locations where it could be implemented
-3. For each location, explain what changes would be needed
-4. Assess priority based on potential impact and implementation effort
-
-Return your analysis as JSON with:
-- is_applicable: boolean
-- existing_implementation: string or null (if already implemented)
-- injection_points: array of {{file_path, location, confidence, rationale, changes_required}}
-- priority: number 0-10
-"""
-
-    async def map_loop(
-        self,
-        loop: GrowthLoop,
-        manifest: GrowthManifest,
-        codebase: CodebaseExplorer,
-        llm: LLMClient,
-    ) -> LoopMapping:
-        """
-        Map a single growth loop to the codebase.
-
-        Args:
-            loop: The growth loop to map
-            manifest: The project's growth manifest
-            codebase: Access to the codebase
-            llm: LLM client for analysis
-
-        Returns:
-            Mapping with injection points
-        """
-        # Get codebase context
-        tree_result = await codebase.get_directory_tree(".", max_depth=3)
-        codebase_context = tree_result.get("tree", "")
-
-        # Format growth hubs
-        growth_hubs_text = "\n".join(
-            [f"- {hub.feature_name}: {hub.detected_intent} ({hub.file_path})" for hub in manifest.growth_hubs]
-        )
-
-        # Build prompt
-        prompt = self.MAPPING_PROMPT.format(
-            loop_name=loop.name,
-            category=loop.category,
-            description=loop.description,
-            trigger=loop.trigger,
-            action=loop.action,
-            reward=loop.reward,
-            required_components="\n".join(f"- {c}" for c in loop.required_components),
-            implementation_hints="\n".join(f"- {h}" for h in loop.implementation_hints),
-            codebase_context=codebase_context,
-            growth_hubs=growth_hubs_text or "None identified",
-        )
-
-        # Get LLM analysis
-        response = await llm.generate_content(prompt)
-
-        # Parse response
-        mapping = self._parse_mapping_response(response, loop)
-        return mapping
-
-    async def map_loops(
-        self,
-        loops: list[GrowthLoop],
-        manifest: GrowthManifest,
-        codebase: CodebaseExplorer,
-        llm: LLMClient,
-    ) -> list[LoopMapping]:
-        """
-        Map multiple growth loops to the codebase.
-
-        Args:
-            loops: List of growth loops to map
-            manifest: The project's growth manifest
-            codebase: Access to the codebase
-            llm: LLM client for analysis
-
-        Returns:
-            List of mappings
-        """
-        mappings = []
-        for loop in loops:
-            mapping = await self.map_loop(loop, manifest, codebase, llm)
-            mappings.append(mapping)
-        return mappings
 
     def map_from_hubs(
         self,
@@ -255,47 +138,3 @@ Return your analysis as JSON with:
                 matching.append(hub)
 
         return matching
-
-    def _parse_mapping_response(self, response: str, loop: GrowthLoop) -> LoopMapping:
-        """Parse LLM response into LoopMapping."""
-        import json
-        import re
-
-        # Try to extract JSON from response
-        try:
-            data = json.loads(response.strip())
-        except json.JSONDecodeError:
-            # Try to find JSON in response
-            json_match = re.search(r"\{[\s\S]*\}", response)
-            if json_match:
-                try:
-                    data = json.loads(json_match.group(0))
-                except json.JSONDecodeError:
-                    data = {}
-            else:
-                data = {}
-
-        # Build mapping from parsed data
-        injection_points = []
-        for point in data.get("injection_points", []):
-            try:
-                injection_points.append(
-                    InjectionPoint(
-                        file_path=point.get("file_path", "unknown"),
-                        location=point.get("location", "unknown"),
-                        confidence=float(point.get("confidence", 0.5)),
-                        rationale=point.get("rationale", ""),
-                        changes_required=point.get("changes_required", []),
-                    )
-                )
-            except Exception:
-                continue
-
-        return LoopMapping(
-            loop_id=loop.id,
-            loop_name=loop.name,
-            is_applicable=data.get("is_applicable", False),
-            injection_points=injection_points,
-            existing_implementation=data.get("existing_implementation"),
-            priority=data.get("priority", 0),
-        )

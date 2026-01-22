@@ -1,8 +1,13 @@
 """
-Growth loops selection module.
+Growth loops selection module (INTERNAL).
 
-Provides LLM-based intelligent selection of growth loops
-based on manifest, objectives, and daily logs context.
+DEPRECATED: This module is internal only. Use skene_growth.planner.Planner instead.
+
+The Planner class now includes selection methods:
+- Planner.select_loops() - LLM-based loop selection
+- Planner.write_selected_loops_markdown() - Write results to markdown
+
+For backwards compatibility only. This module is not exported in the public API.
 """
 
 from skene_growth.growth_loops.selector import (
