@@ -1,6 +1,6 @@
 [project]
 name = "skene-growth"
-version = "0.1.7"
+version = "0.1.7b1"
 description = "PLG analysis toolkit for codebases - analyze code, detect growth opportunities, generate documentation"
 readme = "README.md"
 license = { text = "MIT" }
@@ -8,7 +8,7 @@ requires-python = ">=3.11"
 authors = [
     { name = "Skene Technologies" }
 ]
-keywords = ["plg", "growth", "codebase", "analysis", "documentation", "llm"]
+keywords = ["plg", "growth", "codebase", "analysis", "documentation", "llm", "mcp", "mcp-server", "ai-tools", "developer-tools"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -38,9 +38,14 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
 ]
+mcp = [
+    "mcp>=1.0.0",
+    "xxhash>=3.0",
+]
 
 [project.scripts]
 skene-growth = "skene_growth.cli.main:app"
+skene-growth-mcp = "skene_growth.mcp:main"
 
 [project.urls]
 Homepage = "https://www.skene.ai"

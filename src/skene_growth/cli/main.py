@@ -762,7 +762,7 @@ async def _run_plan_llm_mode(
                 except Exception as e:
                     if verbose:
                         console.print(f"[dim]importlib.resources method failed: {e}[/dim]")
-                
+
                 if not csv_loaded:
                     try:
                         # Fall back to finding the file relative to the package
@@ -778,7 +778,7 @@ async def _run_plan_llm_mode(
                     except Exception as e:
                         if verbose:
                             console.print(f"[dim]Package path method failed: {e}[/dim]")
-                
+
                 if not csv_loaded:
                     # Final fallback to relative path
                     try:
@@ -1129,9 +1129,7 @@ def objectives(
                 break
 
     if manifest is None or not manifest.exists():
-        console.print(
-            "[red]Error:[/red] No manifest found. Run 'skene-growth analyze' first or specify --manifest."
-        )
+        console.print("[red]Error:[/red] No manifest found. Run 'skene-growth analyze' first or specify --manifest.")
         raise typer.Exit(1)
 
     # Auto-detect template
@@ -1146,9 +1144,7 @@ def objectives(
                 break
 
     if template is None or not template.exists():
-        console.print(
-            "[red]Error:[/red] No template found. Run 'skene-growth analyze' first or specify --template."
-        )
+        console.print("[red]Error:[/red] No template found. Run 'skene-growth analyze' first or specify --template.")
         raise typer.Exit(1)
 
     # LM Studio and Ollama don't require an API key (local servers)
@@ -1496,14 +1492,14 @@ def daily_logs(
 
     try:
         context_path = skene_context or Path("./skene-context")
-        
+
         # Handle --list-metrics flag
         if list_metrics:
             required_metrics = list_required_metrics(context_path)
             if not required_metrics:
                 console.print("[green]✓[/green] No metrics need values (all already logged today)")
                 return
-            
+
             console.print(f"\n[bold]Required metrics ({len(required_metrics)}):[/bold]\n")
             metrics_output = []
             for metric in required_metrics:
@@ -1519,16 +1515,16 @@ def daily_logs(
                     console.print(f"    Source: {metric['source_id']}")
                 if metric.get("target"):
                     console.print(f"    Target: {metric['target']}")
-            
+
             # Also output as JSON for easy parsing
             console.print(f"\n[dim]JSON format:[/dim]")
             console.print(json.dumps(metrics_output, indent=2))
             return
-        
+
         # Parse provided values (if present, enables non-interactive mode)
         provided_values = None
         non_interactive = False
-        
+
         if values:
             non_interactive = True
             try:
@@ -1540,7 +1536,7 @@ def daily_logs(
             except json.JSONDecodeError as e:
                 console.print(f"[red]Error:[/red] Invalid JSON in --values: {e}")
                 raise typer.Exit(1)
-        
+
         log_file_path = fetch_daily_logs(
             context_path,
             provided_values=provided_values,
