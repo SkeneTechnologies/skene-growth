@@ -296,6 +296,10 @@ async def _run_analysis(
 
             template_data = await _write_growth_template(llm, manifest_data, business_type)
 
+            # Generate HTML report
+            progress.update(task, description="Generating HTML report...")
+            _write_html_report(manifest_data, output)
+
             progress.update(task, description="Complete!")
 
         except Exception as e:
@@ -386,6 +390,29 @@ def _write_manifest_markdown(manifest_data: dict, output_path: Path) -> None:
         console.print(f"[green]Markdown saved to:[/green] {markdown_path}")
     except Exception as exc:
         console.print(f"[yellow]Warning:[/yellow] Failed to generate markdown: {exc}")
+
+
+def _write_html_report(manifest_data: dict, manifest_path: Path) -> None:
+    """Generate and save the PLG readiness HTML report."""
+    from skene_growth.manifest import DocsManifest, GrowthManifest
+    from skene_growth.reports import generate_html_report
+
+    try:
+        # Parse manifest
+        if manifest_data.get("version") == "2.0" or "product_overview" in manifest_data or "features" in manifest_data:
+            manifest = DocsManifest.model_validate(manifest_data)
+        else:
+            manifest = GrowthManifest.model_validate(manifest_data)
+
+        # Generate HTML report
+        html_content = generate_html_report(manifest)
+
+        # Save to same directory as manifest
+        html_path = manifest_path.parent / "PLG_READINESS_REPORT.html"
+        html_path.write_text(html_content, encoding="utf-8")
+        console.print(f"[green]HTML report saved to:[/green] {html_path}")
+    except Exception as exc:
+        console.print(f"[yellow]Warning:[/yellow] Failed to generate HTML report: {exc}")
 
 
 def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
