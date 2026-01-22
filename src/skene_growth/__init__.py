@@ -17,17 +17,6 @@ from skene_growth.codebase import (
 )
 from skene_growth.config import Config, load_config
 from skene_growth.docs import DocsGenerator, PSEOBuilder
-from skene_growth.planner import (
-    CodeChange,
-    GrowthLoop,
-    GrowthLoopCatalog,
-    Plan,
-    Planner,
-    InjectionPoint,
-    LoopPlan,
-    LoopMapper,
-    LoopMapping,
-)
 from skene_growth.growth_loops import (
     select_growth_loops,
     select_single_loop,
@@ -39,6 +28,17 @@ from skene_growth.manifest import (
     GrowthManifest,
     GTMGap,
     TechStack,
+)
+from skene_growth.planner import (
+    CodeChange,
+    GrowthLoop,
+    GrowthLoopCatalog,
+    InjectionPoint,
+    LoopMapper,
+    LoopMapping,
+    LoopPlan,
+    Plan,
+    Planner,
 )
 from skene_growth.strategies import (
     AnalysisContext,

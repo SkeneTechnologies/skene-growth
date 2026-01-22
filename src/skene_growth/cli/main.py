@@ -846,8 +846,8 @@ def _run_plan_comprehensive_mode(
     output_path: Path,
 ):
     """Run comprehensive mapping mode for growth loops."""
-    from skene_growth.planner import GrowthLoopCatalog, Planner
     from skene_growth.manifest import GrowthManifest
+    from skene_growth.planner import GrowthLoopCatalog, Planner
 
     with Progress(
         SpinnerColumn(),
@@ -922,21 +922,25 @@ def _format_comprehensive_plan_markdown(plan) -> str:
     ]
 
     if plan.manifest_summary:
-        lines.extend([
-            "## Project Summary",
-            plan.manifest_summary,
-            "",
-            "---",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Project Summary",
+                plan.manifest_summary,
+                "",
+                "---",
+                "",
+            ]
+        )
 
     if plan.shared_infrastructure:
-        lines.extend([
-            "## Shared Infrastructure",
-            "",
-            "The following infrastructure changes are needed across multiple loops:",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Shared Infrastructure",
+                "",
+                "The following infrastructure changes are needed across multiple loops:",
+                "",
+            ]
+        )
         for i, change in enumerate(plan.shared_infrastructure, 1):
             lines.append(f"{i}. {change.description}")
             if change.file_path:
@@ -944,20 +948,24 @@ def _format_comprehensive_plan_markdown(plan) -> str:
         lines.extend(["", "---", ""])
 
     if plan.loop_plans:
-        lines.extend([
-            "## Growth Loops",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Growth Loops",
+                "",
+            ]
+        )
 
         for i, lp in enumerate(plan.loop_plans, 1):
-            lines.extend([
-                f"## Loop {i}: {lp.loop_name}",
-                "",
-                f"**Loop ID:** {lp.loop_id}",
-                f"**Priority:** {lp.priority}/10",
-                f"**Complexity:** {lp.estimated_complexity}",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"## Loop {i}: {lp.loop_name}",
+                    "",
+                    f"**Loop ID:** {lp.loop_id}",
+                    f"**Priority:** {lp.priority}/10",
+                    f"**Complexity:** {lp.estimated_complexity}",
+                    "",
+                ]
+            )
 
             if lp.code_changes:
                 lines.append("### Implementation Steps")
@@ -966,37 +974,43 @@ def _format_comprehensive_plan_markdown(plan) -> str:
                     if change.file_path:
                         lines.append(f"   - File: `{change.file_path}`")
                     if change.code_snippet:
-                        lines.append(f"   ```")
+                        lines.append("   ```")
                         lines.append(change.code_snippet)
-                        lines.append(f"   ```")
+                        lines.append("   ```")
                 lines.append("")
 
             if lp.new_dependencies:
-                lines.extend([
-                    "### New Dependencies",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "### New Dependencies",
+                        "",
+                    ]
+                )
                 for dep in lp.new_dependencies:
                     lines.append(f"- {dep}")
                 lines.append("")
 
             if lp.testing_notes:
-                lines.extend([
-                    "### Testing Notes",
-                    lp.testing_notes,
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "### Testing Notes",
+                        lp.testing_notes,
+                        "",
+                    ]
+                )
 
             lines.append("---")
             lines.append("")
 
     if plan.implementation_order:
-        lines.extend([
-            "## Recommended Implementation Order",
-            "",
-            "Based on dependencies and priorities:",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Recommended Implementation Order",
+                "",
+                "Based on dependencies and priorities:",
+                "",
+            ]
+        )
         for i, loop_id in enumerate(plan.implementation_order, 1):
             # Find loop name
             loop_name = next((lp.loop_name for lp in plan.loop_plans if lp.loop_id == loop_id), loop_id)
@@ -1078,7 +1092,8 @@ def objectives(
         None,
         "-p",
         "--prompt",
-        help="Prompt text to influence objective selection (e.g., 'Focus on onboarding' or 'Prioritize retention metrics')",
+        help="Prompt text to influence objective selection (e.g., 'Focus on onboarding' or 'Prioritize retention "
+        "metrics')",
     ),
 ):
     """
@@ -1458,7 +1473,7 @@ def daily_logs(
     values: Optional[str] = typer.Option(
         None,
         "--values",
-        help="JSON string with metric values: '{\"metric_id\": \"value\", ...}' (enables non-interactive mode)",
+        help='JSON string with metric values: \'{"metric_id": "value", ...}\' (enables non-interactive mode)',
     ),
 ):
     """
@@ -1487,8 +1502,9 @@ def daily_logs(
         # Non-interactive mode with JSON string (--values automatically enables non-interactive)
         uvx skene-growth daily-logs --values '{"user_acquisition": "150", "retention_rate": "95%"}'
     """
-    from skene_growth.logs import fetch_daily_logs, list_required_metrics
     import json
+
+    from skene_growth.logs import fetch_daily_logs, list_required_metrics
 
     try:
         context_path = skene_context or Path("./skene-context")
@@ -1517,7 +1533,7 @@ def daily_logs(
                     console.print(f"    Target: {metric['target']}")
 
             # Also output as JSON for easy parsing
-            console.print(f"\n[dim]JSON format:[/dim]")
+            console.print("\n[dim]JSON format:[/dim]")
             console.print(json.dumps(metrics_output, indent=2))
             return
 
@@ -1542,12 +1558,12 @@ def daily_logs(
             provided_values=provided_values,
             non_interactive=non_interactive,
         )
-        
+
         if log_file_path:
             console.print(f"\n[green]✓[/green] Daily logs successfully created: {log_file_path}")
         else:
             console.print("[yellow]No data was fetched[/yellow]")
-            
+
     except FileNotFoundError as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)

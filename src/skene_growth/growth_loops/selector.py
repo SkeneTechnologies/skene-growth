@@ -27,13 +27,13 @@ def _build_selection_prompt(
     iteration: int,
 ) -> str:
     """Build a prompt for selecting ONE growth loop."""
-    
+
     # Format manifest summary
     manifest_summary = _format_manifest_summary(manifest_data)
-    
+
     # Format available loops (all 107 from CSV)
     loops_text = _format_available_loops(csv_loops)
-    
+
     # Format previously selected loops
     previously_selected_text = ""
     if previously_selected:
@@ -43,7 +43,7 @@ def _build_selection_prompt(
             previously_selected_text += f"- **PLG Stage:** {loop.plg_stage}\n"
             previously_selected_text += f"- **Goal:** {loop.goal}\n"
             previously_selected_text += f"- **Why Selected:** {loop.why_selected}\n"
-    
+
     # Format daily logs section
     daily_logs_section = ""
     if daily_logs_summary:
@@ -53,8 +53,9 @@ def _build_selection_prompt(
 
 **IMPORTANT:** Use these metrics to identify weak areas. Prioritize loops that address underperforming metrics.
 """
-    
-    return f"""You are a Product-Led Growth (PLG) strategist. Your task is to select the SINGLE most impactful growth loop for this project.
+
+    return f"""You are a Product-Led Growth (PLG) strategist. Your task is to select the SINGLE most impactful growth
+loop for this project.
 
 ## Iteration {iteration} of 3
 Select ONE growth loop that would have the highest impact given the current context.
@@ -86,7 +87,10 @@ Select exactly ONE growth loop and provide:
 3. 3-5 implementation steps tailored to the codebase
 4. 2-3 success metrics to track
 
-**IMPORTANT:** When providing explanations, implementation steps, and success metrics, always refer to the loop by its name. For example, mention "The [Loop Name] loop" or "[Loop Name]" when explaining why it was selected, what it does, or how to implement it. This helps readers understand which specific loop the information relates to.
+**IMPORTANT:**
+When providing explanations, implementation steps, and success metrics, always refer to the loop by its
+name. For example, mention "The [Loop Name] loop" or "[Loop Name]" when explaining why it was selected, what it does, or
+how to implement it. This helps readers understand which specific loop the information relates to.
 
 Return ONLY a JSON object (not an array) in this format:
 ```json
@@ -94,7 +98,7 @@ Return ONLY a JSON object (not an array) in this format:
   "loop_name": "Exact Loop Name from CSV",
   "plg_stage": "PLG Stage",
   "goal": "Goal from CSV",
-  "why_selected": "Detailed explanation specific to this project. Reference the loop name (e.g., 'The [Loop Name] loop addresses...')",
+  "why_selected": "Detailed explanation specific to this project. Reference the loop name",
   "implementation_steps": [
     "Step 1: Specific action for [Loop Name]...",
     "Step 2: Specific action...",
@@ -114,66 +118,66 @@ Return ONLY the JSON object, no other text or markdown code blocks.
 def _format_manifest_summary(manifest_data: dict[str, Any]) -> str:
     """Format manifest data into a readable summary."""
     lines = []
-    
+
     # Project info
     lines.append(f"**Project:** {manifest_data.get('project_name', 'Unknown')}")
-    if manifest_data.get('description'):
+    if manifest_data.get("description"):
         lines.append(f"**Description:** {manifest_data['description']}")
-    
+
     # Tech stack
-    tech_stack = manifest_data.get('tech_stack', {})
+    tech_stack = manifest_data.get("tech_stack", {})
     if tech_stack:
-        tech_items = [f"{k}: {v}" for k, v in tech_stack.items() if v and k != 'services']
+        tech_items = [f"{k}: {v}" for k, v in tech_stack.items() if v and k != "services"]
         if tech_items:
             lines.append(f"**Tech Stack:** {', '.join(tech_items)}")
-        services = tech_stack.get('services', [])
+        services = tech_stack.get("services", [])
         if services:
             lines.append(f"**Services:** {', '.join(services)}")
-    
+
     # Growth hubs
-    growth_hubs = manifest_data.get('growth_hubs', [])
+    growth_hubs = manifest_data.get("growth_hubs", [])
     if growth_hubs:
         lines.append(f"\n**Growth Hubs ({len(growth_hubs)} identified):**")
         for hub in growth_hubs[:5]:
             lines.append(f"- {hub.get('feature_name', 'Unknown')}: {hub.get('detected_intent', '')}")
         if len(growth_hubs) > 5:
             lines.append(f"- ... and {len(growth_hubs) - 5} more")
-    
+
     # GTM gaps
-    gtm_gaps = manifest_data.get('gtm_gaps', [])
+    gtm_gaps = manifest_data.get("gtm_gaps", [])
     if gtm_gaps:
         lines.append(f"\n**GTM Gaps ({len(gtm_gaps)} identified):**")
         for gap in gtm_gaps[:5]:
-            priority = gap.get('priority', 'medium')
+            priority = gap.get("priority", "medium")
             lines.append(f"- [{priority}] {gap.get('feature_name', 'Unknown')}: {gap.get('description', '')}")
         if len(gtm_gaps) > 5:
             lines.append(f"- ... and {len(gtm_gaps) - 5} more")
-    
+
     return "\n".join(lines)
 
 
 def _format_available_loops(csv_loops: list[dict[str, Any]]) -> str:
     """Format CSV loops into a summarized list."""
     lines = []
-    
+
     # Group by PLG stage
     by_stage: dict[str, list[dict]] = {}
     for loop in csv_loops:
-        stage = loop.get('plg_stage', 'Other')
+        stage = loop.get("plg_stage", "Other")
         if stage not in by_stage:
             by_stage[stage] = []
         by_stage[stage].append(loop)
-    
+
     for stage, loops in by_stage.items():
         lines.append(f"\n### {stage} ({len(loops)} loops)")
         for loop in loops:
-            name = loop.get('loop_name', 'Unknown')
-            goal = loop.get('goal', '')
-            action = loop.get('action_summary', '') or loop.get('action', '')[:80]
+            name = loop.get("loop_name", "Unknown")
+            goal = loop.get("goal", "")
+            action = loop.get("action_summary", "") or loop.get("action", "")[:80]
             lines.append(f"- **{name}** (Goal: {goal})")
             if action:
                 lines.append(f"  Action: {action}")
-    
+
     return "\n".join(lines)
 
 
@@ -183,14 +187,14 @@ def _parse_single_loop_response(
 ) -> SelectedGrowthLoop:
     """Parse LLM response to extract ONE selected loop."""
     response = response.strip()
-    
+
     # Try direct JSON parse first
     data = None
     try:
         data = json.loads(response)
     except json.JSONDecodeError:
         pass
-    
+
     # Try extracting from markdown code fence
     if data is None:
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
@@ -199,7 +203,7 @@ def _parse_single_loop_response(
                 data = json.loads(json_match.group(1).strip())
             except json.JSONDecodeError:
                 pass
-    
+
     # Try finding JSON object in text
     if data is None:
         obj_match = re.search(r"(\{.*\})", response, re.DOTALL)
@@ -208,19 +212,19 @@ def _parse_single_loop_response(
                 data = json.loads(obj_match.group(1).strip())
             except json.JSONDecodeError:
                 pass
-    
+
     if not data or not isinstance(data, dict):
         raise ValueError("Could not parse LLM response as JSON object.")
-    
+
     loop_name = data.get("loop_name", "")
-    
+
     # Find matching loop from CSV to get additional data
     csv_data = {}
     for loop in csv_loops:
         if loop.get("loop_name", "").lower() == loop_name.lower():
             csv_data = loop
             break
-    
+
     return SelectedGrowthLoop(
         loop_name=loop_name,
         plg_stage=data.get("plg_stage") or csv_data.get("plg_stage", ""),
@@ -242,13 +246,13 @@ def _format_actionable_markdown(
 ) -> str:
     """Format all selected loops as actionable markdown."""
     generated_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # Build sources line
     sources = ["growth-manifest.json", "growth-objectives.md"]
     if has_daily_logs:
         sources.append("daily logs")
     sources_text = ", ".join(sources)
-    
+
     lines = [
         "# Growth Loops Implementation Plan",
         "",
@@ -258,108 +262,118 @@ def _format_actionable_markdown(
         "---",
         "",
     ]
-    
+
     for i, loop in enumerate(selected_loops, 1):
-        lines.extend([
-            f"## Loop {i}: {loop.loop_name}",
-            "",
-            f"**PLG Stage:** {loop.plg_stage}",
-            f"**Goal:** {loop.goal}",
-            "",
-            "### Why This Loop?",
-            loop.why_selected,
-            "",
-        ])
-        
-        if loop.user_story:
-            lines.extend([
-                "### User Story",
-                loop.user_story,
+        lines.extend(
+            [
+                f"## Loop {i}: {loop.loop_name}",
                 "",
-            ])
-        
-        lines.extend([
-            "### What It Does",
-        ])
-        
+                f"**PLG Stage:** {loop.plg_stage}",
+                f"**Goal:** {loop.goal}",
+                "",
+                "### Why This Loop?",
+                loop.why_selected,
+                "",
+            ]
+        )
+
+        if loop.user_story:
+            lines.extend(
+                [
+                    "### User Story",
+                    loop.user_story,
+                    "",
+                ]
+            )
+
+        lines.extend(
+            [
+                "### What It Does",
+            ]
+        )
+
         if loop.action:
             lines.append(f"**Action:** {loop.action}")
         if loop.value:
             lines.append(f"**Value:** {loop.value}")
         lines.append("")
-        
+
         if loop.implementation_steps:
             lines.append("### Implementation Steps")
             for j, step in enumerate(loop.implementation_steps, 1):
                 lines.append(f"{j}. {step}")
             lines.append("")
-        
+
         if loop.success_metrics:
             lines.append("### Success Metrics")
             for metric in loop.success_metrics:
                 lines.append(f"- {metric}")
             lines.append("")
-        
+
         if loop.implementation:
-            lines.extend([
-                "### Technical Details",
-                f"**Implementation Stack:** {loop.implementation}",
-                "",
-            ])
-        
+            lines.extend(
+                [
+                    "### Technical Details",
+                    f"**Implementation Stack:** {loop.implementation}",
+                    "",
+                ]
+            )
+
         lines.append("---")
         lines.append("")
-    
+
     lines.append("*Growth loops selected by skene-growth using LLM analysis.*")
-    
+
     return "\n".join(lines)
 
 
 def load_daily_logs_summary(daily_logs_dir: Path) -> str | None:
     """
     Load and summarize daily logs for LLM context.
-    
+
     Args:
         daily_logs_dir: Path to daily_logs directory
-    
+
     Returns:
         Summary string or None if no logs found
     """
     if not daily_logs_dir.exists():
         return None
-    
+
     # Find all log files
     log_files = sorted(daily_logs_dir.glob("daily_logs_*.json"), reverse=True)
-    
+
     if not log_files:
         return None
-    
+
     # Load most recent logs (up to 7 days)
     recent_logs = []
     for log_file in log_files[:7]:
         try:
             data = json.loads(log_file.read_text())
-            recent_logs.append({
-                "date": log_file.stem.replace("daily_logs_", "").replace("_", "-"),
-                "data": data,
-            })
+            recent_logs.append(
+                {
+                    "date": log_file.stem.replace("daily_logs_", "").replace("_", "-"),
+                    "data": data,
+                }
+            )
         except (json.JSONDecodeError, IOError):
             continue
-    
+
     if not recent_logs:
         return None
-    
+
     # Build summary
     lines = []
     lines.append(f"**Recent Performance ({len(recent_logs)} days of data):**\n")
-    
+
     # Aggregate metrics across all logs
     all_metrics: dict[str, list[Any]] = {}
-    
+
     for log in recent_logs:
         data = log.get("data", {})
         date = log.get("date", "")
-        
+
         # Handle different log formats
         if isinstance(data, dict):
             for key, value in data.items():
@@ -376,7 +390,7 @@ def load_daily_logs_summary(daily_logs_dir: Path) -> str | None:
                         if metric_id not in all_metrics:
                             all_metrics[metric_id] = []
                         all_metrics[metric_id].append({"date": date, "value": value})
-    
+
     # Identify weak areas (metrics below target or declining)
     weak_areas = []
     for metric, values in all_metrics.items():
@@ -385,12 +399,12 @@ def load_daily_logs_summary(daily_logs_dir: Path) -> str | None:
             recent_values = [v.get("value") for v in values[:3] if isinstance(v.get("value"), (int, float))]
             if len(recent_values) >= 2 and recent_values[0] < recent_values[-1]:
                 weak_areas.append(f"- **{metric}**: Declining trend ({recent_values[-1]} → {recent_values[0]})")
-    
+
     if weak_areas:
         lines.append("**Weak Areas Identified:**")
         lines.extend(weak_areas)
         lines.append("")
-    
+
     # Show recent data summary
     lines.append("**Latest Metrics:**")
     if recent_logs:
@@ -410,7 +424,7 @@ def load_daily_logs_summary(daily_logs_dir: Path) -> str | None:
                     value = entry.get("value")
                     if metric_id and value is not None:
                         lines.append(f"- {metric_id}: {value}")
-    
+
     return "\n".join(lines)
 
 
@@ -425,7 +439,7 @@ async def select_single_loop(
 ) -> SelectedGrowthLoop:
     """
     Select a single growth loop using LLM.
-    
+
     Args:
         llm: LLM client for generation
         manifest_data: Project manifest data
@@ -434,7 +448,7 @@ async def select_single_loop(
         csv_loops: All loops from CSV
         previously_selected: List of already selected loops
         iteration: Current iteration (1, 2, or 3)
-    
+
     Returns:
         Selected growth loop with implementation details
     """
@@ -446,13 +460,13 @@ async def select_single_loop(
         previously_selected=previously_selected,
         iteration=iteration,
     )
-    
+
     logger.info(f"Selecting loop {iteration} of 3...")
     response = await llm.generate_content(prompt)
-    
+
     loop = _parse_single_loop_response(response, csv_loops)
     logger.success(f"Selected: {loop.loop_name}")
-    
+
     return loop
 
 
@@ -466,10 +480,10 @@ async def select_growth_loops(
 ) -> list[SelectedGrowthLoop]:
     """
     Select 3 growth loops incrementally using LLM.
-    
+
     The function runs 3 iterations, selecting one loop at a time.
     Each iteration considers previously selected loops to ensure diversity.
-    
+
     Args:
         llm: LLM client for generation
         manifest_data: Project manifest data (from growth-manifest.json)
@@ -477,16 +491,16 @@ async def select_growth_loops(
         csv_loops: All loops from CSV
         daily_logs_summary: Summary of daily logs (optional)
         on_progress: Optional callback for progress updates
-    
+
     Returns:
         List of 3 selected growth loops with implementation details
     """
     selected_loops: list[SelectedGrowthLoop] = []
-    
+
     for iteration in range(1, 4):
         if on_progress:
             on_progress(f"Selecting loop {iteration} of 3...", iteration / 4)
-        
+
         loop = await select_single_loop(
             llm=llm,
             manifest_data=manifest_data,
@@ -496,12 +510,12 @@ async def select_growth_loops(
             previously_selected=selected_loops,
             iteration=iteration,
         )
-        
+
         selected_loops.append(loop)
-    
+
     if on_progress:
         on_progress("Formatting output...", 0.9)
-    
+
     logger.success(f"Selected {len(selected_loops)} growth loops")
     return selected_loops
 
@@ -514,26 +528,26 @@ def write_growth_loops_output(
 ) -> Path:
     """
     Write selected growth loops to markdown file.
-    
+
     Args:
         selected_loops: List of selected loops
         manifest_data: Project manifest data
         output_path: Path to write the file
         has_daily_logs: Whether daily logs were used
-    
+
     Returns:
         Path to the written file
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     markdown_content = _format_actionable_markdown(
         selected_loops=selected_loops,
         manifest_data=manifest_data,
         has_daily_logs=has_daily_logs,
     )
-    
+
     output_path.write_text(markdown_content)
     logger.info(f"Wrote growth loops plan to {output_path}")
-    
+
     return output_path

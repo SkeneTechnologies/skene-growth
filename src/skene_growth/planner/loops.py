@@ -45,10 +45,10 @@ class GrowthLoop(BaseModel):
 class CSVGrowthLoop(BaseModel):
     """
     A growth loop loaded from CSV with full schema.
-    
+
     This model matches the actual growth_loops.csv schema.
     """
-    
+
     loop_name: str = Field(description="Loop Name from CSV")
     plg_stage: str = Field(description="PLG Stage (Acquisition, Activation, etc.)")
     goal: str = Field(description="Goal (Sell)")
@@ -69,7 +69,7 @@ class SelectedGrowthLoop(BaseModel):
     """
     A growth loop selected by the LLM with implementation details.
     """
-    
+
     loop_name: str = Field(description="Loop Name from CSV")
     plg_stage: str = Field(description="PLG Stage")
     goal: str = Field(description="Goal from CSV")
@@ -78,14 +78,8 @@ class SelectedGrowthLoop(BaseModel):
     value: str = Field(default="", description="Value/ROI from CSV")
     implementation: str = Field(default="", description="Implementation Stack from CSV")
     why_selected: str = Field(description="LLM explanation of why this loop was selected")
-    implementation_steps: list[str] = Field(
-        default_factory=list,
-        description="Actionable implementation steps"
-    )
-    success_metrics: list[str] = Field(
-        default_factory=list,
-        description="How to measure success"
-    )
+    implementation_steps: list[str] = Field(default_factory=list, description="Actionable implementation steps")
+    success_metrics: list[str] = Field(default_factory=list, description="How to measure success")
 
 
 class GrowthLoopCatalog:
@@ -133,8 +127,10 @@ class GrowthLoopCatalog:
         Load growth loops from a CSV file.
 
         Handles two CSV schemas:
-        1. Simple format: id,name,category,description,trigger,action,reward,implementation_hints,required_components,metrics
-        2. Detailed format: Loop Name, PLG Stage, Goal (Sell), User Story, UI/UX Delivery, etc.
+        1. Simple format:
+            id,name,category,description,trigger,action,reward,implementation_hints,required_components,metrics
+        2. Detailed format:
+            Loop Name, PLG Stage, Goal (Sell), User Story, UI/UX Delivery, etc.
 
         Args:
             csv_path: Path to the CSV file
@@ -143,8 +139,8 @@ class GrowthLoopCatalog:
             List of loop dictionaries with all CSV data
         """
         loaded = []
-        
-        with Path(csv_path).open(encoding='utf-8') as f:
+
+        with Path(csv_path).open(encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 # Check which format we have
@@ -174,7 +170,7 @@ class GrowthLoopCatalog:
                     loop_name = row.get("name", "").strip()
                     if not loop_name:
                         continue
-                    
+
                     # Map simple format to detailed format structure
                     loop_data = {
                         "loop_name": loop_name,
@@ -196,9 +192,9 @@ class GrowthLoopCatalog:
                         "category": row.get("category", "").strip(),
                         "description": row.get("description", "").strip(),
                     }
-                
+
                 loaded.append(loop_data)
-                
+
                 # Also create a GrowthLoop for backward compatibility
                 # Map PLG Stage to category
                 stage_to_category = {
@@ -210,13 +206,10 @@ class GrowthLoopCatalog:
                     "monetization": "revenue",
                     "expansion": "revenue",
                 }
-                category = stage_to_category.get(
-                    loop_data["plg_stage"].lower(), 
-                    "activation"
-                )
-                
+                category = stage_to_category.get(loop_data["plg_stage"].lower(), "activation")
+
                 # Create simplified GrowthLoop
-                loop_id = loop_data["loop_name"].lower().replace(" ", "-").replace('"', '').replace("'", "")
+                loop_id = loop_data["loop_name"].lower().replace(" ", "-").replace('"', "").replace("'", "")
                 growth_loop = GrowthLoop(
                     id=loop_id,
                     name=loop_data["loop_name"],

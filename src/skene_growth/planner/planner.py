@@ -10,10 +10,10 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from skene_growth.codebase import CodebaseExplorer
-from skene_growth.planner.loops import GrowthLoop, GrowthLoopCatalog
-from skene_growth.planner.mapper import LoopMapper, LoopMapping
 from skene_growth.llm import LLMClient
 from skene_growth.manifest import GrowthManifest
+from skene_growth.planner.loops import GrowthLoop, GrowthLoopCatalog
+from skene_growth.planner.mapper import LoopMapper, LoopMapping
 
 
 class CodeChange(BaseModel):
@@ -119,7 +119,9 @@ Create a detailed implementation plan with:
 4. Implementation order (what depends on what)
 5. Testing approach
 
-**IMPORTANT:** When describing code changes and testing notes, always refer to the loop by its name (e.g., "The {loop_name} loop requires..." or "For {loop_name}, implement..."). This helps readers understand which specific loop each change relates to.
+**IMPORTANT:**
+When describing code changes and testing notes, always refer to the loop by its name (e.g., "The {loop_name} loop
+requires..." or "For {loop_name}, implement..."). This helps understand which specific loop each change relates to.
 
 Return JSON with:
 - estimated_complexity: "low" | "medium" | "high"

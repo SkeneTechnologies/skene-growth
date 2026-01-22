@@ -7,9 +7,9 @@ Maps growth loops to potential injection points in a codebase.
 from pydantic import BaseModel, Field
 
 from skene_growth.codebase import CodebaseExplorer
-from skene_growth.planner.loops import GrowthLoop
 from skene_growth.llm import LLMClient
 from skene_growth.manifest import GrowthHub, GrowthManifest
+from skene_growth.planner.loops import GrowthLoop
 
 
 class InjectionPoint(BaseModel):
