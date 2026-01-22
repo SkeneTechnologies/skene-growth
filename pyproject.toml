@@ -1,6 +1,6 @@
 [project]
 name = "skene-growth"
-version = "0.1.6"
+version = "0.1.7b1"
 description = "PLG analysis toolkit for codebases - analyze code, detect growth opportunities, generate documentation"
 readme = "README.md"
 license = { text = "MIT" }
@@ -8,7 +8,7 @@ requires-python = ">=3.11"
 authors = [
     { name = "Skene Technologies" }
 ]
-keywords = ["plg", "growth", "codebase", "analysis", "documentation", "llm"]
+keywords = ["plg", "growth", "codebase", "analysis", "documentation", "llm", "mcp", "mcp-server", "ai-tools", "developer-tools"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

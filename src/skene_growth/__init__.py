@@ -50,7 +50,7 @@ from skene_growth.strategies.steps import (
     SelectFilesStep,
 )
 
-__version__ = "0.1.6"
+__version__ = "0.1.7b1"
 
 __all__ = [
     # Analyzers
