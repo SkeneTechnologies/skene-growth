@@ -1,5 +1,5 @@
-"""Daily logs functionality for fetching and storing growth metrics."""
+"""Daily logs management for tracking growth metrics."""
 
-from skene_growth.logs.daily_logs import fetch_daily_logs, list_required_metrics
+from skene_growth.logs.logs import fetch_daily_logs, list_required_metrics
 
 __all__ = ["fetch_daily_logs", "list_required_metrics"]

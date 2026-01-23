@@ -72,6 +72,9 @@ def main(
 
     Analyze your codebase, detect growth opportunities, and generate documentation.
 
+    Workflow suggestion:
+        analyze -> objectives -> daily-logs -> plan
+
     Quick start with uvx (no installation required):
 
         uvx skene-growth analyze .
