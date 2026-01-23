@@ -65,7 +65,7 @@ pip install skene-growth
 
 ## How to use?
 
-skene-growth follows a three-step workflow designed to progressively build AI context and track growth objectives:
+skene-growth follows a four-step workflow designed to progressively build AI context, track growth objectives, and generate actionable implementation plans:
 
 1. **Analyze** - Establishes the foundation by analyzing your codebase and generating a comprehensive growth manifest. This creates the general AI context about your codebase structure, technology stack, user journey, and growth opportunities. The output includes growth hubs, GTM gaps, and a custom growth template tailored to your business type.
 
@@ -73,7 +73,9 @@ skene-growth follows a three-step workflow designed to progressively build AI co
 
 3. **Daily Logs** - Tracks the current status of your objectives by fetching metrics from configured data sources. This provides real-time feedback to the AI about how your objectives are performing, enabling data-driven decision making and progress monitoring.
 
-Together, these commands create a continuous feedback loop: analyze establishes context, objectives define focus, and daily logs provide status updates to keep your growth strategy aligned with actual performance.
+4. **Plan** - Generates a growth plan by selecting and mapping growth loops to your codebase. When objectives and daily logs are available, it uses LLM-based intelligent selection to choose 3 targeted loops. Otherwise, it performs comprehensive mapping of all applicable loops from the catalog. The output is an actionable implementation plan with specific steps and success metrics.
+
+Together, these commands create a continuous feedback loop: analyze establishes context, objectives define focus, daily logs provide status updates, and plan generates actionable implementation steps to keep your growth strategy aligned with actual performance.
 
 ## CLI Commands
 

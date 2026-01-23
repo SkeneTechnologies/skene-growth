@@ -92,6 +92,8 @@ class GrowthLoopCatalog:
     Provides a library of growth loop templates that can be
     mapped to codebases and implemented.
 
+    Automatically loads growth loops from the built-in CSV file if available.
+
     Example:
         catalog = GrowthLoopCatalog()
         referral_loops = catalog.get_by_category("referral")
@@ -99,9 +101,10 @@ class GrowthLoopCatalog:
     """
 
     def __init__(self):
-        """Initialize the catalog with built-in loops."""
+        """Initialize the catalog with built-in loops and load CSV if available."""
         self._loops: dict[str, GrowthLoop] = self._build_default_catalog()
         self._csv_loops: list[dict[str, Any]] = []
+        self._load_builtin_csv()
 
     def get_all(self) -> list[GrowthLoop]:
         """Get all growth loops in the catalog."""
@@ -124,6 +127,52 @@ class GrowthLoopCatalog:
     def get_csv_loops(self) -> list[dict[str, Any]]:
         """Get all loops loaded from CSV with full data."""
         return self._csv_loops
+
+    def _load_builtin_csv(self) -> None:
+        """
+        Load the built-in CSV file if it exists.
+
+        Tries multiple methods to locate the CSV file since assets/ is outside
+        the package directory. Silently fails if CSV cannot be found, as default
+        loops are still available.
+        """
+        csv_path = self._find_builtin_csv_path()
+
+        if csv_path and csv_path.exists():
+            try:
+                self.load_from_csv(str(csv_path))
+            except Exception:
+                # Silently fail - default loops are still available
+                pass
+
+    def _find_builtin_csv_path(self) -> Path | None:
+        """
+        Find the built-in CSV file path using multiple fallback methods.
+
+        Returns:
+            Path to CSV file if found, None otherwise
+        """
+        # Method 1: Via package directory (works for installed packages)
+        # This assumes assets/ is at the same level as skene_growth/ in src/
+        try:
+            import skene_growth
+
+            package_dir = Path(skene_growth.__file__).parent.parent
+            csv_path = package_dir / "assets" / "growth_loops.csv"
+            if csv_path.exists():
+                return csv_path
+        except Exception:
+            pass
+
+        # Method 2: Via relative path from this file (works in development)
+        try:
+            csv_path = Path(__file__).parent.parent.parent / "assets" / "growth_loops.csv"
+            if csv_path.exists():
+                return csv_path
+        except Exception:
+            pass
+
+        return None
 
     def load_from_csv(self, csv_path: str) -> list[dict[str, Any]]:
         """

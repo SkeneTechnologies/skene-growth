@@ -466,7 +466,12 @@ class Planner:
         )
 
         response = await llm.generate_content(prompt)
-        loop = self._parse_single_loop_response(response, csv_loops)
+        try:
+            loop = self._parse_single_loop_response(response, csv_loops, previously_selected)
+        except ValueError as e:
+            # If loop not found, select next available loop
+            logger.warning(f"Loop not found: {e}. Selecting next available loop...")
+            loop = self._select_fallback_loop(csv_loops, previously_selected, iteration)
 
         return loop
 
@@ -620,6 +625,7 @@ Return ONLY a JSON object (not an array) in this format:
         self,
         response: str,
         csv_loops: list[dict[str, Any]],
+        previously_selected: list[SelectedGrowthLoop],
     ) -> SelectedGrowthLoop:
         """Parse LLM response into a SelectedGrowthLoop."""
         # Extract JSON from response
@@ -653,17 +659,78 @@ Return ONLY a JSON object (not an array) in this format:
             )
 
         return SelectedGrowthLoop(
-            loop_name=data.get("loop_name") or "",
-            plg_stage=data.get("plg_stage") or "",
-            goal=data.get("goal") or "",
-            user_story=data.get("user_story") or "",
-            action=data.get("action") or "",
-            value=data.get("value") or "",
-            implementation=data.get("implementation") or "",
-            why_selected=data.get("why_selected") or "",
+            loop_name=matching_loop.get("Loop Name") or data.get("loop_name") or "",
+            plg_stage=matching_loop.get("PLG Stage") or data.get("plg_stage") or "",
+            goal=matching_loop.get("Goal") or data.get("goal") or "",
+            user_story=matching_loop.get("User Story") or data.get("user_story") or "",
+            action=matching_loop.get("Action") or data.get("action") or "",
+            value=matching_loop.get("Value") or data.get("value") or "",
+            implementation=matching_loop.get("Implementation") or data.get("implementation") or "",
+            why_selected=data.get("why_selected")
+            or f"Selected as fallback after '{loop_name}' was not found in catalog",
             implementation_steps=data.get("implementation_steps") or [],
             success_metrics=data.get("success_metrics") or [],
         )
+
+    def _select_fallback_loop(
+        self,
+        csv_loops: list[dict[str, Any]],
+        previously_selected: list[SelectedGrowthLoop],
+        iteration: int,
+    ) -> SelectedGrowthLoop:
+        """
+        Select the next available loop when requested loop is not found.
+
+        Args:
+            csv_loops: All available loops from CSV
+            previously_selected: Loops already selected
+            iteration: Current iteration number
+
+        Returns:
+            SelectedGrowthLoop from next available option
+        """
+        # Get names of previously selected loops
+        selected_names = {loop.loop_name.lower() for loop in previously_selected}
+
+        # Find next available loop that hasn't been selected
+        for loop in csv_loops:
+            loop_name = loop.get("Loop Name", "")
+            if loop_name and loop_name.lower() not in selected_names:
+                logger.info(f"Fallback: Selecting '{loop_name}' (iteration {iteration})")
+                return SelectedGrowthLoop(
+                    loop_name=loop_name,
+                    plg_stage=loop.get("PLG Stage", ""),
+                    goal=loop.get("Goal", ""),
+                    user_story=loop.get("User Story", ""),
+                    action=loop.get("Action", ""),
+                    value=loop.get("Value", ""),
+                    implementation=loop.get("Implementation", ""),
+                    why_selected=(
+                        f"Selected as fallback after requested loop was not found in catalog "
+                        f"(iteration {iteration})"
+                    ),
+                    implementation_steps=[],
+                    success_metrics=[],
+                )
+
+        # If all loops are selected (shouldn't happen), return the first one
+        if csv_loops:
+            first_loop = csv_loops[0]
+            logger.warning("All loops already selected, returning first loop as fallback")
+            return SelectedGrowthLoop(
+                loop_name=first_loop.get("Loop Name", ""),
+                plg_stage=first_loop.get("PLG Stage", ""),
+                goal=first_loop.get("Goal", ""),
+                user_story=first_loop.get("User Story", ""),
+                action=first_loop.get("Action", ""),
+                value=first_loop.get("Value", ""),
+                implementation=first_loop.get("Implementation", ""),
+                why_selected="Selected as fallback - all other loops were already selected",
+                implementation_steps=[],
+                success_metrics=[],
+            )
+
+        raise ValueError("No loops available in catalog")
 
     def _generate_basic_plan(self, mapping: LoopMapping) -> LoopPlan:
         """Generate basic plan without LLM."""

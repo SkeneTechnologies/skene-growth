@@ -733,62 +733,14 @@ async def _run_plan_llm_mode(
             if daily_logs_dir and daily_logs_dir.exists():
                 daily_logs_summary = load_daily_logs_summary(daily_logs_dir)
 
-            # Load CSV loops
+            # Load CSV loops (automatically loads built-in CSV, or use custom if provided)
             progress.update(task, description="Loading growth loops catalog...")
             catalog = GrowthLoopCatalog()
 
-            # Use built-in CSV if not specified
+            # Override with custom CSV if provided
             if csv_path and csv_path.exists():
                 catalog.load_from_csv(str(csv_path))
                 console.print(f"Loaded loops from: {csv_path}")
-            else:
-                # Use built-in CSV from package
-                csv_loaded = False
-                try:
-                    # Python 3.9+
-                    from importlib.resources import files
-
-                    csv_file = files("skene_growth").joinpath("../assets/growth_loops.csv")
-                    if hasattr(csv_file, "read_text"):
-                        # It's a Traversable
-                        import tempfile
-
-                        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-                            f.write(csv_file.read_text())
-                            catalog.load_from_csv(f.name)
-                            csv_loaded = True
-                except Exception as e:
-                    if verbose:
-                        console.print(f"[dim]importlib.resources method failed: {e}[/dim]")
-
-                if not csv_loaded:
-                    try:
-                        # Fall back to finding the file relative to the package
-                        import skene_growth
-
-                        package_dir = Path(skene_growth.__file__).parent.parent
-                        builtin_csv = package_dir / "assets" / "growth_loops.csv"
-                        if builtin_csv.exists():
-                            catalog.load_from_csv(str(builtin_csv))
-                            csv_loaded = True
-                            if verbose:
-                                console.print(f"[dim]Loaded CSV from: {builtin_csv}[/dim]")
-                    except Exception as e:
-                        if verbose:
-                            console.print(f"[dim]Package path method failed: {e}[/dim]")
-
-                if not csv_loaded:
-                    # Final fallback to relative path
-                    try:
-                        builtin_csv = Path(__file__).parent.parent.parent / "assets" / "growth_loops.csv"
-                        if builtin_csv.exists():
-                            catalog.load_from_csv(str(builtin_csv))
-                            csv_loaded = True
-                            if verbose:
-                                console.print(f"[dim]Loaded CSV from fallback: {builtin_csv}[/dim]")
-                    except Exception as e:
-                        if verbose:
-                            console.print(f"[dim]Fallback path method failed: {e}[/dim]")
 
             csv_loops = catalog.get_csv_loops()
             if not csv_loops:
@@ -860,10 +812,11 @@ def _run_plan_comprehensive_mode(
             manifest_data = json.loads(manifest_path.read_text())
             manifest_obj = GrowthManifest(**manifest_data)
 
-            # Load or create catalog
+            # Load or create catalog (automatically loads built-in CSV, or use custom if provided)
             progress.update(task, description="Loading growth loops...")
             catalog = GrowthLoopCatalog()
 
+            # Override with custom CSV if provided
             if csv_path and csv_path.exists():
                 catalog.load_from_csv(str(csv_path))
                 console.print(f"Loaded loops from: {csv_path}")
