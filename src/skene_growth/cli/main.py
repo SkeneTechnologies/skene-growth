@@ -1502,7 +1502,7 @@ def daily_logs(
     """
     import json
 
-    from skene_growth.logs import fetch_daily_logs, list_required_metrics
+    from skene_growth.daily_logs import fetch_daily_logs, list_required_metrics
 
     try:
         context_path = skene_context or Path("./skene-context")

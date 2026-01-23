@@ -58,8 +58,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
-# But allow source code logs module
-!src/skene_growth/logs/
 
 # Docker
 .dockerignore
