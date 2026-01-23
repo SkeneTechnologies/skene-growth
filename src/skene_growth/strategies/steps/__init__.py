@@ -6,10 +6,12 @@ Each step performs a specific operation in the analysis pipeline:
 - ReadFilesStep: Read selected files into context
 - AnalyzeStep: LLM analyzes content and produces structured output
 - GenerateStep: LLM generates final output
+- ContextSynthesisStep: Synthesizes product context from codebase signals
 """
 
 from skene_growth.strategies.steps.analyze import AnalyzeStep
 from skene_growth.strategies.steps.base import AnalysisStep
+from skene_growth.strategies.steps.context_synthesis import ContextSynthesisStep
 from skene_growth.strategies.steps.generate import GenerateStep
 from skene_growth.strategies.steps.read_files import ReadFilesStep
 from skene_growth.strategies.steps.select_files import SelectFilesStep
@@ -20,4 +22,5 @@ __all__ = [
     "ReadFilesStep",
     "AnalyzeStep",
     "GenerateStep",
+    "ContextSynthesisStep",
 ]

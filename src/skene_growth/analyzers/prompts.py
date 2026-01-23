@@ -79,27 +79,30 @@ Generate a complete growth manifest by combining the analysis results.
 
 You have been provided with:
 - Tech stack analysis (detected technologies)
+- Product context (industry, audience, business model) - if available
 - Growth hub analysis (features with growth potential)
 
 Your task is to:
 1. Create a cohesive project summary
 2. Include the tech stack and growth hubs from the analysis
-3. Identify GTM (Go-to-Market) gaps - missing features that could drive growth
+3. Include product context if available (this helps understand the product better)
+4. Identify GTM (Go-to-Market) gaps - missing features that could drive growth
 
-For GTM gaps, consider what's missing:
-- User onboarding flows
-- Viral/sharing mechanisms
-- Analytics and insights
-- Monetization capabilities
-- Engagement features
-- Community features
+For GTM gaps, consider what's missing based on the product context:
+- If it's a B2B SaaS: user onboarding flows, team collaboration features
+- If it's a marketplace: seller tools, buyer incentives, transaction features
+- If it's a consumer app: social sharing, viral mechanisms, engagement features
+- General: Analytics and insights, monetization capabilities, community features
 
 Return a complete growth manifest as JSON with:
 - project_name: Inferred from the codebase
-- description: Brief project description
+- description: Brief project description (use product context if available)
 - tech_stack: From the tech stack analysis
+- product_context: From the product context analysis (if available)
 - growth_hubs: From the growth hub analysis
-- gtm_gaps: Your identified gaps with priority (high/medium/low)
+- gtm_gaps: Missing features that could drive growth (with priority: high/medium/low)
+
+Focus on creating actionable insights that align with the product's industry and business model.
 """
 
 # Product Overview Extraction Prompt

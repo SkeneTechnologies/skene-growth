@@ -5,7 +5,10 @@ These models define the structure of growth-manifest.json, which captures:
 - Tech stack detection
 - Growth hub identification
 - Go-to-market gaps
+- Product context (industry, audience, business model)
 """
+
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal
@@ -147,6 +150,11 @@ class GrowthManifest(BaseModel):
     )
     tech_stack: TechStack = Field(
         description="Detected technology stack",
+    )
+    product_context: dict | None = Field(
+        default=None,
+        description="Synthesized product context (industry, audience, value prop, business model). "
+        "This is a dict representation of ProductContext model.",
     )
     growth_hubs: list[GrowthHub] = Field(
         default_factory=list,
