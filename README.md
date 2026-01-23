@@ -334,13 +334,13 @@ skene-growth supports configuration files for storing defaults:
 
 | Location | Purpose |
 |----------|---------|
-| `./.skene-growth.toml` | Project-level config (checked into repo) |
-| `~/.config/skene-growth/config.toml` | User-level config (personal settings) |
+| `./.skene-growth.config` | Project-level config (checked into repo) |
+| `~/.config/skene-growth/config` | User-level config (personal settings) |
 
 ### Sample Config File
 
 ```toml
-# .skene-growth.toml
+# .skene-growth.config
 
 # API key for LLM provider (can also use SKENE_API_KEY env var)
 # api_key = "your-api-key"
@@ -363,8 +363,8 @@ verbose = false
 
 Settings are loaded in this order (later overrides earlier):
 
-1. User config (`~/.config/skene-growth/config.toml`)
-2. Project config (`./.skene-growth.toml`)
+1. User config (`~/.config/skene-growth/config`)
+2. Project config (`./.skene-growth.config`)
 3. Environment variables (`SKENE_API_KEY`, `SKENE_PROVIDER`)
 4. CLI arguments
 
