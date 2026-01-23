@@ -326,27 +326,33 @@ class Planner:
 
         # Add each loop
         for i, loop in enumerate(selected_loops, 1):
-            lines.extend([
-                f"## Loop {i}: {loop.loop_name}",
-                "",
-                f"**PLG Stage:** {loop.plg_stage}",
-                f"**Goal:** {loop.goal}",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"## Loop {i}: {loop.loop_name}",
+                    "",
+                    f"**PLG Stage:** {loop.plg_stage}",
+                    f"**Goal:** {loop.goal}",
+                    "",
+                ]
+            )
 
             if loop.why_selected:
-                lines.extend([
-                    "### Why This Loop?",
-                    loop.why_selected,
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "### Why This Loop?",
+                        loop.why_selected,
+                        "",
+                    ]
+                )
 
             if loop.user_story:
-                lines.extend([
-                    "### User Story",
-                    loop.user_story,
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "### User Story",
+                        loop.user_story,
+                        "",
+                    ]
+                )
 
             if loop.action or loop.value:
                 lines.append("### What It Does")
@@ -357,27 +363,33 @@ class Planner:
                 lines.append("")
 
             if loop.implementation_steps:
-                lines.extend([
-                    "### Implementation Steps",
-                ])
+                lines.extend(
+                    [
+                        "### Implementation Steps",
+                    ]
+                )
                 for j, step in enumerate(loop.implementation_steps, 1):
                     lines.append(f"{j}. {step}")
                 lines.append("")
 
             if loop.success_metrics:
-                lines.extend([
-                    "### Success Metrics",
-                ])
+                lines.extend(
+                    [
+                        "### Success Metrics",
+                    ]
+                )
                 for j, metric in enumerate(loop.success_metrics, 1):
                     lines.append(f"- Metric {j}: {metric}")
                 lines.append("")
 
             if loop.implementation:
-                lines.extend([
-                    "### Technical Details",
-                    f"**Implementation Stack:** {loop.implementation}",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "### Technical Details",
+                        f"**Implementation Stack:** {loop.implementation}",
+                        "",
+                    ]
+                )
 
             lines.extend(["---", ""])
 
@@ -398,35 +410,39 @@ class Planner:
         if csv_loops:
             formatted = []
             for loop in csv_loops:
-                formatted.append({
-                    "Loop Name": loop.get("loop_name", ""),
-                    "PLG Stage": loop.get("plg_stage", ""),
-                    "Goal": loop.get("goal", ""),
-                    "User Story": loop.get("user_story", ""),
-                    "Trigger": loop.get("trigger", ""),
-                    "Action": loop.get("action", ""),
-                    "Value": loop.get("value", ""),
-                    "Implementation": loop.get("implementation", ""),
-                    "Action Summary": loop.get("action_summary", ""),
-                    "Value Summary": loop.get("value_summary", ""),
-                })
+                formatted.append(
+                    {
+                        "Loop Name": loop.get("loop_name", ""),
+                        "PLG Stage": loop.get("plg_stage", ""),
+                        "Goal": loop.get("goal", ""),
+                        "User Story": loop.get("user_story", ""),
+                        "Trigger": loop.get("trigger", ""),
+                        "Action": loop.get("action", ""),
+                        "Value": loop.get("value", ""),
+                        "Implementation": loop.get("implementation", ""),
+                        "Action Summary": loop.get("action_summary", ""),
+                        "Value Summary": loop.get("value_summary", ""),
+                    }
+                )
             return formatted
 
         # Fallback: convert GrowthLoop objects to CSV format
         formatted = []
         for loop in catalog.get_all():
-            formatted.append({
-                "Loop Name": loop.name,
-                "PLG Stage": loop.category,
-                "Goal": "",
-                "User Story": loop.description,
-                "Trigger": loop.trigger,
-                "Action": loop.action,
-                "Value": loop.reward,
-                "Implementation": ", ".join(loop.implementation_hints[:2]) if loop.implementation_hints else "",
-                "Action Summary": loop.action,
-                "Value Summary": loop.reward,
-            })
+            formatted.append(
+                {
+                    "Loop Name": loop.name,
+                    "PLG Stage": loop.category,
+                    "Goal": "",
+                    "User Story": loop.description,
+                    "Trigger": loop.trigger,
+                    "Action": loop.action,
+                    "Value": loop.reward,
+                    "Implementation": ", ".join(loop.implementation_hints[:2]) if loop.implementation_hints else "",
+                    "Action Summary": loop.action,
+                    "Value Summary": loop.reward,
+                }
+            )
         return formatted
 
     async def _select_single_loop(
@@ -592,11 +608,11 @@ Return ONLY a JSON object (not an array) in this format:
             lines.append(f"\n### {i}. {loop.get('Loop Name', 'Unknown')}")
             lines.append(f"- **PLG Stage:** {loop.get('PLG Stage', 'N/A')}")
             lines.append(f"- **Goal:** {loop.get('Goal', 'N/A')}")
-            if loop.get('User Story'):
+            if loop.get("User Story"):
                 lines.append(f"- **User Story:** {loop['User Story']}")
-            if loop.get('Action'):
+            if loop.get("Action"):
                 lines.append(f"- **Action:** {loop['Action']}")
-            if loop.get('Value'):
+            if loop.get("Value"):
                 lines.append(f"- **Value:** {loop['Value']}")
         return "\n".join(lines)
 
@@ -621,17 +637,13 @@ Return ONLY a JSON object (not an array) in this format:
 
         # Validate loop name exists in catalog
         loop_name = data.get("loop_name", "")
-        matching_loop = next(
-            (loop for loop in csv_loops if loop.get("Loop Name") == loop_name),
-            None
-        )
+        matching_loop = next((loop for loop in csv_loops if loop.get("Loop Name") == loop_name), None)
 
         if not matching_loop:
             # Try fuzzy match
             loop_name_lower = loop_name.lower()
             matching_loop = next(
-                (loop for loop in csv_loops if loop.get("Loop Name", "").lower() == loop_name_lower),
-                None
+                (loop for loop in csv_loops if loop.get("Loop Name", "").lower() == loop_name_lower), None
             )
 
         if not matching_loop:
