@@ -12,8 +12,8 @@ Alternative usage (pip install):
     skene-growth objectives
 
 Configuration files (optional):
-    Project-level: ./.skene-growth.toml
-    User-level: ~/.config/skene-growth/config.toml
+    Project-level: ./.skene-growth.config
+    User-level: ~/.config/skene-growth/config
 """
 
 import asyncio
@@ -195,7 +195,7 @@ def analyze(
         else:
             console.print(
                 "[yellow]Warning:[/yellow] No API key provided. "
-                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.toml"
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
             )
             console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
             raise typer.Exit(1)
@@ -707,7 +707,7 @@ async def _run_plan_llm_mode(
         else:
             console.print(
                 "[yellow]Warning:[/yellow] No API key provided. "
-                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.toml"
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
             )
             raise typer.Exit(1)
 
@@ -1174,7 +1174,7 @@ def objectives(
         else:
             console.print(
                 "[yellow]Warning:[/yellow] No API key provided. "
-                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.toml"
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
             )
             console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
             raise typer.Exit(1)
@@ -1365,8 +1365,8 @@ def config(
     Manage skene-growth configuration.
 
     Configuration files are loaded in this order (later overrides earlier):
-    1. User config: ~/.config/skene-growth/config.toml
-    2. Project config: ./.skene-growth.toml
+    1. User config: ~/.config/skene-growth/config
+    2. Project config: ./.skene-growth.config
     3. Environment variables (SKENE_API_KEY, SKENE_PROVIDER)
     4. CLI arguments
 
@@ -1381,7 +1381,7 @@ def config(
     from skene_growth.config import find_project_config, find_user_config, load_config
 
     if init:
-        config_path = Path(".skene-growth.toml")
+        config_path = Path(".skene-growth.config")
         if config_path.exists():
             console.print(f"[yellow]Config already exists:[/yellow] {config_path}")
             raise typer.Exit(1)
@@ -1420,12 +1420,12 @@ verbose = false
 
     table.add_row(
         "Project",
-        str(project_cfg) if project_cfg else "./.skene-growth.toml",
+        str(project_cfg) if project_cfg else "./.skene-growth.config",
         "[green]Found[/green]" if project_cfg else "[dim]Not found[/dim]",
     )
     table.add_row(
         "User",
-        str(user_cfg) if user_cfg else "~/.config/skene-growth/config.toml",
+        str(user_cfg) if user_cfg else "~/.config/skene-growth/config",
         "[green]Found[/green]" if user_cfg else "[dim]Not found[/dim]",
     )
     console.print(table)

@@ -172,7 +172,7 @@ def _get_llm_client():
         else:
             raise ValueError(
                 "API key not configured. Set SKENE_API_KEY environment variable "
-                "or add api_key to ~/.config/skene-growth/config.toml"
+                "or add api_key to ~/.config/skene-growth/config"
             )
 
     return create_llm_client(provider, SecretStr(api_key), model)

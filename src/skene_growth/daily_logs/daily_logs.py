@@ -112,7 +112,7 @@ def _load_growth_objectives(skene_context_path: Path) -> list[dict[str, Any]]:
     """Load growth objectives file.
     
     Checks in this order:
-    1. Filename from config.toml (growth_objectives_file) in skene-context directory
+    1. Filename from config (growth_objectives_file) in skene-context directory
     2. Common filenames in skene-context directory
     3. Prompt user if still not found
     """

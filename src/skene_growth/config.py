@@ -2,8 +2,8 @@
 Configuration file support for skene-growth.
 
 Supports loading config from:
-1. Project-level: ./.skene-growth.toml
-2. User-level: ~/.config/skene-growth/config.toml
+1. Project-level: ./.skene-growth.config
+2. User-level: ~/.config/skene-growth/config
 
 Priority: CLI args > environment variables > project config > user config
 """
@@ -81,12 +81,12 @@ class Config:
 
 
 def find_project_config() -> Path | None:
-    """Find project-level config file (.skene-growth.toml)."""
+    """Find project-level config file (.skene-growth.config)."""
     cwd = Path.cwd()
 
     # Search up the directory tree
     for parent in [cwd, *cwd.parents]:
-        config_path = parent / ".skene-growth.toml"
+        config_path = parent / ".skene-growth.config"
         if config_path.exists():
             return config_path
 
@@ -94,7 +94,7 @@ def find_project_config() -> Path | None:
 
 
 def find_user_config() -> Path | None:
-    """Find user-level config file (~/.config/skene-growth/config.toml)."""
+    """Find user-level config file (~/.config/skene-growth/config)."""
     # XDG_CONFIG_HOME or ~/.config
     config_home = os.environ.get("XDG_CONFIG_HOME")
     if config_home:
@@ -102,7 +102,7 @@ def find_user_config() -> Path | None:
     else:
         config_dir = Path.home() / ".config" / "skene-growth"
 
-    config_path = config_dir / "config.toml"
+    config_path = config_dir / "config"
     if config_path.exists():
         return config_path
 
@@ -122,8 +122,8 @@ def load_config() -> Config:
     Priority (highest to lowest):
     1. CLI arguments (applied later by CLI)
     2. Environment variables
-    3. Project-level config (./.skene-growth.toml)
-    4. User-level config (~/.config/skene-growth/config.toml)
+    3. Project-level config (./.skene-growth.config)
+    4. User-level config (~/.config/skene-growth/config)
     """
     config = Config()
 
