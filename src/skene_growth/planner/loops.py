@@ -131,13 +131,13 @@ class GrowthLoopCatalog:
     def _load_builtin_csv(self) -> None:
         """
         Load the built-in CSV file if it exists.
-        
+
         Tries multiple methods to locate the CSV file since assets/ is outside
         the package directory. Silently fails if CSV cannot be found, as default
         loops are still available.
         """
         csv_path = self._find_builtin_csv_path()
-        
+
         if csv_path and csv_path.exists():
             try:
                 self.load_from_csv(str(csv_path))
@@ -148,7 +148,7 @@ class GrowthLoopCatalog:
     def _find_builtin_csv_path(self) -> Path | None:
         """
         Find the built-in CSV file path using multiple fallback methods.
-        
+
         Returns:
             Path to CSV file if found, None otherwise
         """
