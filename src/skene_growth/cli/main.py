@@ -742,10 +742,9 @@ async def _run_plan_llm_mode(
                 catalog.load_from_csv(str(csv_path))
                 console.print(f"Loaded loops from: {csv_path}")
 
-            csv_loops = catalog.get_csv_loops()
-            if not csv_loops:
-                console.print("[red]Error:[/red] No growth loops found in catalog")
-                raise typer.Exit(1)
+            # Note: Planner handles empty CSV loops by falling back to default loops
+            # No need to check here - planner.select_loops() will use _catalog_to_csv_format()
+            # which automatically converts default loops if CSV loops are empty
 
             # Connect to LLM
             progress.update(task, description="Connecting to LLM provider...")
