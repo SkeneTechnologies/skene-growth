@@ -73,7 +73,7 @@ def main(
     Analyze your codebase, detect growth opportunities, and generate documentation.
 
     Workflow suggestion:
-        analyze -> objectives -> daily-logs -> plan
+        analyze -> plan
 
     Quick start with uvx (no installation required):
 
@@ -474,28 +474,23 @@ def generate(
 
 @app.command()
 def plan(
-    csv: Optional[Path] = typer.Option(
-        None,
-        "--csv",
-        help="Path to growth loops CSV file",
-    ),
     manifest: Optional[Path] = typer.Option(
         None,
         "--manifest",
         help="Path to growth-manifest.json",
     ),
-    objectives_path: Optional[Path] = typer.Option(
+    template: Optional[Path] = typer.Option(
+        None,
+        "--template",
+        help="Path to growth-template.json",
+    ),
+    objectives: Optional[Path] = typer.Option(
         None,
         "--objectives",
-        help="Path to growth-objectives.md (auto-detected if not specified)",
-    ),
-    daily_logs_dir: Optional[Path] = typer.Option(
-        None,
-        "--daily-logs",
-        help="Path to daily_logs directory (auto-detected if not specified)",
+        help="Path to growth-objectives.md (auto-detected from ./skene-context/ or . if not set)",
     ),
     output: Path = typer.Option(
-        "./skene-context/skene-growth-plan.md",
+        "./skene-context/growth-plan.md",
         "-o",
         "--output",
         help="Output path for growth plan (markdown)",
@@ -526,25 +521,22 @@ def plan(
     ),
 ):
     """
-    Generate a growth plan by mapping growth loops to codebase.
+    Generate a growth plan using Council of Growth Engineers.
 
-    **Conditional Behavior:**
-    - If objectives.md AND daily_logs/ exist: Uses LLM-based intelligent selection (selects 3 loops)
-    - Otherwise: Uses comprehensive mapping (all applicable loops from catalog)
+    Uses manifest, template, and objectives when present (auto-detected from
+    ./skene-context/ or current dir) to generate a strategic growth plan.
+    None of these context files are required.
 
     Examples:
 
-        # Generate growth plan (auto-detects mode based on available files)
-        uvx skene-growth plan
+        # Generate growth plan (uses any context files found)
+        uvx skene-growth plan --api-key "your-key"
 
-        # Use custom loops from CSV
-        uvx skene-growth plan --csv loops.csv
+        # With specific objectives
+        uvx skene-growth plan --objectives ./objectives.md
 
-        # Specify manifest and use LLM mode
-        uvx skene-growth plan --manifest ./manifest.json --api-key "your-key"
-
-        # Force comprehensive mapping mode
-        uvx skene-growth plan --objectives "" --daily-logs ""
+        # Override all context file paths
+        uvx skene-growth plan --manifest ./manifest.json --template ./template.json --objectives ./objectives.md
     """
     # Load config with fallbacks
     config = load_config()
@@ -568,142 +560,39 @@ def plan(
                 manifest = p
                 break
 
-    if manifest is None or not manifest.exists():
-        console.print("[red]Error:[/red] No manifest found. Run 'skene-growth analyze' first or specify --manifest.")
-        raise typer.Exit(1)
+    # Auto-detect template
+    if template is None:
+        default_template_paths = [
+            Path("./skene-context/growth-template.json"),
+            Path("./growth-template.json"),
+        ]
+        for p in default_template_paths:
+            if p.exists():
+                template = p
+                break
 
     # Auto-detect objectives
-    if objectives_path is None:
+    if objectives is None:
         default_objectives_paths = [
             Path("./skene-context/growth-objectives.md"),
             Path("./growth-objectives.md"),
         ]
         for p in default_objectives_paths:
             if p.exists():
-                objectives_path = p
+                objectives = p
                 break
 
-    # Auto-detect daily logs
-    if daily_logs_dir is None:
-        default_daily_logs_paths = [
-            Path("./skene-context/daily_logs"),
-            Path("./daily_logs"),
-        ]
-        for p in default_daily_logs_paths:
-            if p.exists() and p.is_dir():
-                daily_logs_dir = p
-                break
-
-    # Check if we have full context for LLM mode
-    has_objectives = objectives_path and objectives_path.exists()
-    has_daily_logs = daily_logs_dir and daily_logs_dir.exists()
-    use_llm_mode = has_objectives and has_daily_logs
-
-    # Determine mode
-    if use_llm_mode:
-        mode_str = "LLM-based intelligent selection (objectives + logs detected)"
-    else:
-        mode_str = "Comprehensive mapping (objectives or logs missing)"
-        missing = []
-        if not has_objectives:
-            missing.append("objectives")
-        if not has_daily_logs:
-            missing.append("daily_logs")
-        if missing:
-            console.print(f"[yellow]Note:[/yellow] Missing {', '.join(missing)} - using comprehensive mapping mode")
-
-    console.print(
-        Panel.fit(
-            f"[bold blue]Generating growth plan[/bold blue]\n"
-            f"Manifest: {manifest}\n"
-            f"Objectives: {objectives_path or 'Not found'}\n"
-            f"Daily Logs: {daily_logs_dir or 'Not found'}\n"
-            f"Loops CSV: {csv or 'Using built-in catalog'}\n"
-            f"Mode: {mode_str}",
-            title="skene-growth",
-        )
-    )
-
-    # Run async plan generation
-    asyncio.run(
-        _run_plan(
-            manifest_path=manifest,
-            objectives_path=objectives_path,
-            daily_logs_dir=daily_logs_dir,
-            csv_path=csv,
-            output_path=output,
-            api_key=resolved_api_key,
-            provider=resolved_provider,
-            model=resolved_model,
-            use_llm_mode=use_llm_mode,
-            verbose=verbose,
-        )
-    )
-
-
-async def _run_plan(
-    manifest_path: Path,
-    objectives_path: Path | None,
-    daily_logs_dir: Path | None,
-    csv_path: Path | None,
-    output_path: Path,
-    api_key: str | None,
-    provider: str,
-    model: str,
-    use_llm_mode: bool,
-    verbose: bool,
-):
-    """Run plan generation with conditional behavior."""
-    if use_llm_mode:
-        # LLM-based intelligent selection (3 loops)
-        await _run_plan_llm_mode(
-            manifest_path=manifest_path,
-            objectives_path=objectives_path,
-            daily_logs_dir=daily_logs_dir,
-            csv_path=csv_path,
-            output_path=output_path,
-            api_key=api_key,
-            provider=provider,
-            model=model,
-            verbose=verbose,
-        )
-    else:
-        # Comprehensive mapping (all loops)
-        _run_plan_comprehensive_mode(
-            manifest_path=manifest_path,
-            csv_path=csv_path,
-            output_path=output_path,
-        )
-
-
-async def _run_plan_llm_mode(
-    manifest_path: Path,
-    objectives_path: Path,
-    daily_logs_dir: Path | None,
-    csv_path: Path | None,
-    output_path: Path,
-    api_key: str | None,
-    provider: str,
-    model: str,
-    verbose: bool,
-):
-    """Run LLM-based intelligent growth loops selection (3 loops)."""
-    from pydantic import SecretStr
-
-    from skene_growth.llm import create_llm_client
-    from skene_growth.planner import GrowthLoopCatalog, Planner, load_daily_logs_summary
-
-    # Check API key for LLM mode
-    is_local_provider = provider.lower() in (
+    # Check API key
+    is_local_provider = resolved_provider.lower() in (
         "lmstudio",
         "lm-studio",
         "lm_studio",
         "ollama",
     )
 
-    if not api_key:
+    if not resolved_api_key:
         if is_local_provider:
-            api_key = provider  # Dummy key for local server
+            resolved_api_key = resolved_provider  # Dummy key for local server
         else:
             console.print(
                 "[yellow]Warning:[/yellow] No API key provided. "
@@ -711,6 +600,93 @@ async def _run_plan_llm_mode(
             )
             raise typer.Exit(1)
 
+    console.print(
+        Panel.fit(
+            f"[bold blue]Generating growth plan[/bold blue]\n"
+            f"Manifest: {manifest if manifest and manifest.exists() else 'Not provided'}\n"
+            f"Template: {template if template and template.exists() else 'Not provided'}\n"
+            f"Objectives: {objectives or 'Not provided'}\n"
+            f"Provider: {resolved_provider}\n"
+            f"Model: {resolved_model}",
+            title="skene-growth",
+        )
+    )
+
+    # Run async cycle generation
+    asyncio.run(
+        _run_cycle(
+            manifest_path=manifest,
+            template_path=template,
+            objectives_path=objectives,
+            output_path=output,
+            api_key=resolved_api_key,
+            provider=resolved_provider,
+            model=resolved_model,
+            verbose=verbose,
+        )
+    )
+
+
+def _extract_ceo_next_action(memo_content: str) -> str | None:
+    """Extract the CEO's Next Action section from the memo.
+    
+    Args:
+        memo_content: Full memo markdown content
+        
+    Returns:
+        Extracted next action text or None if not found
+    """
+    import re
+    
+    # Look for the CEO's Next Action section (flexible patterns)
+    # Pattern 1: Match section heading followed by any bold text
+    pattern = r"##?\s*7?\.\s*(?:THE\s+)?CEO'?s?\s+Next\s+Action.*?\n\n\*\*(.*?):\*\*\s*(.*?)(?=\n\n###|\n\n##|\Z)"
+    match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
+    
+    if match:
+        intro = match.group(1).strip()  # e.g., "Within 24 hours", "Ship in 24 Hours"
+        action = match.group(2).strip()
+        
+        # Combine intro and action for context
+        full_action = f"{intro}: {action}" if intro else action
+        
+        # Clean up markdown and extra formatting
+        full_action = re.sub(r'\[.*?\]', '', full_action)  # Remove markdown links
+        full_action = re.sub(r'\n\n+', '\n\n', full_action)  # Normalize line breaks
+        return full_action
+    
+    # Fallback: Look for any bold text after CEO's Next Action heading
+    pattern2 = r"##?\s*7?\.\s*(?:THE\s+)?CEO'?s?\s+Next\s+Action.*?\n\n(.*?)(?=\n\n###|\n\n##|\Z)"
+    match2 = re.search(pattern2, memo_content, re.IGNORECASE | re.DOTALL)
+    
+    if match2:
+        action = match2.group(1).strip()
+        action = re.sub(r'\[.*?\]', '', action)
+        action = re.sub(r'\n\n+', '\n\n', action)
+        # Remove the bold markers if present
+        action = re.sub(r'\*\*', '', action)
+        return action
+    
+    return None
+
+
+async def _run_cycle(
+    manifest_path: Path | None,
+    template_path: Path | None,
+    objectives_path: Path | None,
+    output_path: Path,
+    api_key: str,
+    provider: str,
+    model: str,
+    verbose: bool,
+):
+    """Run cycle generation using Council of Growth Engineers."""
+    from pydantic import SecretStr
+
+    from skene_growth.llm import create_llm_client
+
+    next_action = None
+    
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -719,61 +695,51 @@ async def _run_plan_llm_mode(
         task = progress.add_task("Initializing...", total=None)
 
         try:
-            # Load manifest
+            # Load manifest (use empty dict if missing)
             progress.update(task, description="Loading manifest...")
-            manifest_data = json.loads(manifest_path.read_text())
+            if manifest_path and manifest_path.exists():
+                manifest_data = json.loads(manifest_path.read_text())
+            else:
+                manifest_data = {"project_name": "Project", "description": "No manifest provided."}
 
-            # Load objectives
-            progress.update(task, description="Loading objectives...")
-            objectives_content = objectives_path.read_text()
+            # Load template (use empty dict if missing)
+            progress.update(task, description="Loading template...")
+            if template_path and template_path.exists():
+                template_data = json.loads(template_path.read_text())
+            else:
+                template_data = {"lifecycles": []}
 
-            # Load daily logs summary
-            progress.update(task, description="Loading daily logs...")
-            daily_logs_summary = None
-            if daily_logs_dir and daily_logs_dir.exists():
-                daily_logs_summary = load_daily_logs_summary(daily_logs_dir)
-
-            # Load CSV loops (automatically loads built-in CSV, or use custom if provided)
-            progress.update(task, description="Loading growth loops catalog...")
-            catalog = GrowthLoopCatalog()
-
-            # Override with custom CSV if provided
-            if csv_path and csv_path.exists():
-                catalog.load_from_csv(str(csv_path))
-                console.print(f"Loaded loops from: {csv_path}")
-
-            # Note: Planner handles empty CSV loops by falling back to default loops
-            # No need to check here - planner.select_loops() will use _catalog_to_csv_format()
-            # which automatically converts default loops if CSV loops are empty
+            # Load objectives (optional)
+            objectives_content = ""
+            if objectives_path and objectives_path.exists():
+                progress.update(task, description="Loading objectives...")
+                objectives_content = objectives_path.read_text()
 
             # Connect to LLM
             progress.update(task, description="Connecting to LLM provider...")
             llm = create_llm_client(provider, SecretStr(api_key), model)
 
-            # Initialize planner
-            planner = Planner()
+            # Generate Council memo
+            progress.update(task, description="Generating strategic memo...")
+            from skene_growth.planner import Planner
 
-            # Select growth loops (3 iterations)
-            progress.update(task, description="Selecting growth loops...")
-            selected_loops = await planner.select_loops(
+            planner = Planner()
+            memo_content = await planner.generate_council_memo(
                 llm=llm,
                 manifest_data=manifest_data,
                 objectives_content=objectives_content,
-                catalog=catalog,
-                daily_logs_summary=daily_logs_summary,
-                num_loops=3,
+                template_data=template_data,
             )
 
             # Write output
             progress.update(task, description="Writing output...")
-            planner.write_selected_loops_markdown(
-                selected_loops=selected_loops,
-                manifest_data=manifest_data,
-                output_path=output_path,
-                has_daily_logs=daily_logs_summary is not None,
-            )
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(memo_content)
 
             progress.update(task, description="Complete!")
+
+            # Extract and display CEO's Next Action
+            next_action = _extract_ceo_next_action(memo_content)
 
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")
@@ -784,211 +750,18 @@ async def _run_plan_llm_mode(
             raise typer.Exit(1)
 
     console.print(f"\n[green]Success![/green] Growth plan saved to: {output_path}")
-
-    # Show summary
-    _show_plan_loops_summary(selected_loops)
-
-
-def _run_plan_comprehensive_mode(
-    manifest_path: Path,
-    csv_path: Path | None,
-    output_path: Path,
-):
-    """Run comprehensive mapping mode for growth loops."""
-    from skene_growth.manifest import GrowthManifest
-    from skene_growth.planner import GrowthLoopCatalog, Planner
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Generating growth plan...", total=None)
-
-        try:
-            # Load manifest
-            progress.update(task, description="Loading manifest...")
-            manifest_data = json.loads(manifest_path.read_text())
-            manifest_obj = GrowthManifest(**manifest_data)
-
-            # Load or create catalog (automatically loads built-in CSV, or use custom if provided)
-            progress.update(task, description="Loading growth loops...")
-            catalog = GrowthLoopCatalog()
-
-            # Override with custom CSV if provided
-            if csv_path and csv_path.exists():
-                catalog.load_from_csv(str(csv_path))
-                console.print(f"Loaded loops from: {csv_path}")
-
-            # Generate comprehensive plan
-            progress.update(task, description="Mapping loops to codebase...")
-            planner = Planner()
-            growth_plan = planner.generate_quick_plan(manifest_obj, catalog)
-
-            # Convert to markdown format
-            progress.update(task, description="Writing output...")
-            markdown_content = _format_comprehensive_plan_markdown(growth_plan)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(markdown_content)
-
-            progress.update(task, description="Complete!")
-
-        except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
-            raise typer.Exit(1)
-
-    console.print(f"\n[green]Success![/green] Growth plan saved to: {output_path}")
-
-    # Show summary
-    if growth_plan.loop_plans:
-        table = Table(title="Growth Plan Summary")
-        table.add_column("Loop", style="cyan")
-        table.add_column("Priority", style="yellow")
-        table.add_column("Changes", style="white")
-
-        for lp in growth_plan.loop_plans[:10]:
-            table.add_row(
-                lp.loop_name,
-                str(lp.priority),
-                str(len(lp.code_changes)),
+    
+    # Display next action box
+    if next_action:
+        console.print("\n")
+        console.print(
+            Panel(
+                next_action,
+                title="[bold yellow]⚡ Next Action - Ship in 24 Hours[/bold yellow]",
+                border_style="yellow",
+                padding=(1, 2),
             )
-
-        if len(growth_plan.loop_plans) > 10:
-            table.add_row("...", "...", f"+{len(growth_plan.loop_plans) - 10} more")
-
-        console.print(table)
-
-
-def _format_comprehensive_plan_markdown(plan) -> str:
-    """Format a Plan object as comprehensive markdown."""
-    from datetime import datetime
-
-    lines = [
-        "# Growth Loops Implementation Plan",
-        "",
-        f"*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
-        "*Mode: Comprehensive mapping (all applicable loops)*",
-        "",
-    ]
-
-    if plan.manifest_summary:
-        lines.extend(
-            [
-                "## Project Summary",
-                plan.manifest_summary,
-                "",
-                "---",
-                "",
-            ]
         )
-
-    if plan.shared_infrastructure:
-        lines.extend(
-            [
-                "## Shared Infrastructure",
-                "",
-                "The following infrastructure changes are needed across multiple loops:",
-                "",
-            ]
-        )
-        for i, change in enumerate(plan.shared_infrastructure, 1):
-            lines.append(f"{i}. {change.description}")
-            if change.file_path:
-                lines.append(f"   - File: `{change.file_path}`")
-        lines.extend(["", "---", ""])
-
-    if plan.loop_plans:
-        lines.extend(
-            [
-                "## Growth Loops",
-                "",
-            ]
-        )
-
-        for i, lp in enumerate(plan.loop_plans, 1):
-            lines.extend(
-                [
-                    f"## Loop {i}: {lp.loop_name}",
-                    "",
-                    f"**Loop ID:** {lp.loop_id}",
-                    f"**Priority:** {lp.priority}/10",
-                    f"**Complexity:** {lp.estimated_complexity}",
-                    "",
-                ]
-            )
-
-            if lp.code_changes:
-                lines.append("### Implementation Steps")
-                for j, change in enumerate(lp.code_changes, 1):
-                    lines.append(f"{j}. {change.description}")
-                    if change.file_path:
-                        lines.append(f"   - File: `{change.file_path}`")
-                    if change.code_snippet:
-                        lines.append("   ```")
-                        lines.append(change.code_snippet)
-                        lines.append("   ```")
-                lines.append("")
-
-            if lp.new_dependencies:
-                lines.extend(
-                    [
-                        "### New Dependencies",
-                        "",
-                    ]
-                )
-                for dep in lp.new_dependencies:
-                    lines.append(f"- {dep}")
-                lines.append("")
-
-            if lp.testing_notes:
-                lines.extend(
-                    [
-                        "### Testing Notes",
-                        lp.testing_notes,
-                        "",
-                    ]
-                )
-
-            lines.append("---")
-            lines.append("")
-
-    if plan.implementation_order:
-        lines.extend(
-            [
-                "## Recommended Implementation Order",
-                "",
-                "Based on dependencies and priorities:",
-                "",
-            ]
-        )
-        for i, loop_id in enumerate(plan.implementation_order, 1):
-            # Find loop name
-            loop_name = next((lp.loop_name for lp in plan.loop_plans if lp.loop_id == loop_id), loop_id)
-            lines.append(f"{i}. {loop_name} (`{loop_id}`)")
-        lines.append("")
-
-    lines.append("*Growth loops plan generated by skene-growth (comprehensive mapping mode).*")
-
-    return "\n".join(lines)
-
-
-def _show_plan_loops_summary(selected_loops):
-    """Display a summary of the selected growth loops."""
-    table = Table(title="Selected Growth Loops")
-    table.add_column("#", style="dim")
-    table.add_column("Loop Name", style="cyan")
-    table.add_column("PLG Stage", style="yellow")
-    table.add_column("Goal", style="white")
-
-    for i, loop in enumerate(selected_loops, 1):
-        table.add_row(
-            str(i),
-            loop.loop_name[:40] + "..." if len(loop.loop_name) > 40 else loop.loop_name,
-            loop.plg_stage,
-            loop.goal[:30] + "..." if len(loop.goal) > 30 else loop.goal,
-        )
-
-    console.print(table)
 
 
 @app.command()
@@ -1405,124 +1178,6 @@ verbose = false
 
     if not project_cfg and not user_cfg:
         console.print("\n[dim]Tip: Run 'skene-growth config --init' to create a config file[/dim]")
-
-
-@app.command()
-def daily_logs(
-    skene_context: Optional[Path] = typer.Option(
-        None,
-        "-c",
-        "--context",
-        help="Path to skene-context directory (default: ./skene-context)",
-    ),
-    list_metrics: bool = typer.Option(
-        False,
-        "--list-metrics",
-        help="List metrics that need values (useful for non-interactive mode)",
-    ),
-    values: Optional[str] = typer.Option(
-        None,
-        "--values",
-        help='JSON string with metric values: \'{"metric_id": "value", ...}\' (enables non-interactive mode)',
-    ),
-):
-    """
-    Fetch data from sources defined in skene.json and store in daily logs.
-
-    This command:
-    1. Reads skene.json from skene-context directory
-    2. Reads growth-objectives file
-    3. Fetches data from configured sources for each objective
-    4. Stores results in skene-context/daily_logs/daily_logs_YYYY_MM_DD.json
-
-    If files are not found or sources are missing, you'll be prompted to provide
-    the necessary information interactively. Use --values for non-interactive mode.
-
-    Examples:
-
-        # Use default skene-context directory (interactive)
-        uvx skene-growth daily-logs
-
-        # Specify custom skene-context path
-        uvx skene-growth daily-logs --context ./my-context
-
-        # List required metrics (for AI/non-interactive use)
-        uvx skene-growth daily-logs --list-metrics
-
-        # Non-interactive mode with JSON string (--values automatically enables non-interactive)
-        uvx skene-growth daily-logs --values '{"user_acquisition": "150", "retention_rate": "95%"}'
-    """
-    import json
-
-    from skene_growth.daily_logs import fetch_daily_logs, list_required_metrics
-
-    try:
-        context_path = skene_context or Path("./skene-context")
-
-        # Handle --list-metrics flag
-        if list_metrics:
-            required_metrics = list_required_metrics(context_path)
-            if not required_metrics:
-                console.print("[green]✓[/green] No metrics need values (all already logged today)")
-                return
-
-            console.print(f"\n[bold]Required metrics ({len(required_metrics)}):[/bold]\n")
-            metrics_output = []
-            for metric in required_metrics:
-                metric_info = {
-                    "metric_id": metric["metric_id"],
-                    "name": metric["name"],
-                    "source_id": metric.get("source_id"),
-                    "target": metric.get("target"),
-                }
-                metrics_output.append(metric_info)
-                console.print(f"  • [bold]{metric['metric_id']}[/bold] ({metric['name']})")
-                if metric.get("source_id"):
-                    console.print(f"    Source: {metric['source_id']}")
-                if metric.get("target"):
-                    console.print(f"    Target: {metric['target']}")
-
-            # Also output as JSON for easy parsing
-            console.print("\n[dim]JSON format:[/dim]")
-            console.print(json.dumps(metrics_output, indent=2))
-            return
-
-        # Parse provided values (if present, enables non-interactive mode)
-        provided_values = None
-        non_interactive = False
-
-        if values:
-            non_interactive = True
-            try:
-                parsed = json.loads(values)
-                if not isinstance(parsed, dict):
-                    console.print(f"[red]Error:[/red] --values must be a JSON object, got {type(parsed).__name__}")
-                    raise typer.Exit(1)
-                provided_values = parsed
-            except json.JSONDecodeError as e:
-                console.print(f"[red]Error:[/red] Invalid JSON in --values: {e}")
-                raise typer.Exit(1)
-
-        log_file_path = fetch_daily_logs(
-            context_path,
-            provided_values=provided_values,
-            non_interactive=non_interactive,
-        )
-
-        if log_file_path:
-            console.print(f"\n[green]✓[/green] Daily logs successfully created: {log_file_path}")
-        else:
-            console.print("[yellow]No data was fetched[/yellow]")
-
-    except FileNotFoundError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1)
-    except ValueError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1)
-    except Exception as e:
-        console.print(f"[red]Unexpected error:[/red] {e}")
-        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ These models define the structure of growth-manifest.json, which captures:
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TechStack(BaseModel):
@@ -160,6 +160,12 @@ class GrowthManifest(BaseModel):
         default_factory=datetime.now,
         description="When the manifest was generated",
     )
+
+    @model_validator(mode="after")
+    def set_generated_at_to_now(self) -> "GrowthManifest":
+        """Always set generated_at to current machine time, ignoring LLM-provided values."""
+        object.__setattr__(self, "generated_at", datetime.now())
+        return self
 
     model_config = ConfigDict(
         json_schema_extra={
