@@ -810,8 +810,9 @@ async def write_analysis_outputs(
 
     # Write template if available
     if template_data:
-        json_path = write_growth_template_outputs(template_data, output_dir)
+        json_path, markdown_path = write_growth_template_outputs(template_data, output_dir)
         written_files.append(str(json_path))
+        written_files.append(str(markdown_path))
 
     return {
         "output_dir": str(output_dir),

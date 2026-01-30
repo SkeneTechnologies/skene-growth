@@ -13,6 +13,7 @@ from typing import Any
 
 from loguru import logger
 
+from skene_growth.docs.generator import DocsGenerator
 from skene_growth.llm.base import LLMClient
 
 EXAMPLE_TEMPLATES_DIR = Path("src") / "templates"
@@ -234,12 +235,30 @@ async def generate_growth_template(
 def write_growth_template_outputs(
     template_data: dict[str, Any],
     output_dir: Path | str,
-) -> Path:
+) -> tuple[Path, Path]:
+    """
+    Write growth template to both JSON and Markdown files.
+
+    Args:
+        template_data: The growth template data to write
+        output_dir: Directory to write files to
+
+    Returns:
+        Tuple of (json_path, markdown_path)
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Write JSON file
     json_path = output_dir / "growth-template.json"
     json_path.write_text(json.dumps(template_data, indent=2))
-
     logger.info(f"Wrote growth template to {json_path}")
-    return json_path
+
+    # Generate and write Markdown file
+    docs_generator = DocsGenerator()
+    markdown_content = docs_generator.generate_growth_template(template_data)
+    markdown_path = output_dir / "growth-template.md"
+    markdown_path.write_text(markdown_content)
+    logger.info(f"Wrote growth template markdown to {markdown_path}")
+
+    return json_path, markdown_path

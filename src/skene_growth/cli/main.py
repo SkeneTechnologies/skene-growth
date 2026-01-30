@@ -415,7 +415,7 @@ async def _write_growth_template(llm, manifest_data: dict, business_type: Option
     try:
         template_data = await generate_growth_template(llm, manifest_data, business_type)
         output_dir = Path("./skene-context")
-        json_path = write_growth_template_outputs(template_data, output_dir)
+        json_path, markdown_path = write_growth_template_outputs(template_data, output_dir)
         console.print(f"[green]Growth template saved to:[/green] {json_path}")
         return template_data
     except Exception as exc:
