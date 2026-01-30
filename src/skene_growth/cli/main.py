@@ -111,7 +111,7 @@ def analyze(
         None,
         "--provider",
         "-p",
-        help="LLM provider to use (openai, gemini, anthropic, ollama)",
+        help="LLM provider to use (openai, gemini, anthropic/claude, ollama)",
     ),
     model: Optional[str] = typer.Option(
         None,
@@ -177,7 +177,27 @@ def analyze(
         resolved_model = model
     else:
         resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
-    resolved_output = output or Path(config.output_dir) / "growth-manifest.json"
+    
+    # Handle output path: if it's a directory, append default filename
+    if output:
+        # Resolve to absolute path
+        if output.is_absolute():
+            resolved_output = output.resolve()
+        else:
+            resolved_output = (Path.cwd() / output).resolve()
+        
+        # If path exists and is a directory, or has no file extension, append default filename
+        if resolved_output.exists() and resolved_output.is_dir():
+            # Path exists and is a directory, append default filename
+            resolved_output = (resolved_output / "growth-manifest.json").resolve()
+        elif not resolved_output.suffix:
+            # No file extension provided, treat as directory and append filename
+            resolved_output = (resolved_output / "growth-manifest.json").resolve()
+        else:
+            # Ensure final path is absolute
+            resolved_output = resolved_output.resolve()
+    else:
+        resolved_output = Path(config.output_dir) / "growth-manifest.json"
 
     # LM Studio and Ollama don't require an API key (local servers)
     is_local_provider = resolved_provider.lower() in (
@@ -294,7 +314,7 @@ async def _run_analysis(
             if product_docs:
                 _write_product_docs(manifest_data, output)
 
-            template_data = await _write_growth_template(llm, manifest_data, business_type)
+            template_data = await _write_growth_template(llm, manifest_data, business_type, output)
 
             progress.update(task, description="Complete!")
 
@@ -404,8 +424,16 @@ def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
         console.print(f"[yellow]Warning:[/yellow] Failed to generate product docs: {exc}")
 
 
-async def _write_growth_template(llm, manifest_data: dict, business_type: Optional[str] = None) -> dict | None:
+async def _write_growth_template(
+    llm, manifest_data: dict, business_type: Optional[str] = None, manifest_path: Optional[Path] = None
+) -> dict | None:
     """Generate and save the growth template JSON output.
+
+    Args:
+        llm: LLM client
+        manifest_data: Manifest data
+        business_type: Optional business type
+        manifest_path: Path to the manifest file (template will be saved to same directory)
 
     Returns:
         Template data dict if successful, None if failed
@@ -414,7 +442,11 @@ async def _write_growth_template(llm, manifest_data: dict, business_type: Option
 
     try:
         template_data = await generate_growth_template(llm, manifest_data, business_type)
-        output_dir = Path("./skene-context")
+        # Save template to the same directory as the manifest
+        if manifest_path:
+            output_dir = manifest_path.parent
+        else:
+            output_dir = Path("./skene-context")
         json_path, markdown_path = write_growth_template_outputs(template_data, output_dir)
         console.print(f"[green]Growth template saved to:[/green] {json_path}")
         return template_data
@@ -463,6 +495,12 @@ def plan(
         "--template",
         help="Path to growth-template.json",
     ),
+    context: Optional[Path] = typer.Option(
+        None,
+        "--context",
+        "-c",
+        help="Directory containing growth-manifest.json and growth-template.json (auto-detected if not specified)",
+    ),
     output: Path = typer.Option(
         "./skene-context/growth-plan.md",
         "-o",
@@ -479,7 +517,7 @@ def plan(
         None,
         "--provider",
         "-p",
-        help="LLM provider to use (openai, gemini, anthropic, ollama)",
+        help="LLM provider to use (openai, gemini, anthropic/claude, ollama)",
     ),
     model: Optional[str] = typer.Option(
         None,
@@ -506,6 +544,9 @@ def plan(
         # Generate growth plan (uses any context files found)
         uvx skene-growth plan --api-key "your-key"
 
+        # Specify context directory containing manifest and template
+        uvx skene-growth plan --context ./my-context --api-key "your-key"
+
         # Override context file paths
         uvx skene-growth plan --manifest ./manifest.json --template ./template.json
     """
@@ -520,12 +561,29 @@ def plan(
     else:
         resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
 
+    # Validate context directory if provided
+    if context:
+        if not context.exists():
+            console.print(f"[red]Error:[/red] Context directory does not exist: {context}")
+            raise typer.Exit(1)
+        if not context.is_dir():
+            console.print(f"[red]Error:[/red] Context path is not a directory: {context}")
+            raise typer.Exit(1)
+
     # Auto-detect manifest
     if manifest is None:
-        default_paths = [
+        default_paths = []
+        
+        # If context is specified, check there first
+        if context:
+            default_paths.append(context / "growth-manifest.json")
+        
+        # Then check standard default paths
+        default_paths.extend([
             Path("./skene-context/growth-manifest.json"),
             Path("./growth-manifest.json"),
-        ]
+        ])
+        
         for p in default_paths:
             if p.exists():
                 manifest = p
@@ -533,10 +591,18 @@ def plan(
 
     # Auto-detect template
     if template is None:
-        default_template_paths = [
+        default_template_paths = []
+        
+        # If context is specified, check there first
+        if context:
+            default_template_paths.append(context / "growth-template.json")
+        
+        # Then check standard default paths
+        default_template_paths.extend([
             Path("./skene-context/growth-template.json"),
             Path("./growth-template.json"),
-        ]
+        ])
+        
         for p in default_template_paths:
             if p.exists():
                 template = p
@@ -560,11 +626,30 @@ def plan(
             )
             raise typer.Exit(1)
 
+    # Handle output path: if it's a directory, append default filename
+    # Resolve to absolute path
+    if output.is_absolute():
+        resolved_output = output.resolve()
+    else:
+        resolved_output = (Path.cwd() / output).resolve()
+    
+    # If path exists and is a directory, or has no file extension, append default filename
+    if resolved_output.exists() and resolved_output.is_dir():
+        # Path exists and is a directory, append default filename
+        resolved_output = (resolved_output / "growth-plan.md").resolve()
+    elif not resolved_output.suffix:
+        # No file extension provided, treat as directory and append filename
+        resolved_output = (resolved_output / "growth-plan.md").resolve()
+    
+    # Ensure final path is absolute (should already be, but double-check)
+    resolved_output = resolved_output.resolve()
+
     console.print(
         Panel.fit(
             f"[bold blue]Generating growth plan[/bold blue]\n"
             f"Manifest: {manifest if manifest and manifest.exists() else 'Not provided'}\n"
             f"Template: {template if template and template.exists() else 'Not provided'}\n"
+            f"Output: {resolved_output}\n"
             f"Provider: {resolved_provider}\n"
             f"Model: {resolved_model}",
             title="skene-growth",
@@ -576,7 +661,7 @@ def plan(
         _run_cycle(
             manifest_path=manifest,
             template_path=template,
-            output_path=output,
+            output_path=resolved_output,
             api_key=resolved_api_key,
             provider=resolved_provider,
             model=resolved_model,

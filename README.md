@@ -56,7 +56,7 @@ uvx skene-growth analyze . --api-key "your-openai-api-key"
 uvx skene-growth validate ./growth-manifest.json
 ```
 
-> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`, Anthropic with `--provider anthropic`, or local LLMs with `--provider lmstudio` or `--provider ollama` (experimental).
+> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`, Anthropic with `--provider anthropic` or `--provider claude`, or local LLMs with `--provider lmstudio` or `--provider ollama` (experimental).
 
 ### Option 2: pip install
 
@@ -98,8 +98,9 @@ uvx skene-growth analyze . --model gpt-4o
 # Use Gemini instead of OpenAI
 uvx skene-growth analyze . --provider gemini --api-key "your-gemini-api-key"
 
-# Use Anthropic (Claude)
+# Use Anthropic (Claude) - both "anthropic" and "claude" work
 uvx skene-growth analyze . --provider anthropic --api-key "your-anthropic-api-key"
+uvx skene-growth analyze . --provider claude --api-key "your-anthropic-api-key"
 
 # Use LM Studio (local server)
 uvx skene-growth analyze . --provider lmstudio --model "your-loaded-model"
@@ -149,6 +150,11 @@ Generate a growth plan using Council of Growth Engineers analysis. This command 
 # Generate growth plan (auto-detects manifest and template)
 uvx skene-growth plan --api-key "your-key"
 
+# Specify context directory containing manifest and template
+uvx skene-growth plan --context ./my-context --api-key "your-key"
+# Or use short form:
+uvx skene-growth plan -c ./my-context --api-key "your-key"
+
 # Specify all files explicitly
 uvx skene-growth plan --manifest ./manifest.json --template ./template.json
 
@@ -162,9 +168,10 @@ uvx skene-growth plan --provider gemini --model gemini-2.0-flash
 **Flags:**
 - `--manifest`: Path to growth-manifest.json (auto-detected if not specified)
 - `--template`: Path to growth-template.json (auto-detected if not specified)
+- `-c, --context`: Directory containing growth-manifest.json and growth-template.json (detected at working directory if not specified)
 - `-o, --output`: Output path for growth plan (markdown format)
 - `--api-key`: API key for LLM provider (or set SKENE_API_KEY env var)
-- `-p, --provider`: LLM provider to use (openai, gemini, anthropic, ollama)
+- `-p, --provider`: LLM provider to use (openai, gemini, anthropic/claude, ollama)
 - `-m, --model`: LLM model name
 - `-v, --verbose`: Enable verbose output
 
@@ -205,7 +212,7 @@ skene-growth supports configuration files for storing defaults:
 # API key for LLM provider (can also use SKENE_API_KEY env var)
 # api_key = "your-api-key"
 
-# LLM provider to use: "openai" (default), "gemini", "anthropic", "lmstudio", or "ollama" (experimental)
+# LLM provider to use: "openai" (default), "gemini", "anthropic"/"claude", "lmstudio", or "ollama" (experimental)
 provider = "openai"
 
 # Model to use (provider-specific defaults apply if not set)
@@ -262,7 +269,7 @@ from skene_growth.llm import create_llm_client
 # Initialize
 codebase = CodebaseExplorer("/path/to/repo")
 llm = create_llm_client(
-    provider="openai",  # or "gemini", "anthropic", "lmstudio", or "ollama" (experimental)
+    provider="openai",  # or "gemini", "anthropic"/"claude", "lmstudio", or "ollama" (experimental)
     api_key=SecretStr("your-api-key"),
     model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-haiku-4-5-20251001" / local model
 )
@@ -375,7 +382,7 @@ When using `--product-docs` flag, the manifest includes additional fields:
 | Variable | Description |
 |----------|-------------|
 | `SKENE_API_KEY` | API key for LLM provider |
-| `SKENE_PROVIDER` | LLM provider to use: `openai` (default), `gemini`, `anthropic`, `lmstudio`, or `ollama` (experimental) |
+| `SKENE_PROVIDER` | LLM provider to use: `openai` (default), `gemini`, `anthropic`/`claude`, `lmstudio`, or `ollama` (experimental) |
 | `LMSTUDIO_BASE_URL` | LM Studio server URL (default: `http://localhost:1234/v1`) |
 | `OLLAMA_BASE_URL` | Ollama server URL (default: `http://localhost:11434/v1`) - Experimental |
 
