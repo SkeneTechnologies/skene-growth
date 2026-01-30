@@ -10,7 +10,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from skene_growth.llm import LLMClient
-from skene_growth.manifest import GrowthManifest
 
 
 class CodeChange(BaseModel):
