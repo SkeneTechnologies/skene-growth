@@ -7,11 +7,12 @@ a complete GrowthManifest.
 
 from skene_growth.analyzers.prompts import (
     GROWTH_FEATURES_PROMPT,
+    INDUSTRY_PROMPT,
     MANIFEST_PROMPT,
     REVENUE_LEAKAGE_PROMPT,
     TECH_STACK_PROMPT,
 )
-from skene_growth.manifest import GrowthManifest, TechStack
+from skene_growth.manifest import GrowthManifest, IndustryInfo, TechStack
 from skene_growth.strategies import MultiStepStrategy
 from skene_growth.strategies.steps import (
     AnalyzeStep,
@@ -25,10 +26,12 @@ class ManifestAnalyzer(MultiStepStrategy):
     """
     Full-pipeline analyzer that produces a complete GrowthManifest.
 
-    This analyzer runs in three phases:
+    This analyzer runs in four phases:
     1. Tech stack detection (config files)
     2. Current growth features identification (source files)
-    3. Manifest generation (combining results + growth opportunities)
+    3. Revenue leakage analysis (pricing/payment files)
+    4. Industry classification (docs/README)
+    5. Manifest generation (combining results + growth opportunities)
 
     Example:
         analyzer = ManifestAnalyzer()
@@ -142,11 +145,39 @@ class ManifestAnalyzer(MultiStepStrategy):
                     output_key="revenue_leakage",
                     source_key="revenue_file_contents",
                 ),
-                # Phase 3: Generate final manifest
+                # Phase 3: Industry classification
+                SelectFilesStep(
+                    prompt="Select documentation and package metadata files for industry classification. "
+                    "Look for README, docs, and package descriptors that describe what the product does.",
+                    patterns=[
+                        "README.md",
+                        "README*.md",
+                        "readme.md",
+                        "docs/*.md",
+                        "docs/**/*.md",
+                        "package.json",
+                        "pyproject.toml",
+                        "Cargo.toml",
+                        "go.mod",
+                    ],
+                    max_files=10,
+                    output_key="industry_files",
+                ),
+                ReadFilesStep(
+                    source_key="industry_files",
+                    output_key="industry_file_contents",
+                ),
+                AnalyzeStep(
+                    prompt=INDUSTRY_PROMPT,
+                    output_schema=IndustryInfo,
+                    output_key="industry",
+                    source_key="industry_file_contents",
+                ),
+                # Phase 4: Generate final manifest
                 GenerateStep(
                     prompt=MANIFEST_PROMPT,
                     output_schema=GrowthManifest,
-                    include_context_keys=["tech_stack", "current_growth_features", "revenue_leakage"],
+                    include_context_keys=["tech_stack", "current_growth_features", "revenue_leakage", "industry"],
                     output_key="output",
                 ),
             ]

@@ -220,4 +220,8 @@ class DocsGenerator:
         if hasattr(manifest, "features"):
             context["features"] = manifest.features
 
+        # Add industry classification if available
+        if hasattr(manifest, "industry"):
+            context["industry"] = manifest.industry
+
         return context

@@ -106,12 +106,14 @@ You have been provided with:
 - Tech stack analysis (detected technologies)
 - Current growth features analysis (existing features with growth potential)
 - Revenue leakage analysis (potential revenue issues)
+- Industry classification (market vertical and business model tags)
 
 Your task is to:
 1. Create a cohesive project summary
 2. Include the tech stack and current growth features from the analysis
 3. Include revenue leakage issues from the analysis
-4. Identify growth opportunities - missing features that could drive growth
+4. Include the industry classification from the analysis
+5. Identify growth opportunities - missing features that could drive growth
 
 For growth opportunities, consider what's missing:
 - User onboarding flows
@@ -127,7 +129,73 @@ Return a complete growth manifest as JSON with:
 - tech_stack: From the tech stack analysis
 - current_growth_features: From the growth features analysis
 - revenue_leakage: From the revenue leakage analysis
+- industry: From the industry classification analysis (include primary, secondary, confidence, evidence)
 - growth_opportunities: Your identified opportunities with priority (high/medium/low)
+"""
+
+# Industry Classification Prompt
+INDUSTRY_PROMPT = """
+Analyze the provided documentation and package metadata files to classify the industry/market vertical.
+
+Your task is to determine what **market vertical or domain** this product serves (NOT the technology stack).
+
+Focus on identifying:
+1. **primary**: A concise industry vertical label. Common examples:
+   - DevTools (developer tools, SDKs, APIs, infrastructure)
+   - FinTech (payments, banking, investing, accounting)
+   - E-commerce (online retail, marketplaces, product catalogs)
+   - Healthcare (medical, wellness, patient management)
+   - EdTech (learning, training, educational content)
+   - Marketing (advertising, analytics, CRM, email marketing)
+   - HR (recruiting, payroll, employee management)
+   - Security (authentication, compliance, monitoring)
+   - Productivity (collaboration, project management, notes)
+   - Data/Analytics (business intelligence, data pipelines, visualization)
+   - Media/Entertainment (streaming, content, gaming)
+   - Real Estate (property, rentals, listings)
+   - Logistics (shipping, supply chain, inventory)
+   - Other (specify if none of the above fit)
+
+2. **secondary**: 0-5 supporting tags for sub-verticals or business model nuance:
+   - Business model: B2B, B2C, B2B2C
+   - Delivery model: SaaS, On-premise, Hybrid, API-first
+   - Market position: Enterprise, SMB, Startup, Consumer
+   - Distribution: Marketplace, OpenSource, Freemium
+
+3. **confidence**: A score from 0.0 to 1.0 indicating how confident you are.
+   - 0.8-1.0: Clear product/domain signals in README or docs
+   - 0.5-0.7: Some signals but could be interpreted differently
+   - 0.0-0.4: Minimal or ambiguous signals
+
+4. **evidence**: 2-5 short bullet points citing **specific signals** from the files:
+   - Quote key phrases from README (e.g., "README mentions 'team collaboration tool'")
+   - Reference package description or keywords
+   - Note integration names that hint at domain (e.g., "Integrates with Shopify suggests E-commerce")
+   - Mention user-facing docs headings or terminology
+
+**Signals to look for (high to low priority):**
+- README product description, tagline, "what it does", "who it's for"
+- package.json description/keywords, pyproject.toml description/classifiers
+- Integration names (Stripe → payments, Shopify → e-commerce, HIPAA → healthcare)
+- Domain vocabulary in documentation
+
+**IMPORTANT - Uncertainty rule:**
+If the repository lacks clear product/domain signals (e.g., generic library, no README, unclear purpose),
+return:
+- primary: null
+- secondary: []
+- confidence: low (< 0.3)
+- evidence: explain what signals were missing or why classification is uncertain
+
+Return your analysis as JSON:
+{
+    "primary": "string or null",
+    "secondary": ["array of tags"],
+    "confidence": 0.0-1.0,
+    "evidence": ["array of short evidence strings"]
+}
+
+Be conservative - it's better to return null with low confidence than to guess incorrectly.
 """
 
 # Product Overview Extraction Prompt
@@ -194,6 +262,7 @@ Generate a complete documentation manifest by combining all analysis results.
 You have been provided with:
 - Tech stack analysis (detected technologies)
 - Product overview (tagline, value proposition, target audience)
+- Industry classification (market vertical and business model tags)
 - Features documentation (user-facing feature descriptions)
 - Current growth features analysis (existing features with growth potential)
 
@@ -201,7 +270,7 @@ Your task is to:
 1. Create a cohesive DocsManifest combining all sections
 2. Infer a project_name from the codebase structure or package files
 3. Write a brief description summarizing the project
-4. Include all provided analysis data
+4. Include all provided analysis data including industry classification
 5. Identify growth opportunities - missing features that could drive growth
 
 For growth opportunities, consider what's missing:
@@ -217,6 +286,7 @@ Return a complete manifest as JSON with:
 - description: Brief project description
 - tech_stack: From the tech stack analysis
 - product_overview: From the product overview analysis
+- industry: From the industry classification analysis (include primary, secondary, confidence, evidence)
 - features: From the features documentation
 - current_growth_features: From the growth features analysis
 - growth_opportunities: Your identified opportunities with priority (high/medium/low)

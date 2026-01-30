@@ -13,7 +13,10 @@
 {% if product_overview and product_overview.target_audience %}
 **Built for**: {{ product_overview.target_audience }}
 {% endif %}
+{% if industry and industry.primary %}
+**Industry**: {{ industry.primary }}{% if industry.secondary %} ({{ industry.secondary | join(', ') }}){% endif %}
 
+{% endif %}
 ## Tech Stack
 
 {{ project_name }} is built with:

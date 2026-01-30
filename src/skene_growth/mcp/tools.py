@@ -337,6 +337,104 @@ async def analyze_product_overview(
     }
 
 
+async def analyze_industry(
+    path: str,
+    cache: AnalysisCache,
+    force_refresh: bool = False,
+) -> dict[str, Any]:
+    """Classify the industry/market vertical of a codebase.
+
+    Analyzes README and documentation to determine the product's industry,
+    sub-verticals, and business model tags.
+    Results are cached independently from other analysis phases.
+
+    Args:
+        path: Absolute path to the repository
+        cache: Analysis cache instance
+        force_refresh: Skip cache and force re-analysis
+
+    Returns:
+        Industry classification data with primary, secondary, confidence, evidence
+    """
+    from skene_growth.analyzers.prompts import INDUSTRY_PROMPT
+    from skene_growth.codebase import CodebaseExplorer
+    from skene_growth.manifest import IndustryInfo
+    from skene_growth.strategies.steps import AnalyzeStep, ReadFilesStep, SelectFilesStep
+
+    repo_path = Path(path).resolve()
+
+    if not repo_path.exists():
+        raise ValueError(f"Path does not exist: {repo_path}")
+
+    if not repo_path.is_dir():
+        raise ValueError(f"Path is not a directory: {repo_path}")
+
+    # Check phase cache
+    if not force_refresh:
+        cached = await cache.get_phase(repo_path, "industry")
+        if cached:
+            return {
+                "industry": cached,
+                "cached": True,
+            }
+
+    codebase = CodebaseExplorer(repo_path)
+    llm = _get_llm_client()
+
+    from skene_growth.strategies import MultiStepStrategy
+
+    analyzer = MultiStepStrategy(
+        steps=[
+            SelectFilesStep(
+                prompt="Select documentation and package metadata files for industry classification. "
+                "Look for README, docs, and package descriptors that describe what the product does.",
+                patterns=[
+                    "README.md",
+                    "README*.md",
+                    "readme.md",
+                    "docs/*.md",
+                    "docs/**/*.md",
+                    "package.json",
+                    "pyproject.toml",
+                    "Cargo.toml",
+                    "go.mod",
+                ],
+                max_files=10,
+                output_key="industry_files",
+            ),
+            ReadFilesStep(
+                source_key="industry_files",
+                output_key="industry_contents",
+            ),
+            AnalyzeStep(
+                prompt=INDUSTRY_PROMPT,
+                output_schema=IndustryInfo,
+                output_key="industry",
+                source_key="industry_contents",
+            ),
+        ]
+    )
+
+    result = await analyzer.run(
+        codebase=codebase,
+        llm=llm,
+        request="Classify the industry/market vertical",
+    )
+
+    if not result.success:
+        raise RuntimeError(f"Industry classification failed: {result.error}")
+
+    industry = result.data.get("industry", {})
+
+    # Cache the result
+    await cache.set_phase(repo_path, "industry", industry)
+
+    return {
+        "industry": industry,
+        "cached": False,
+    }
+
+
 async def analyze_growth_hubs(
     path: str,
     cache: AnalysisCache,
@@ -538,6 +636,7 @@ async def generate_manifest(
     cache: AnalysisCache,
     tech_stack: dict[str, Any] | None = None,
     product_overview: dict[str, Any] | None = None,
+    industry: dict[str, Any] | None = None,
     current_growth_features: dict[str, Any] | None = None,
     features: dict[str, Any] | None = None,
     auto_analyze: bool = True,
@@ -553,6 +652,7 @@ async def generate_manifest(
         cache: Analysis cache instance
         tech_stack: Pre-computed tech stack (or auto-analyze if None)
         product_overview: Pre-computed product overview (or auto-analyze if None)
+        industry: Pre-computed industry classification (or auto-analyze if None)
         current_growth_features: Pre-computed current growth features (or auto-analyze if None)
         features: Pre-computed features (or auto-analyze if None, only for product_docs)
         auto_analyze: If True, auto-analyze missing phases
@@ -590,6 +690,8 @@ async def generate_manifest(
         tech_stack = await cache.get_phase(repo_path, "tech_stack")
     if current_growth_features is None:
         current_growth_features = await cache.get_phase(repo_path, "current_growth_features")
+    if industry is None:
+        industry = await cache.get_phase(repo_path, "industry")
     if product_docs:
         if product_overview is None:
             product_overview = await cache.get_phase(repo_path, "product_overview")
@@ -606,6 +708,10 @@ async def generate_manifest(
             result = await analyze_growth_hubs(path, cache, force_refresh=force_refresh)
             current_growth_features = result.get("current_growth_features", {})
 
+        if industry is None:
+            result = await analyze_industry(path, cache, force_refresh=force_refresh)
+            industry = result.get("industry", {})
+
         if product_docs:
             if product_overview is None:
                 result = await analyze_product_overview(path, cache, force_refresh=force_refresh)
@@ -621,6 +727,7 @@ async def generate_manifest(
             missing_phases.append("tech_stack (run analyze_tech_stack first)")
         if not current_growth_features:
             missing_phases.append("current_growth_features (run analyze_growth_hubs first)")
+        # Industry is optional, don't require it
         if product_docs:
             if not product_overview:
                 missing_phases.append("product_overview (run analyze_product_overview first)")
@@ -640,6 +747,7 @@ async def generate_manifest(
     context = {
         "tech_stack": tech_stack or {},
         "current_growth_features": current_growth_features or {},
+        "industry": industry or {},
     }
 
     if product_docs:

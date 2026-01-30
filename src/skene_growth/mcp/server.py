@@ -21,6 +21,7 @@ from skene_growth.mcp.cache import AnalysisCache
 from skene_growth.mcp.tools import (
     analyze_features,
     analyze_growth_hubs,
+    analyze_industry,
     analyze_product_overview,
     analyze_tech_stack,
     clear_cache,
@@ -221,6 +222,30 @@ class SkeneGrowthMCPServer:
                         "required": ["path"],
                     },
                 ),
+                Tool(
+                    name="analyze_industry",
+                    description=(
+                        "Classify the industry/market vertical of a codebase (5-15s). "
+                        "Analyzes README and documentation to determine the product's industry, "
+                        "sub-verticals, and business model tags. "
+                        "Results are cached independently."
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Absolute path to the repository",
+                            },
+                            "force_refresh": {
+                                "type": "boolean",
+                                "description": "Skip cache and force re-analysis",
+                                "default": False,
+                            },
+                        },
+                        "required": ["path"],
+                    },
+                ),
                 # =============================================================
                 # Tier 3: Generation Tools
                 # =============================================================
@@ -387,6 +412,13 @@ class SkeneGrowthMCPServer:
 
                 elif name == "analyze_features":
                     result = await analyze_features(
+                        path=arguments["path"],
+                        cache=cache,
+                        force_refresh=arguments.get("force_refresh", False),
+                    )
+
+                elif name == "analyze_industry":
+                    result = await analyze_industry(
                         path=arguments["path"],
                         cache=cache,
                         force_refresh=arguments.get("force_refresh", False),

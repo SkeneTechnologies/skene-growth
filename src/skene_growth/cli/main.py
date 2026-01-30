@@ -136,6 +136,12 @@ def analyze(
         "--product-docs",
         help="Generate product-docs.md with user-facing feature documentation",
     ),
+    exclude: Optional[list[str]] = typer.Option(
+        None,
+        "--exclude",
+        "-e",
+        help="Folder names to exclude from analysis (can be used multiple times). Can also be set in .skene-growth.config as exclude_folders. Example: --exclude tests --exclude vendor",
+    ),
 ):
     """
     Analyze a codebase and generate growth-manifest.json.
@@ -231,6 +237,12 @@ def analyze(
         )
     )
 
+    # Collect exclude folders from config and CLI
+    exclude_folders = list(config.exclude_folders) if config.exclude_folders else []
+    if exclude:
+        # Merge CLI excludes with config excludes (deduplicate)
+        exclude_folders = list(set(exclude_folders + exclude))
+
     # Run async analysis
     asyncio.run(
         _run_analysis(
@@ -242,6 +254,7 @@ def analyze(
             verbose,
             product_docs,
             business_type,
+            exclude_folders=exclude_folders if exclude_folders else None,
         )
     )
 
@@ -255,6 +268,7 @@ async def _run_analysis(
     verbose: bool,
     product_docs: Optional[bool] = False,
     business_type: Optional[str] = None,
+    exclude_folders: Optional[list[str]] = None,
 ):
     """Run the async analysis."""
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
@@ -271,7 +285,7 @@ async def _run_analysis(
         try:
             # Initialize components
             progress.update(task, description="Setting up codebase explorer...")
-            codebase = CodebaseExplorer(path)
+            codebase = CodebaseExplorer(path, exclude_folders=exclude_folders)
 
             progress.update(task, description="Connecting to LLM provider...")
             llm = create_llm_client(provider, SecretStr(api_key), model)
@@ -353,6 +367,18 @@ def _show_analysis_summary(data: dict, template_data: dict | None = None):
         tech = data["tech_stack"]
         tech_items = [f"{k}: {v}" for k, v in tech.items() if v]
         table.add_row("Tech Stack", "\n".join(tech_items[:5]) or "Not detected")
+
+    if "industry" in data and data["industry"]:
+        industry = data["industry"]
+        primary = industry.get("primary") or "Unknown"
+        secondary = industry.get("secondary", [])
+        confidence = industry.get("confidence")
+        industry_str = primary
+        if secondary:
+            industry_str += f" ({', '.join(secondary[:3])})"
+        if confidence is not None:
+            industry_str += f" — {int(confidence * 100)}% confidence"
+        table.add_row("Industry", industry_str)
 
     features = data.get("current_growth_features")
     if features:

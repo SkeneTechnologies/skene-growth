@@ -80,6 +80,17 @@ class Config:
             return model
         return default_model_for_provider(self.provider)
 
+    @property
+    def exclude_folders(self) -> list[str]:
+        """Get list of folder names to exclude from analysis."""
+        exclude = self.get("exclude_folders")
+        if exclude:
+            if isinstance(exclude, list):
+                return exclude
+            elif isinstance(exclude, str):
+                return [exclude]
+        return []
+
 
 def find_project_config() -> Path | None:
     """Find project-level config file (.skene-growth.config)."""

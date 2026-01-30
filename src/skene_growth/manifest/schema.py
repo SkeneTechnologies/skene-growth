@@ -104,6 +104,29 @@ class RevenueLeakage(BaseModel):
     )
 
 
+class IndustryInfo(BaseModel):
+    """Industry/market vertical classification for the project."""
+
+    primary: str | None = Field(
+        default=None,
+        description="Primary industry vertical (e.g., 'DevTools', 'FinTech', 'E-commerce', 'Healthcare', 'EdTech')",
+    )
+    secondary: list[str] = Field(
+        default_factory=list,
+        description="Supporting tags for sub-verticals or go-to-market nuance (e.g., 'B2B', 'SaaS', 'Marketplace')",
+    )
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score (0.0-1.0) for the classification",
+    )
+    evidence: list[str] = Field(
+        default_factory=list,
+        description="Short bullets citing specific repo signals that support the classification",
+    )
+
+
 class ProductOverview(BaseModel):
     """High-level product information for documentation."""
 
@@ -166,6 +189,10 @@ class GrowthManifest(BaseModel):
     tech_stack: TechStack = Field(
         description="Detected technology stack",
     )
+    industry: IndustryInfo | None = Field(
+        default=None,
+        description="Inferred industry/market vertical classification",
+    )
     current_growth_features: list[GrowthFeature] = Field(
         default_factory=list,
         description="Identified current growth features",
@@ -204,6 +231,15 @@ class GrowthManifest(BaseModel):
                     "deployment": "Vercel",
                     "package_manager": "npm",
                     "services": ["Stripe", "SendGrid"],
+                },
+                "industry": {
+                    "primary": "Productivity",
+                    "secondary": ["B2B", "SaaS", "Enterprise"],
+                    "confidence": 0.85,
+                    "evidence": [
+                        "README mentions 'team collaboration' as primary use case",
+                        "Target audience includes 'businesses' and 'teams'",
+                    ],
                 },
                 "current_growth_features": [
                     {

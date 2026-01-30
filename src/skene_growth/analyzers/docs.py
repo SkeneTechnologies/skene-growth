@@ -9,11 +9,13 @@ from skene_growth.analyzers.prompts import (
     DOCS_MANIFEST_PROMPT,
     FEATURES_PROMPT,
     GROWTH_FEATURES_PROMPT,
+    INDUSTRY_PROMPT,
     PRODUCT_OVERVIEW_PROMPT,
     TECH_STACK_PROMPT,
 )
 from skene_growth.manifest import (
     DocsManifest,
+    IndustryInfo,
     ProductOverview,
     TechStack,
 )
@@ -31,12 +33,13 @@ class DocsAnalyzer(MultiStepStrategy):
     Documentation analyzer that produces a DocsManifest.
 
     This analyzer extends the base growth manifest with documentation
-    fields by running in 4 phases:
+    fields by running in 5 phases:
 
     1. Tech stack detection (config files)
     2. Product overview extraction (README, docs)
-    3. Feature documentation + current growth features (source files)
-    4. Final manifest generation
+    3. Industry classification (reuses docs from phase 2)
+    4. Feature documentation + current growth features (source files)
+    5. Final manifest generation
 
     Example:
         analyzer = DocsAnalyzer()
@@ -109,7 +112,14 @@ class DocsAnalyzer(MultiStepStrategy):
                     output_key="product_overview",
                     source_key="overview_contents",
                 ),
-                # Phase 3: Feature Documentation + Current Growth Features
+                # Phase 3: Industry Classification (reuses overview_contents)
+                AnalyzeStep(
+                    prompt=INDUSTRY_PROMPT,
+                    output_schema=IndustryInfo,
+                    output_key="industry",
+                    source_key="overview_contents",
+                ),
+                # Phase 4: Feature Documentation + Current Growth Features
                 SelectFilesStep(
                     prompt="Select source files with growth features. "
                     "Look for user management, invitations, sharing, payments, analytics.",
@@ -139,13 +149,14 @@ class DocsAnalyzer(MultiStepStrategy):
                     output_key="current_growth_features",
                     source_key="source_contents",
                 ),
-                # Phase 4: Final Manifest Generation
+                # Phase 5: Final Manifest Generation
                 GenerateStep(
                     prompt=DOCS_MANIFEST_PROMPT,
                     output_schema=DocsManifest,
                     include_context_keys=[
                         "tech_stack",
                         "product_overview",
+                        "industry",
                         "features",
                         "current_growth_features",
                     ],

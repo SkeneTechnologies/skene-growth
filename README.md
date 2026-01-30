@@ -114,6 +114,10 @@ uvx skene-growth analyze . --business-type "b2b-saas"
 
 # Generate product documentation (collects product overview and features)
 uvx skene-growth analyze . --product-docs
+
+# Exclude folders from analysis (can be used multiple times)
+uvx skene-growth analyze . --exclude tests --exclude vendor --exclude migrations
+uvx skene-growth analyze . -e planner -e docs
 ```
 
 **Output:**
@@ -128,6 +132,7 @@ the LLM infers it from your codebase.
 **Flags:**
 - `--product-docs`: Generate user-friendly product documentation (collects product overview, features, and generates product-docs.md)
 - `--business-type`: Specify business type for custom growth template
+- `-e, --exclude`: Folder names to exclude from analysis (can be used multiple times). Excludes any folder containing the specified name anywhere in the path. Can also be configured in `.skene-growth.config` file.
 
 The `--product-docs` flag enables enhanced analysis mode which collects product overview and feature documentation, producing a v2.0 manifest with additional fields and a user-friendly product-docs.md file.
 
@@ -193,6 +198,44 @@ uvx skene-growth config
 uvx skene-growth config --init
 ```
 
+## Excluding Folders from Analysis
+
+You can exclude specific folders from analysis to skip test files, vendor directories, documentation, or any other folders you don't want analyzed.
+
+### How Exclusion Works
+
+Exclusion matches folders in three ways:
+1. **Exact folder name match** - Excluding `"tests"` matches exactly `"tests"`
+2. **Substring match in folder names** - Excluding `"test"` matches `"tests"`, `"test_utils"`, `"integration_tests"`, etc.
+3. **Path pattern matching** - Excluding `"tests/unit"` matches any path containing that pattern
+
+### Examples
+
+```bash
+# Exclude test folders and vendor directories
+uvx skene-growth analyze . --exclude tests --exclude vendor
+
+# Exclude multiple folders (short form)
+uvx skene-growth analyze . -e planner -e migrations -e docs
+
+# Exclude path patterns
+uvx skene-growth analyze . --exclude "tests/unit" --exclude "vendor/legacy"
+```
+
+### Default Exclusions
+
+By default, skene-growth excludes common build and cache directories:
+- `.git`, `.svn`, `.hg` (version control)
+- `__pycache__`, `.pytest_cache` (Python cache)
+- `node_modules` (Node.js dependencies)
+- `.idea`, `.vscode` (IDE configs)
+- `venv`, `.venv` (Python virtual environments)
+- `dist`, `build` (build outputs)
+- `.next`, `.nuxt` (framework builds)
+- `coverage`, `.cache` (test/build artifacts)
+
+Your custom exclusions are merged with these defaults.
+
 ## Configuration
 
 skene-growth supports configuration files for storing defaults:
@@ -224,6 +267,12 @@ output_dir = "./skene-context"
 
 # Enable verbose output
 verbose = false
+
+# Folders to exclude from analysis (folder names or path patterns)
+# Excludes any folder containing these names anywhere in the path
+# Examples: "test" will exclude "tests", "test_utils", "integration_tests"
+# Path patterns like "tests/unit" will exclude any path containing that pattern
+exclude_folders = ["tests", "vendor", "migrations", "docs"]
 ```
 
 ### Configuration Priority
@@ -244,12 +293,19 @@ Safe, sandboxed access to codebase files:
 ```python
 from skene_growth import CodebaseExplorer
 
+# Create explorer with default exclusions
 explorer = CodebaseExplorer("/path/to/repo")
 
-# Get directory tree
+# Exclude specific folders from analysis
+explorer = CodebaseExplorer(
+    "/path/to/repo",
+    exclude_folders=["tests", "vendor", "migrations"]
+)
+
+# Get directory tree (excluded folders are automatically filtered)
 tree = await explorer.get_directory_tree(".", max_depth=3)
 
-# Search for files
+# Search for files (excluded folders are automatically filtered)
 files = await explorer.search_files(".", "**/*.py")
 
 # Read file contents
@@ -257,6 +313,10 @@ content = await explorer.read_file("src/main.py")
 
 # Read multiple files
 contents = await explorer.read_multiple_files(["src/a.py", "src/b.py"])
+
+# Check if a path should be excluded
+from pathlib import Path
+should_exclude = explorer.should_exclude(Path("src/tests/unit.py"))
 ```
 
 ### Analyzers
