@@ -26,7 +26,6 @@ from skene_growth.manifest import (
 )
 from skene_growth.planner import (
     GrowthLoop,
-    GrowthLoopCatalog,
     Planner,
 )
 from skene_growth.strategies import (
@@ -83,6 +82,5 @@ __all__ = [
     "PSEOBuilder",
     # Planner
     "GrowthLoop",
-    "GrowthLoopCatalog",
     "Planner",
 ]

@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field
 
 from skene_growth.llm import LLMClient
 from skene_growth.manifest import GrowthManifest
-from skene_growth.planner.loops import GrowthLoopCatalog
 
 
 class CodeChange(BaseModel):
@@ -81,50 +80,9 @@ class Planner:
         memo = await planner.generate_council_memo(
             llm=llm,
             manifest_data=manifest_data,
-            objectives_content=objectives_content,
             template_data=template_data,
         )
     """
-
-    def generate_quick_plan(
-        self,
-        manifest: GrowthManifest,
-        catalog: GrowthLoopCatalog | None = None,
-    ) -> Plan:
-        """
-        Generate a quick plan without LLM from catalog loops.
-
-        Args:
-            manifest: The project's growth manifest
-            catalog: Loop catalog (uses default if None)
-
-        Returns:
-            Basic plan with one LoopPlan per catalog loop
-        """
-        catalog = catalog or GrowthLoopCatalog()
-        loop_plans = []
-
-        for i, loop in enumerate(catalog.get_all()):
-            loop_plans.append(
-                LoopPlan(
-                    loop_id=loop.id,
-                    loop_name=loop.name,
-                    priority=min(10 - i, 10),
-                    estimated_complexity="medium",
-                    code_changes=[],
-                    testing_notes="Test the integration manually after implementation.",
-                )
-            )
-
-        # Sort by priority
-        loop_plans.sort(key=lambda p: p.priority, reverse=True)
-
-        return Plan(
-            project_name=manifest.project_name,
-            manifest_summary=manifest.description or f"Growth manifest for {manifest.project_name}",
-            loop_plans=loop_plans,
-            implementation_order=[p.loop_id for p in loop_plans],
-        )
 
     async def generate_council_memo(
         self,

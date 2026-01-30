@@ -140,11 +140,7 @@ def analyze(
         None,
         "--exclude",
         "-e",
-        help=(
-            "Folder names to exclude from analysis (can be used multiple times). "
-            "Can also be set in .skene-growth.config as exclude_folders. "
-            "Example: --exclude tests --exclude vendor"
-        ),
+        help="Folder names to exclude from analysis (can be used multiple times). Can also be set in .skene-growth.config as exclude_folders. Example: --exclude tests --exclude vendor",
     ),
 ):
     """
