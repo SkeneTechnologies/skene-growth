@@ -10,7 +10,7 @@ from pydantic import SecretStr
 from skene_growth.llm.base import LLMClient
 
 # Default fallback model for rate limiting (429 errors)
-DEFAULT_FALLBACK_MODEL = "claude-sonnet-4-20250514"
+DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5-20251001"
 
 
 class AnthropicClient(LLMClient):
@@ -23,7 +23,7 @@ class AnthropicClient(LLMClient):
     Example:
         client = AnthropicClient(
             api_key=SecretStr("your-api-key"),
-            model_name="claude-sonnet-4-20250514"
+            model_name="claude-haiku-4-5-20251001"
         )
         response = await client.generate_content("Hello!")
     """
@@ -39,8 +39,8 @@ class AnthropicClient(LLMClient):
 
         Args:
             api_key: Anthropic API key (wrapped in SecretStr for security)
-            model_name: Primary model to use (e.g., "claude-sonnet-4-20250514")
-            fallback_model: Model to use when rate limited (default: claude-sonnet-4-20250514)
+            model_name: Primary model to use (e.g., "claude-haiku-4-5-20251001")
+            fallback_model: Model to use when rate limited (default: claude-haiku-4-5-20251001)
         """
         try:
             from anthropic import AsyncAnthropic

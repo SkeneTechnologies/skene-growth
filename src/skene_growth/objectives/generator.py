@@ -62,8 +62,8 @@ For each objective:
 4. Define a tolerance range (typically +/- 5-20% depending on the metric)
 
 Prioritize objectives that:
-- Address gaps identified in the manifest's gtm_gaps
-- Align with the project's current growth hubs
+- Address gaps identified in the manifest's growth_opportunities
+- Align with the project's current growth features
 - Are measurable and actionable
 - Cover different lifecycle stages for balanced growth
 

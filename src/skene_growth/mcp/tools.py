@@ -355,7 +355,7 @@ async def analyze_growth_hubs(
     Returns:
         Growth hubs data with identified features
     """
-    from skene_growth.analyzers.prompts import GROWTH_HUB_PROMPT
+    from skene_growth.analyzers.prompts import GROWTH_FEATURES_PROMPT
     from skene_growth.codebase import CodebaseExplorer
     from skene_growth.strategies.steps import AnalyzeStep, ReadFilesStep, SelectFilesStep
 
@@ -369,10 +369,10 @@ async def analyze_growth_hubs(
 
     # Check phase cache
     if not force_refresh:
-        cached = await cache.get_phase(repo_path, "growth_hubs")
+        cached = await cache.get_phase(repo_path, "current_growth_features")
         if cached:
             return {
-                "growth_hubs": cached,
+                "current_growth_features": cached,
                 "cached": True,
             }
 
@@ -405,8 +405,8 @@ async def analyze_growth_hubs(
                 output_key="source_contents",
             ),
             AnalyzeStep(
-                prompt=GROWTH_HUB_PROMPT,
-                output_key="growth_hubs",
+                prompt=GROWTH_FEATURES_PROMPT,
+                output_key="current_growth_features",
                 source_key="source_contents",
             ),
         ]
@@ -419,15 +419,15 @@ async def analyze_growth_hubs(
     )
 
     if not result.success:
-        raise RuntimeError(f"Growth hubs analysis failed: {result.error}")
+        raise RuntimeError(f"Growth features analysis failed: {result.error}")
 
-    growth_hubs = result.data.get("growth_hubs", {})
+    current_growth_features = result.data.get("current_growth_features", {})
 
     # Cache the result
-    await cache.set_phase(repo_path, "growth_hubs", growth_hubs)
+    await cache.set_phase(repo_path, "current_growth_features", current_growth_features)
 
     return {
-        "growth_hubs": growth_hubs,
+        "current_growth_features": current_growth_features,
         "cached": False,
     }
 
@@ -538,7 +538,7 @@ async def generate_manifest(
     cache: AnalysisCache,
     tech_stack: dict[str, Any] | None = None,
     product_overview: dict[str, Any] | None = None,
-    growth_hubs: dict[str, Any] | None = None,
+    current_growth_features: dict[str, Any] | None = None,
     features: dict[str, Any] | None = None,
     auto_analyze: bool = True,
     product_docs: bool = False,
@@ -553,7 +553,7 @@ async def generate_manifest(
         cache: Analysis cache instance
         tech_stack: Pre-computed tech stack (or auto-analyze if None)
         product_overview: Pre-computed product overview (or auto-analyze if None)
-        growth_hubs: Pre-computed growth hubs (or auto-analyze if None)
+        current_growth_features: Pre-computed current growth features (or auto-analyze if None)
         features: Pre-computed features (or auto-analyze if None, only for product_docs)
         auto_analyze: If True, auto-analyze missing phases
         product_docs: If True, generate DocsManifest v2.0 (includes product_overview, features)
@@ -588,8 +588,8 @@ async def generate_manifest(
     # Try to load from cache if not provided
     if tech_stack is None:
         tech_stack = await cache.get_phase(repo_path, "tech_stack")
-    if growth_hubs is None:
-        growth_hubs = await cache.get_phase(repo_path, "growth_hubs")
+    if current_growth_features is None:
+        current_growth_features = await cache.get_phase(repo_path, "current_growth_features")
     if product_docs:
         if product_overview is None:
             product_overview = await cache.get_phase(repo_path, "product_overview")
@@ -602,9 +602,9 @@ async def generate_manifest(
             result = await analyze_tech_stack(path, cache, force_refresh=force_refresh)
             tech_stack = result.get("tech_stack", {})
 
-        if growth_hubs is None:
+        if current_growth_features is None:
             result = await analyze_growth_hubs(path, cache, force_refresh=force_refresh)
-            growth_hubs = result.get("growth_hubs", {})
+            current_growth_features = result.get("current_growth_features", {})
 
         if product_docs:
             if product_overview is None:
@@ -619,8 +619,8 @@ async def generate_manifest(
         missing_phases = []
         if not tech_stack:
             missing_phases.append("tech_stack (run analyze_tech_stack first)")
-        if not growth_hubs:
-            missing_phases.append("growth_hubs (run analyze_growth_hubs first)")
+        if not current_growth_features:
+            missing_phases.append("current_growth_features (run analyze_growth_hubs first)")
         if product_docs:
             if not product_overview:
                 missing_phases.append("product_overview (run analyze_product_overview first)")
@@ -639,7 +639,7 @@ async def generate_manifest(
     # Build context for manifest generation
     context = {
         "tech_stack": tech_stack or {},
-        "growth_hubs": growth_hubs or {},
+        "current_growth_features": current_growth_features or {},
     }
 
     if product_docs:

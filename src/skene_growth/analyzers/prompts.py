@@ -73,9 +73,6 @@ Return your analysis as a JSON array of current growth features.
 Focus on quality over quantity - identify the most impactful features.
 """
 
-# Backwards compatibility alias
-GROWTH_HUB_PROMPT = GROWTH_FEATURES_PROMPT
-
 # Revenue Leakage Detection Prompt
 REVENUE_LEAKAGE_PROMPT = """
 Analyze the provided source files and identify potential revenue leakage issues.
@@ -128,9 +125,9 @@ Return a complete growth manifest as JSON with:
 - project_name: Inferred from the codebase
 - description: Brief project description
 - tech_stack: From the tech stack analysis
-- current_growth_features: From the growth features analysis (use key "growth_hubs" in JSON for backwards compatibility)
+- current_growth_features: From the growth features analysis
 - revenue_leakage: From the revenue leakage analysis
-- growth_opportunities: Your identified opportunities with priority (high/medium/low) (use key "gtm_gaps" in JSON for backwards compatibility)
+- growth_opportunities: Your identified opportunities with priority (high/medium/low)
 """
 
 # Product Overview Extraction Prompt
@@ -221,6 +218,6 @@ Return a complete manifest as JSON with:
 - tech_stack: From the tech stack analysis
 - product_overview: From the product overview analysis
 - features: From the features documentation
-- current_growth_features: From the growth features analysis (use key "growth_hubs" in JSON)
-- growth_opportunities: Your identified opportunities with priority (high/medium/low) (use key "gtm_gaps" in JSON)
+- current_growth_features: From the growth features analysis
+- growth_opportunities: Your identified opportunities with priority (high/medium/low)
 """

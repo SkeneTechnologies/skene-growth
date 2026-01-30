@@ -9,10 +9,8 @@ from skene_growth.manifest.schema import (
     DocsManifest,
     Feature,
     GrowthFeature,
-    GrowthHub,
     GrowthManifest,
     GrowthOpportunity,
-    GTMGap,
     ProductOverview,
     RevenueLeakage,
     TechStack,
@@ -21,9 +19,7 @@ from skene_growth.manifest.schema import (
 __all__ = [
     "TechStack",
     "GrowthFeature",
-    "GrowthHub",  # Backwards compatibility alias
     "GrowthOpportunity",
-    "GTMGap",  # Backwards compatibility alias
     "RevenueLeakage",
     "GrowthManifest",
     "ProductOverview",

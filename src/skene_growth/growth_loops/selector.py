@@ -128,24 +128,24 @@ def _format_manifest_summary(manifest_data: dict[str, Any]) -> str:
         if services:
             lines.append(f"**Services:** {', '.join(services)}")
 
-    # Growth hubs
-    growth_hubs = manifest_data.get("growth_hubs", [])
-    if growth_hubs:
-        lines.append(f"\n**Growth Hubs ({len(growth_hubs)} identified):**")
-        for hub in growth_hubs[:5]:
+    # Current growth features
+    current_growth_features = manifest_data.get("current_growth_features", [])
+    if current_growth_features:
+        lines.append(f"\n**Current Growth Features ({len(current_growth_features)} identified):**")
+        for hub in current_growth_features[:5]:
             lines.append(f"- {hub.get('feature_name', 'Unknown')}: {hub.get('detected_intent', '')}")
-        if len(growth_hubs) > 5:
-            lines.append(f"- ... and {len(growth_hubs) - 5} more")
+        if len(current_growth_features) > 5:
+            lines.append(f"- ... and {len(current_growth_features) - 5} more")
 
-    # GTM gaps
-    gtm_gaps = manifest_data.get("gtm_gaps", [])
-    if gtm_gaps:
-        lines.append(f"\n**GTM Gaps ({len(gtm_gaps)} identified):**")
-        for gap in gtm_gaps[:5]:
+    # Growth opportunities
+    growth_opportunities = manifest_data.get("growth_opportunities", [])
+    if growth_opportunities:
+        lines.append(f"\n**Growth Opportunities ({len(growth_opportunities)} identified):**")
+        for gap in growth_opportunities[:5]:
             priority = gap.get("priority", "medium")
             lines.append(f"- [{priority}] {gap.get('feature_name', 'Unknown')}: {gap.get('description', '')}")
-        if len(gtm_gaps) > 5:
-            lines.append(f"- ... and {len(gtm_gaps) - 5} more")
+        if len(growth_opportunities) > 5:
+            lines.append(f"- ... and {len(growth_opportunities) - 5} more")
 
     return "\n".join(lines)
 

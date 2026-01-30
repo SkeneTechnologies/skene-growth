@@ -69,7 +69,3 @@ class GrowthFeaturesAnalyzer(MultiStepStrategy):
                 ),
             ]
         )
-
-
-# Backwards compatibility alias
-GrowthHubAnalyzer = GrowthFeaturesAnalyzer

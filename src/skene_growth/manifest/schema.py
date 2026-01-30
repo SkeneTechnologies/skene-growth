@@ -72,10 +72,6 @@ class GrowthFeature(BaseModel):
     )
 
 
-# Backwards compatibility alias
-GrowthHub = GrowthFeature
-
-
 class GrowthOpportunity(BaseModel):
     """A growth opportunity or missing feature."""
 
@@ -88,10 +84,6 @@ class GrowthOpportunity(BaseModel):
     priority: Literal["high", "medium", "low"] = Field(
         description="Priority level for addressing this opportunity",
     )
-
-
-# Backwards compatibility alias
-GTMGap = GrowthOpportunity
 
 
 class RevenueLeakage(BaseModel):
@@ -177,12 +169,10 @@ class GrowthManifest(BaseModel):
     current_growth_features: list[GrowthFeature] = Field(
         default_factory=list,
         description="Identified current growth features",
-        alias="growth_hubs",
     )
     growth_opportunities: list[GrowthOpportunity] = Field(
         default_factory=list,
         description="Growth opportunities to address",
-        alias="gtm_gaps",
     )
     revenue_leakage: list[RevenueLeakage] = Field(
         default_factory=list,
@@ -198,16 +188,6 @@ class GrowthManifest(BaseModel):
         """Always set generated_at to current machine time, ignoring LLM-provided values."""
         object.__setattr__(self, "generated_at", datetime.now())
         return self
-
-    @property
-    def growth_hubs(self) -> list[GrowthFeature]:
-        """Backwards compatibility alias for current_growth_features."""
-        return self.current_growth_features
-
-    @property
-    def gtm_gaps(self) -> list[GrowthOpportunity]:
-        """Backwards compatibility alias for growth_opportunities."""
-        return self.growth_opportunities
 
     model_config = ConfigDict(
         populate_by_name=True,

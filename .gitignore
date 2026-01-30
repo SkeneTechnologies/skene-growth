@@ -86,6 +86,3 @@ htmlcov/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-
-# dev files
-loop1-ide-trojan-horse-technical.md

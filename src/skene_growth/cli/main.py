@@ -336,13 +336,11 @@ def _show_analysis_summary(data: dict, template_data: dict | None = None):
         tech_items = [f"{k}: {v}" for k, v in tech.items() if v]
         table.add_row("Tech Stack", "\n".join(tech_items[:5]) or "Not detected")
 
-    # Check for current_growth_features (new) or growth_hubs (legacy alias)
-    features = data.get("current_growth_features") or data.get("growth_hubs")
+    features = data.get("current_growth_features")
     if features:
         table.add_row("Current Growth Features", f"{len(features)} features detected")
 
-    # Check for growth_opportunities (new) or gtm_gaps (legacy alias)
-    opportunities = data.get("growth_opportunities") or data.get("gtm_gaps")
+    opportunities = data.get("growth_opportunities")
     if opportunities:
         table.add_row("Growth Opportunities", f"{len(opportunities)} opportunities identified")
 

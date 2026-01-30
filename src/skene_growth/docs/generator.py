@@ -199,7 +199,6 @@ class DocsGenerator:
 
     def _get_context_vars(self, manifest: GrowthManifest) -> dict[str, Any]:
         """Get common context variables for templates."""
-        # Use backwards-compatible property names for templates
         current_features = manifest.current_growth_features
         opportunities = manifest.growth_opportunities
         
@@ -207,20 +206,12 @@ class DocsGenerator:
             "project_name": manifest.project_name,
             "description": manifest.description,
             "tech_stack": manifest.tech_stack,
-            # New naming for templates
             "current_growth_features": current_features,
             "growth_opportunities": opportunities,
-            # Backwards compatible aliases for templates
-            "growth_hubs": current_features,
-            "gtm_gaps": opportunities,
             "generated_at": manifest.generated_at,
             "feature_count": len(current_features),
             "opportunity_count": len(opportunities),
-            # Backwards compatible aliases
-            "hub_count": len(current_features),
-            "gap_count": len(opportunities),
             "high_priority_opportunities": [g for g in opportunities if g.priority == "high"],
-            "high_priority_gaps": [g for g in opportunities if g.priority == "high"],
         }
 
         # Add docs-specific fields if available (DocsManifest)

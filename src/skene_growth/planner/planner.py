@@ -264,14 +264,14 @@ Deliver the response as a Confidential Engineering Memo:
                 if value:
                     lines.append(f"- {key}: {value}")
 
-        if "growth_hubs" in manifest_data and manifest_data["growth_hubs"]:
-            lines.append(f"\n**Existing Growth Hubs:** {len(manifest_data['growth_hubs'])} detected")
-            for hub in manifest_data["growth_hubs"][:3]:
+        if "current_growth_features" in manifest_data and manifest_data["current_growth_features"]:
+            lines.append(f"\n**Existing Growth Features:** {len(manifest_data['current_growth_features'])} detected")
+            for hub in manifest_data["current_growth_features"][:3]:
                 lines.append(f"- {hub.get('feature_name', 'Unknown')}")
 
-        if "gtm_gaps" in manifest_data and manifest_data["gtm_gaps"]:
-            lines.append(f"\n**GTM Gaps:** {len(manifest_data['gtm_gaps'])} identified")
-            for gap in manifest_data["gtm_gaps"][:3]:
+        if "growth_opportunities" in manifest_data and manifest_data["growth_opportunities"]:
+            lines.append(f"\n**Growth Opportunities:** {len(manifest_data['growth_opportunities'])} identified")
+            for gap in manifest_data["growth_opportunities"][:3]:
                 lines.append(f"- {gap.get('feature_name', 'Unknown')} (priority: {gap.get('priority', 'N/A')})")
 
         return "\n".join(lines)

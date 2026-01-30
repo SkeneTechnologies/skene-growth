@@ -266,7 +266,7 @@ skene-growth supports configuration files for storing defaults:
 provider = "openai"
 
 # Model to use (provider-specific defaults apply if not set)
-# openai: gpt-4o-mini | gemini: gemini-2.0-flash | anthropic: claude-sonnet-4-20250514 | ollama: llama2
+# openai: gpt-4o-mini | gemini: gemini-2.0-flash | anthropic: claude-haiku-4-5-20251001 | ollama: llama2
 # model = "gpt-4o-mini"
 
 # Default output directory
@@ -321,7 +321,7 @@ codebase = CodebaseExplorer("/path/to/repo")
 llm = create_llm_client(
     provider="openai",  # or "gemini", "anthropic", "lmstudio", or "ollama" (experimental)
     api_key=SecretStr("your-api-key"),
-    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-sonnet-4-20250514" / local model
+    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-haiku-4-5-20251001" / local model
 )
 
 # Run analysis

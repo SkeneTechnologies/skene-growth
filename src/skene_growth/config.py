@@ -21,7 +21,7 @@ except ImportError:
 DEFAULT_MODEL_BY_PROVIDER = {
     "openai": "gpt-4o-mini",
     "gemini": "gemini-2.0-flash",
-    "anthropic": "claude-sonnet-4-20250514",
+    "anthropic": "claude-haiku-4-5-20251001",
     "ollama": "llama2",
 }
 

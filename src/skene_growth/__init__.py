@@ -6,7 +6,7 @@ and generating documentation.
 """
 
 from skene_growth.analyzers import (
-    GrowthHubAnalyzer,
+    GrowthFeaturesAnalyzer,
     ManifestAnalyzer,
     TechStackAnalyzer,
 )
@@ -19,9 +19,9 @@ from skene_growth.config import Config, load_config
 from skene_growth.docs import DocsGenerator, PSEOBuilder
 from skene_growth.llm import LLMClient, create_llm_client
 from skene_growth.manifest import (
-    GrowthHub,
+    GrowthFeature,
     GrowthManifest,
-    GTMGap,
+    GrowthOpportunity,
     TechStack,
 )
 from skene_growth.planner import (
@@ -49,12 +49,12 @@ __version__ = "0.1.7.3"
 __all__ = [
     # Analyzers
     "TechStackAnalyzer",
-    "GrowthHubAnalyzer",
+    "GrowthFeaturesAnalyzer",
     "ManifestAnalyzer",
     # Manifest schemas
     "TechStack",
-    "GrowthHub",
-    "GTMGap",
+    "GrowthFeature",
+    "GrowthOpportunity",
     "GrowthManifest",
     # Codebase
     "CodebaseExplorer",

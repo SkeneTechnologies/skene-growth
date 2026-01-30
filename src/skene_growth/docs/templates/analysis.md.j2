@@ -25,8 +25,8 @@ This report summarizes the current growth features and new growth opportunities.
 
 ## Current Growth Features
 
-{% if growth_hubs %}
-{% for hub in growth_hubs %}
+{% if current_growth_features %}
+{% for hub in current_growth_features %}
 ### {{ hub.feature_name }}
 
 - **File**: `{{ hub.file_path }}`
@@ -47,10 +47,10 @@ No current growth features were identified.
 
 ## New Growth Opportunities
 
-{% if gtm_gaps %}
+{% if growth_opportunities %}
 | Feature | Description | Priority |
 |---------|-------------|----------|
-{% for gap in gtm_gaps %}
+{% for gap in growth_opportunities %}
 | {{ gap.feature_name }} | {{ gap.description }} | {{ gap.priority }} |
 {% endfor %}
 {% else %}
