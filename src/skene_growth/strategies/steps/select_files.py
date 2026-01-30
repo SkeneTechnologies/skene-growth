@@ -4,7 +4,6 @@ Step for selecting relevant files using LLM.
 
 import json
 import re
-from pathlib import Path
 
 from loguru import logger
 

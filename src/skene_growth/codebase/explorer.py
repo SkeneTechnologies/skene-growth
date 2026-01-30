@@ -68,12 +68,12 @@ class CodebaseExplorer:
     def should_exclude(self, path: Path) -> bool:
         """
         Check if path should be excluded based on exclude_folders.
-        
+
         Excludes paths where:
         1. Any folder name in the path exactly matches an excluded folder name, OR
         2. Any folder name in the path contains an excluded folder name as a substring, OR
         3. The full path (as a string) contains an excluded folder name or path pattern
-        
+
         Examples:
         - exclude_folders = ["test"] will exclude:
           * "tests" (exact match)
@@ -85,13 +85,13 @@ class CodebaseExplorer:
         """
         # Normalize path separators for cross-platform compatibility
         path_str = str(path).replace("\\", "/")
-        
+
         # Check if full path contains any excluded name (for path-based exclusions)
         for excluded in self.exclude_folders:
             excluded_normalized = excluded.replace("\\", "/")
             if excluded_normalized in path_str:
                 return True
-        
+
         # Check individual path parts for folder name matches
         for part in path.parts:
             # Check exact match
@@ -103,7 +103,7 @@ class CodebaseExplorer:
                 if "/" not in excluded and "\\" not in excluded:
                     if excluded in part:
                         return True
-        
+
         return False
 
     async def list_directory(self, path: str = ".") -> dict[str, Any]:

@@ -211,11 +211,11 @@ class GenerateStep(AnalysisStep):
                 # If items is a dict (schema definition), we can't extract data from it
                 # Return empty list as fallback
                 return []
-            
+
             # If dict has only 'items' key with a list value, unwrap it
             if list(data.keys()) == ["items"] and isinstance(data["items"], list):
                 return [self._unwrap_items(item) for item in data["items"]]
-            
+
             # Otherwise recurse into dict values
             return {k: self._unwrap_items(v) for k, v in data.items()}
         if isinstance(data, list):
@@ -243,7 +243,7 @@ class GenerateStep(AnalysisStep):
                     validated.generated_at = datetime.now()
 
                 validated_dict = validated.model_dump()
-                
+
                 # Validate file paths exist if codebase is available
                 if codebase:
                     validated_dict = self._validate_file_paths(validated_dict, codebase)
@@ -256,7 +256,7 @@ class GenerateStep(AnalysisStep):
 
     def _validate_file_paths(self, data: dict[str, Any], codebase: CodebaseExplorer) -> dict[str, Any]:
         """Validate that all file_path fields in the manifest reference existing files."""
-        
+
         # Validate current_growth_features
         if "current_growth_features" in data and isinstance(data["current_growth_features"], list):
             validated_features = []
@@ -277,7 +277,7 @@ class GenerateStep(AnalysisStep):
                 else:
                     validated_features.append(feature)
             data["current_growth_features"] = validated_features
-        
+
         # Validate revenue_leakage file_paths
         if "revenue_leakage" in data and isinstance(data["revenue_leakage"], list):
             validated_leakage = []
@@ -300,7 +300,7 @@ class GenerateStep(AnalysisStep):
                 else:
                     validated_leakage.append(leakage)
             data["revenue_leakage"] = validated_leakage
-        
+
         # Validate features (for DocsManifest)
         if "features" in data and isinstance(data["features"], list):
             validated_features = []
@@ -323,5 +323,5 @@ class GenerateStep(AnalysisStep):
                 else:
                     validated_features.append(feature)
             data["features"] = validated_features
-        
+
         return data
