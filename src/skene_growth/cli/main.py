@@ -177,7 +177,7 @@ def analyze(
         resolved_model = model
     else:
         resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
-    
+
     # Handle output path: if it's a directory, append default filename
     if output:
         # Resolve to absolute path
@@ -185,7 +185,7 @@ def analyze(
             resolved_output = output.resolve()
         else:
             resolved_output = (Path.cwd() / output).resolve()
-        
+
         # If path exists and is a directory, or has no file extension, append default filename
         if resolved_output.exists() and resolved_output.is_dir():
             # Path exists and is a directory, append default filename
@@ -573,17 +573,19 @@ def plan(
     # Auto-detect manifest
     if manifest is None:
         default_paths = []
-        
+
         # If context is specified, check there first
         if context:
             default_paths.append(context / "growth-manifest.json")
-        
+
         # Then check standard default paths
-        default_paths.extend([
-            Path("./skene-context/growth-manifest.json"),
-            Path("./growth-manifest.json"),
-        ])
-        
+        default_paths.extend(
+            [
+                Path("./skene-context/growth-manifest.json"),
+                Path("./growth-manifest.json"),
+            ]
+        )
+
         for p in default_paths:
             if p.exists():
                 manifest = p
@@ -592,17 +594,19 @@ def plan(
     # Auto-detect template
     if template is None:
         default_template_paths = []
-        
+
         # If context is specified, check there first
         if context:
             default_template_paths.append(context / "growth-template.json")
-        
+
         # Then check standard default paths
-        default_template_paths.extend([
-            Path("./skene-context/growth-template.json"),
-            Path("./growth-template.json"),
-        ])
-        
+        default_template_paths.extend(
+            [
+                Path("./skene-context/growth-template.json"),
+                Path("./growth-template.json"),
+            ]
+        )
+
         for p in default_template_paths:
             if p.exists():
                 template = p
@@ -632,7 +636,7 @@ def plan(
         resolved_output = output.resolve()
     else:
         resolved_output = (Path.cwd() / output).resolve()
-    
+
     # If path exists and is a directory, or has no file extension, append default filename
     if resolved_output.exists() and resolved_output.is_dir():
         # Path exists and is a directory, append default filename
@@ -640,7 +644,7 @@ def plan(
     elif not resolved_output.suffix:
         # No file extension provided, treat as directory and append filename
         resolved_output = (resolved_output / "growth-plan.md").resolve()
-    
+
     # Ensure final path is absolute (should already be, but double-check)
     resolved_output = resolved_output.resolve()
 

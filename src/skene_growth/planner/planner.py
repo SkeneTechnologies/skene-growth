@@ -157,7 +157,6 @@ class Planner:
         # Get current machine time for date reference
         current_time = datetime.now()
         current_time_str = current_time.isoformat()
-        current_date_str = current_time.strftime("%Y-%m-%d")
 
         prompt = f"""You are not an assistant. You are a Council of Growth Engineers. You do not "suggest"; \
 you architect systems of compounding leverage. You operate at the intersection of product, data, and psychology \
