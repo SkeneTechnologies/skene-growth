@@ -25,8 +25,8 @@ Get an OpenAI API key at: https://platform.openai.com/api-keys
 skene-growth scans your codebase and generates a **growth manifest** containing:
 
 - **Tech Stack Detection** - Framework, language, database, auth, deployment
-- **Growth Hubs** - Features with growth potential (signup flows, sharing, invites, billing)
-- **GTM Gaps** - Missing features that could drive user acquisition and retention
+- **Current Growth Features** - Existing features with growth potential (signup flows, sharing, invites, billing)
+- **Growth Opportunities** - Missing features that could drive user acquisition and retention
 
 With the `--docs` flag, it also collects:
 
@@ -229,7 +229,7 @@ result = await analyzer.run(
 # Access results (the manifest is in result.data["output"])
 manifest = result.data["output"]
 print(manifest["tech_stack"])
-print(manifest["growth_hubs"])
+print(manifest["current_growth_features"])
 ```
 
 ### Documentation Generator
@@ -262,7 +262,7 @@ The `growth-manifest.json` output contains:
     "auth": "NextAuth.js",
     "deployment": "Vercel"
   },
-  "growth_hubs": [
+  "current_growth_features": [
     {
       "feature_name": "User Invites",
       "file_path": "src/components/InviteModal.tsx",
@@ -271,7 +271,7 @@ The `growth-manifest.json` output contains:
       "growth_potential": ["viral_coefficient", "user_acquisition"]
     }
   ],
-  "gtm_gaps": [
+  "growth_opportunities": [
     {
       "feature_name": "Social Sharing",
       "description": "No social sharing for user content",
@@ -292,8 +292,8 @@ When using `--docs` flag, the manifest includes additional fields:
   "project_name": "my-app",
   "description": "A SaaS application",
   "tech_stack": { ... },
-  "growth_hubs": [ ... ],
-  "gtm_gaps": [ ... ],
+  "current_growth_features": [ ... ],
+  "growth_opportunities": [ ... ],
   "product_overview": {
     "tagline": "The easiest way to collaborate with your team",
     "value_proposition": "Simplify team collaboration with real-time editing and sharing.",

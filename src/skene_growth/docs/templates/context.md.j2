@@ -24,10 +24,10 @@ This document provides structured context about the {{ project_name }} project.
 {% endif %}{% if tech_stack.services %}| Services | {{ tech_stack.services | join(', ') }} |
 {% endif %}
 
-## Growth Hubs
+## Current Growth Features
 
 {% if growth_hubs %}
-The following features have been identified as having growth potential:
+The following features have been identified as current growth drivers:
 
 {% for hub in growth_hubs %}
 ### {{ hub.feature_name }}
@@ -45,13 +45,13 @@ The following features have been identified as having growth potential:
 
 {% endfor %}
 {% else %}
-No growth hubs have been identified yet.
+No current growth features have been identified yet.
 {% endif %}
 
-## GTM Gaps
+## New Growth Opportunities
 
 {% if gtm_gaps %}
-The following go-to-market gaps have been identified:
+The following new growth opportunities have been identified:
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
@@ -59,7 +59,7 @@ The following go-to-market gaps have been identified:
 | {{ gap.feature_name }} | {{ gap.description }} | {{ gap.priority }} |
 {% endfor %}
 {% else %}
-No GTM gaps have been identified.
+No new growth opportunities have been identified.
 {% endif %}
 
 ---

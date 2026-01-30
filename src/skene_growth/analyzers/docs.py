@@ -8,7 +8,7 @@ fields like product_overview and features.
 from skene_growth.analyzers.prompts import (
     DOCS_MANIFEST_PROMPT,
     FEATURES_PROMPT,
-    GROWTH_HUB_PROMPT,
+    GROWTH_FEATURES_PROMPT,
     PRODUCT_OVERVIEW_PROMPT,
     TECH_STACK_PROMPT,
 )
@@ -35,7 +35,7 @@ class DocsAnalyzer(MultiStepStrategy):
 
     1. Tech stack detection (config files)
     2. Product overview extraction (README, docs)
-    3. Feature documentation + growth hubs (source files)
+    3. Feature documentation + current growth features (source files)
     4. Final manifest generation
 
     Example:
@@ -109,7 +109,7 @@ class DocsAnalyzer(MultiStepStrategy):
                     output_key="product_overview",
                     source_key="overview_contents",
                 ),
-                # Phase 3: Feature Documentation + Growth Hubs
+                # Phase 3: Feature Documentation + Current Growth Features
                 SelectFilesStep(
                     prompt="Select source files with growth features. "
                     "Look for user management, invitations, sharing, payments, analytics.",
@@ -135,8 +135,8 @@ class DocsAnalyzer(MultiStepStrategy):
                     source_key="source_contents",
                 ),
                 AnalyzeStep(
-                    prompt=GROWTH_HUB_PROMPT,
-                    output_key="growth_hubs",
+                    prompt=GROWTH_FEATURES_PROMPT,
+                    output_key="current_growth_features",
                     source_key="source_contents",
                 ),
                 # Phase 4: Final Manifest Generation
@@ -147,7 +147,7 @@ class DocsAnalyzer(MultiStepStrategy):
                         "tech_stack",
                         "product_overview",
                         "features",
-                        "growth_hubs",
+                        "current_growth_features",
                     ],
                     output_key="output",
                 ),

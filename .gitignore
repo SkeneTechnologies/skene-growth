@@ -82,3 +82,5 @@ htmlcov/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+
+/skene-context/*

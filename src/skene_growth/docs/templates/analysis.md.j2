@@ -7,7 +7,7 @@
 {% if description %}
 {{ description }}
 {% else %}
-This report summarizes the detected growth opportunities and GTM gaps.
+This report summarizes the current growth features and new growth opportunities.
 {% endif %}
 
 ## Technology Stack
@@ -23,7 +23,7 @@ This report summarizes the detected growth opportunities and GTM gaps.
 {% endif %}{% if tech_stack.services %}| Services | {{ tech_stack.services | join(', ') }} |
 {% endif %}
 
-## Growth Hubs
+## Current Growth Features
 
 {% if growth_hubs %}
 {% for hub in growth_hubs %}
@@ -42,10 +42,10 @@ This report summarizes the detected growth opportunities and GTM gaps.
 
 {% endfor %}
 {% else %}
-No growth hubs were identified.
+No current growth features were identified.
 {% endif %}
 
-## GTM Gaps
+## New Growth Opportunities
 
 {% if gtm_gaps %}
 | Feature | Description | Priority |
@@ -54,7 +54,7 @@ No growth hubs were identified.
 | {{ gap.feature_name }} | {{ gap.description }} | {{ gap.priority }} |
 {% endfor %}
 {% else %}
-No GTM gaps were identified.
+No new growth opportunities were identified.
 {% endif %}
 
 {% if product_overview or features %}

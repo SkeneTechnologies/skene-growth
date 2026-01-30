@@ -8,8 +8,10 @@ the primary output of PLG analysis.
 from skene_growth.manifest.schema import (
     DocsManifest,
     Feature,
+    GrowthFeature,
     GrowthHub,
     GrowthManifest,
+    GrowthOpportunity,
     GTMGap,
     ProductOverview,
     TechStack,
@@ -17,8 +19,10 @@ from skene_growth.manifest.schema import (
 
 __all__ = [
     "TechStack",
-    "GrowthHub",
-    "GTMGap",
+    "GrowthFeature",
+    "GrowthHub",  # Backwards compatibility alias
+    "GrowthOpportunity",
+    "GTMGap",  # Backwards compatibility alias
     "GrowthManifest",
     "ProductOverview",
     "Feature",

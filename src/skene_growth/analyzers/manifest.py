@@ -1,12 +1,12 @@
 """
 Full manifest analyzer using MultiStepStrategy.
 
-Combines tech stack and growth hub analysis to produce
+Combines tech stack and growth features analysis to produce
 a complete GrowthManifest.
 """
 
 from skene_growth.analyzers.prompts import (
-    GROWTH_HUB_PROMPT,
+    GROWTH_FEATURES_PROMPT,
     MANIFEST_PROMPT,
     TECH_STACK_PROMPT,
 )
@@ -26,8 +26,8 @@ class ManifestAnalyzer(MultiStepStrategy):
 
     This analyzer runs in three phases:
     1. Tech stack detection (config files)
-    2. Growth hub identification (source files)
-    3. Manifest generation (combining results + GTM gaps)
+    2. Current growth features identification (source files)
+    3. Manifest generation (combining results + growth opportunities)
 
     Example:
         analyzer = ManifestAnalyzer()
@@ -81,7 +81,7 @@ class ManifestAnalyzer(MultiStepStrategy):
                     output_key="tech_stack",
                     source_key="file_contents",
                 ),
-                # Phase 2: Find growth hubs
+                # Phase 2: Find current growth features
                 # Note: file_contents will be overwritten, but tech_stack is preserved
                 SelectFilesStep(
                     prompt="Select source files with potential growth features. "
@@ -104,15 +104,15 @@ class ManifestAnalyzer(MultiStepStrategy):
                     output_key="file_contents",
                 ),
                 AnalyzeStep(
-                    prompt=GROWTH_HUB_PROMPT,
-                    output_key="growth_hubs",
+                    prompt=GROWTH_FEATURES_PROMPT,
+                    output_key="current_growth_features",
                     source_key="file_contents",
                 ),
                 # Phase 3: Generate final manifest
                 GenerateStep(
                     prompt=MANIFEST_PROMPT,
                     output_schema=GrowthManifest,
-                    include_context_keys=["tech_stack", "growth_hubs"],
+                    include_context_keys=["tech_stack", "current_growth_features"],
                     output_key="output",
                 ),
             ]

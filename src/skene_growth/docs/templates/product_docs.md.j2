@@ -41,15 +41,15 @@
 {% endif %}
 
 {% endfor %}
-{% elif growth_hubs %}
-{% for hub in growth_hubs %}
-### {{ hub.feature_name }}
+{% elif current_growth_features %}
+{% for feature in current_growth_features %}
+### {{ feature.feature_name }}
 
-{{ hub.detected_intent }}
+{{ feature.detected_intent }}
 
-{% if hub.growth_potential %}
+{% if feature.growth_potential %}
 **Key capabilities:**
-{% for potential in hub.growth_potential %}
+{% for potential in feature.growth_potential %}
 - {{ potential }}
 {% endfor %}
 {% endif %}
@@ -61,15 +61,15 @@ Documentation for features is coming soon.
 
 ## Roadmap
 
-{% if gtm_gaps %}
+{% if growth_opportunities %}
 We're working on the following improvements:
 
-{% for gap in high_priority_gaps %}
-- **{{ gap.feature_name }}**: {{ gap.description }}
+{% for opportunity in high_priority_opportunities %}
+- **{{ opportunity.feature_name }}**: {{ opportunity.description }}
 {% endfor %}
 
-{% for gap in gtm_gaps if gap.priority != "high" %}
-- {{ gap.feature_name }}: {{ gap.description }}
+{% for opportunity in growth_opportunities if opportunity.priority != "high" %}
+- {{ opportunity.feature_name }}: {{ opportunity.description }}
 {% endfor %}
 {% else %}
 Check back soon for updates on our roadmap.

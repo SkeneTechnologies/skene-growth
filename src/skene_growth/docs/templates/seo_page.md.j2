@@ -14,16 +14,16 @@ description: "{{ description or project_name + ' - ' + topic }}"
 
 {{ project_name }} is a {{ tech_stack.language }}{% if tech_stack.framework %}/{{ tech_stack.framework }}{% endif %} application{% if description %} that {{ description | lower }}{% endif %}.
 
-{% if growth_hubs %}
+{% if current_growth_features %}
 ## Key Features
 
-{% for hub in growth_hubs[:5] %}
-### {{ hub.feature_name }}
+{% for feature in current_growth_features[:5] %}
+### {{ feature.feature_name }}
 
-{{ hub.detected_intent }}
+{{ feature.detected_intent }}
 
-{% if hub.growth_potential %}
-{% for potential in hub.growth_potential[:3] %}
+{% if feature.growth_potential %}
+{% for potential in feature.growth_potential[:3] %}
 - {{ potential }}
 {% endfor %}
 {% endif %}

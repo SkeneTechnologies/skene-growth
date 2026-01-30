@@ -129,7 +129,7 @@ class DocsGenerator:
         Generate an SEO-optimized page.
 
         Creates content optimized for search engines based on
-        the project's growth hubs and features.
+        the project's current growth features and capabilities.
 
         Args:
             manifest: The growth manifest to generate docs from
@@ -199,16 +199,28 @@ class DocsGenerator:
 
     def _get_context_vars(self, manifest: GrowthManifest) -> dict[str, Any]:
         """Get common context variables for templates."""
+        # Use backwards-compatible property names for templates
+        current_features = manifest.current_growth_features
+        opportunities = manifest.growth_opportunities
+        
         context = {
             "project_name": manifest.project_name,
             "description": manifest.description,
             "tech_stack": manifest.tech_stack,
-            "growth_hubs": manifest.growth_hubs,
-            "gtm_gaps": manifest.gtm_gaps,
+            # New naming for templates
+            "current_growth_features": current_features,
+            "growth_opportunities": opportunities,
+            # Backwards compatible aliases for templates
+            "growth_hubs": current_features,
+            "gtm_gaps": opportunities,
             "generated_at": manifest.generated_at,
-            "hub_count": len(manifest.growth_hubs),
-            "gap_count": len(manifest.gtm_gaps),
-            "high_priority_gaps": [g for g in manifest.gtm_gaps if g.priority == "high"],
+            "feature_count": len(current_features),
+            "opportunity_count": len(opportunities),
+            # Backwards compatible aliases
+            "hub_count": len(current_features),
+            "gap_count": len(opportunities),
+            "high_priority_opportunities": [g for g in opportunities if g.priority == "high"],
+            "high_priority_gaps": [g for g in opportunities if g.priority == "high"],
         }
 
         # Add docs-specific fields if available (DocsManifest)

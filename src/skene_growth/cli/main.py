@@ -141,8 +141,8 @@ def analyze(
 
     Scans your codebase to detect:
     - Technology stack (framework, language, database, etc.)
-    - Growth hubs (features with growth potential)
-    - GTM gaps (missing features that could drive growth)
+    - Current growth features (features with growth potential)
+    - Growth opportunities (missing features that could drive growth)
 
     With --docs flag, also collects:
     - Product overview (tagline, value proposition, target audience)
@@ -315,13 +315,15 @@ def _show_analysis_summary(data: dict, template_data: dict | None = None):
         tech_items = [f"{k}: {v}" for k, v in tech.items() if v]
         table.add_row("Tech Stack", "\n".join(tech_items[:5]) or "Not detected")
 
-    if "growth_hubs" in data:
-        hubs = data["growth_hubs"]
-        table.add_row("Growth Hubs", f"{len(hubs)} features detected")
+    # Check for current_growth_features (new) or growth_hubs (legacy alias)
+    features = data.get("current_growth_features") or data.get("growth_hubs")
+    if features:
+        table.add_row("Current Growth Features", f"{len(features)} features detected")
 
-    if "gtm_gaps" in data:
-        gaps = data["gtm_gaps"]
-        table.add_row("GTM Gaps", f"{len(gaps)} opportunities identified")
+    # Check for growth_opportunities (new) or gtm_gaps (legacy alias)
+    opportunities = data.get("growth_opportunities") or data.get("gtm_gaps")
+    if opportunities:
+        table.add_row("New Growth Opportunities", f"{len(opportunities)} opportunities identified")
     
     # Add growth template summary
     if template_data:
@@ -693,8 +695,8 @@ def validate(
         table.add_row("Project", manifest_obj.project_name)
         table.add_row("Version", manifest_obj.version)
         table.add_row("Tech Stack", manifest_obj.tech_stack.language or "Unknown")
-        table.add_row("Growth Hubs", str(len(manifest_obj.growth_hubs)))
-        table.add_row("GTM Gaps", str(len(manifest_obj.gtm_gaps)))
+        table.add_row("Current Growth Features", str(len(manifest_obj.current_growth_features)))
+        table.add_row("New Growth Opportunities", str(len(manifest_obj.growth_opportunities)))
 
         console.print(table)
 

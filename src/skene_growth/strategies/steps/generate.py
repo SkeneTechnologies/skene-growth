@@ -4,6 +4,7 @@ Step for generating final output with LLM.
 
 import json
 import re
+from datetime import datetime
 from typing import Any, Type
 
 from loguru import logger
@@ -205,7 +206,19 @@ class GenerateStep(AnalysisStep):
 
         if self.output_schema:
             try:
+                # Ensure generated_at is set to current machine date for manifest schemas
+                schema_name = self.output_schema.__name__
+                if schema_name in ("GrowthManifest", "DocsManifest"):
+                    # Always set generated_at to current machine date, overriding any LLM-provided value
+                    # Remove it from data first so Pydantic uses the default_factory, then we'll set it explicitly
+                    data.pop("generated_at", None)
+                
                 validated = self.output_schema.model_validate(data)
+                
+                # Explicitly set generated_at to current machine date after validation
+                if schema_name in ("GrowthManifest", "DocsManifest"):
+                    validated.generated_at = datetime.now()
+                
                 return validated.model_dump()
             except Exception as e:
                 logger.warning(f"Output validation failed: {e}")

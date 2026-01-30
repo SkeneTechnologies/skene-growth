@@ -248,7 +248,7 @@ Return JSON with:
         """
         Generate a quick plan without LLM (heuristic-based).
 
-        Uses keyword matching to map loops to growth hubs
+        Uses keyword matching to map loops to current growth features
         and generates basic implementation suggestions.
 
         Args:
@@ -262,8 +262,8 @@ Return JSON with:
         mapper = LoopMapper()
 
         # Use heuristic mapping
-        mappings = mapper.map_from_hubs(
-            growth_hubs=manifest.growth_hubs,
+        mappings = mapper.map_from_features(
+            growth_features=manifest.current_growth_features,
             loops=catalog.get_all(),
         )
 

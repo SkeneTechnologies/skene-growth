@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from skene_growth.codebase import CodebaseExplorer
 from skene_growth.injector.loops import GrowthLoop
 from skene_growth.llm import LLMClient
-from skene_growth.manifest import GrowthHub, GrowthManifest
+from skene_growth.manifest import GrowthFeature, GrowthManifest
 
 
 class InjectionPoint(BaseModel):
@@ -84,8 +84,8 @@ Analyze this codebase and identify where the following growth loop could be impl
 ## Codebase Context
 {codebase_context}
 
-## Growth Hubs Already Identified
-{growth_hubs}
+## Current Growth Features Already Identified
+{current_growth_features}
 
 ## Task
 1. Determine if this growth loop is applicable to this codebase
@@ -123,11 +123,11 @@ Return your analysis as JSON with:
         tree_result = await codebase.get_directory_tree(".", max_depth=3)
         codebase_context = tree_result.get("tree", "")
 
-        # Format growth hubs
-        growth_hubs_text = "\n".join(
+        # Format current growth features
+        features_text = "\n".join(
             [
-                f"- {hub.feature_name}: {hub.detected_intent} ({hub.file_path})"
-                for hub in manifest.growth_hubs
+                f"- {feature.feature_name}: {feature.detected_intent} ({feature.file_path})"
+                for feature in manifest.current_growth_features
             ]
         )
 
@@ -142,7 +142,7 @@ Return your analysis as JSON with:
             required_components="\n".join(f"- {c}" for c in loop.required_components),
             implementation_hints="\n".join(f"- {h}" for h in loop.implementation_hints),
             codebase_context=codebase_context,
-            growth_hubs=growth_hubs_text or "None identified",
+            current_growth_features=features_text or "None identified",
         )
 
         # Get LLM analysis
@@ -177,19 +177,19 @@ Return your analysis as JSON with:
             mappings.append(mapping)
         return mappings
 
-    def map_from_hubs(
+    def map_from_features(
         self,
-        growth_hubs: list[GrowthHub],
+        growth_features: list[GrowthFeature],
         loops: list[GrowthLoop],
     ) -> list[LoopMapping]:
         """
-        Create basic mappings from existing growth hubs.
+        Create basic mappings from existing growth features.
 
         This is a simpler, non-LLM approach that matches loops
-        to hubs based on keywords and intents.
+        to features based on keywords and intents.
 
         Args:
-            growth_hubs: Identified growth hubs
+            growth_features: Identified current growth features
             loops: Available growth loops
 
         Returns:
@@ -198,18 +198,18 @@ Return your analysis as JSON with:
         mappings = []
 
         for loop in loops:
-            matching_hubs = self._find_matching_hubs(loop, growth_hubs)
+            matching_features = self._find_matching_features(loop, growth_features)
 
-            if matching_hubs:
+            if matching_features:
                 injection_points = [
                     InjectionPoint(
-                        file_path=hub.file_path,
-                        location=hub.entry_point or hub.feature_name,
-                        confidence=hub.confidence_score * 0.8,  # Reduce for heuristic
-                        rationale=f"Existing {hub.detected_intent} feature for {loop.name}",
-                        changes_required=[f"Integrate {loop.name} into {hub.feature_name}"],
+                        file_path=feature.file_path,
+                        location=feature.entry_point or feature.feature_name,
+                        confidence=feature.confidence_score * 0.8,  # Reduce for heuristic
+                        rationale=f"Existing {feature.detected_intent} feature for {loop.name}",
+                        changes_required=[f"Integrate {loop.name} into {feature.feature_name}"],
                     )
-                    for hub in matching_hubs
+                    for feature in matching_features
                 ]
 
                 mappings.append(
@@ -218,7 +218,7 @@ Return your analysis as JSON with:
                         loop_name=loop.name,
                         is_applicable=True,
                         injection_points=injection_points,
-                        priority=min(len(matching_hubs) * 2, 10),
+                        priority=min(len(matching_features) * 2, 10),
                     )
                 )
             else:
@@ -233,12 +233,15 @@ Return your analysis as JSON with:
 
         return mappings
 
-    def _find_matching_hubs(
+    # Backwards compatibility alias
+    map_from_hubs = map_from_features
+
+    def _find_matching_features(
         self,
         loop: GrowthLoop,
-        growth_hubs: list[GrowthHub],
-    ) -> list[GrowthHub]:
-        """Find growth hubs that match a loop's requirements."""
+        growth_features: list[GrowthFeature],
+    ) -> list[GrowthFeature]:
+        """Find growth features that match a loop's requirements."""
         # Keywords to match for each category
         category_keywords = {
             "referral": ["invite", "share", "refer", "team", "collaboration"],
@@ -251,13 +254,16 @@ Return your analysis as JSON with:
         keywords = category_keywords.get(loop.category, [])
         matching = []
 
-        for hub in growth_hubs:
-            potential = " ".join(hub.growth_potential)
-            hub_text = f"{hub.feature_name} {hub.detected_intent} {potential}".lower()
-            if any(keyword in hub_text for keyword in keywords):
-                matching.append(hub)
+        for feature in growth_features:
+            potential = " ".join(feature.growth_potential)
+            feature_text = f"{feature.feature_name} {feature.detected_intent} {potential}".lower()
+            if any(keyword in feature_text for keyword in keywords):
+                matching.append(feature)
 
         return matching
+
+    # Backwards compatibility alias
+    _find_matching_hubs = _find_matching_features
 
     def _parse_mapping_response(self, response: str, loop: GrowthLoop) -> LoopMapping:
         """Parse LLM response into LoopMapping."""
