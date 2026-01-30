@@ -4,13 +4,9 @@ Plan generator.
 Creates detailed implementation plans for growth strategies.
 """
 
-import json
-import re
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
-from loguru import logger
 from pydantic import BaseModel, Field
 
 from skene_growth.llm import LLMClient
@@ -137,9 +133,9 @@ class Planner:
         template_data: dict[str, Any] | None = None,
     ) -> str:
         """
-        Generate a Council of Growth Engineers strategic memo.
+        Generate a Council of Growth Engineers memo.
 
-        Generates a comprehensive strategic plan with executive summary,
+        Generates a comprehensive plan with executive summary,
         analysis, implementation roadmap, and key callouts.
 
         Args:
@@ -152,13 +148,15 @@ class Planner:
         """
         # Build context for memo generation
         manifest_summary = self._format_manifest_summary(manifest_data)
-        
+
         template_section = ""
         if template_data:
             template_summary = self._format_template_summary(template_data)
             template_section = f"\n### Growth Journey (Lifecycle Template)\n{template_summary}\n"
 
-        prompt = f"""You are not an assistant. You are a Council of Growth Engineers. You do not "suggest"; you architect systems of compounding leverage. You operate at the intersection of product, data, and psychology to engineer unstoppable distribution.
+        prompt = f"""You are not an assistant. You are a Council of Growth Engineers. You do not "suggest"; \
+you architect systems of compounding leverage. You operate at the intersection of product, data, and psychology \
+to engineer unstoppable distribution.
 
 You think using the decision-making frameworks of:
 
@@ -188,13 +186,16 @@ You think using the decision-making frameworks of:
 Provide a high-level summary of the manifesto.
 
 ### 1. Strip to the Growth Core
-Rewrite the input as the fundamental growth problem. If the context optimizes for local maxima instead of global dominance, call it out.
+Rewrite the input as the fundamental growth problem. If the context optimizes for local maxima instead of \
+global dominance, call it out.
 
 ### 2. The Playbook
-Ask: "What are the elite growth teams doing that isn't documented in public case studies?" Identify the rules governing the specific platform, niche, or market that others are ignoring.
+Ask: "What are the elite growth teams doing that isn't documented in public case studies?" Identify the \
+rules governing the specific platform, niche, or market that others are ignoring.
 
 ### 3. Engineer the Asymmetric Leverage
-Identify the one lever (UX friction, pricing psychology, distribution API, referral loop) that creates 10x output for 1x input. Discard "safe" linear improvements.
+Identify the one lever (UX friction, pricing psychology, distribution API, referral loop) that creates \
+10x output for 1x input. Discard "safe" linear improvements.
 
 ### 4. Apply Power Dynamics
 Base the strategy on:
@@ -209,7 +210,8 @@ Explicitly state:
 - **The Failure Point:** Why that path leads to a high CAC and slow death.
 
 ### 6. The CEO's Next Action
-Define the single most impactful move to execute in the next 24 hours to prove the hypothesis. Make sure to explain the hypothesis.
+Define the single most impactful move to execute in the next 24 hours to prove the hypothesis. Make sure \
+to explain the hypothesis.
 
 ### 7. Technical Execution
 Provide a detailed plan for the next action to be built:
@@ -285,14 +287,14 @@ Deliver the response as a Confidential Engineering Memo:
                 name = lifecycle.get("name", "Unknown")
                 desc = lifecycle.get("description", "")
                 lines.append(f"\n**{name}:** {desc}")
-                
+
                 # Show key milestones
                 if lifecycle.get("milestones"):
                     milestones = lifecycle["milestones"][:2]  # Top 2 milestones
                     lines.append("  Key milestones:")
                     for milestone in milestones:
                         lines.append(f"  - {milestone.get('title', 'Unknown')}")
-                
+
                 # Show key metrics
                 if lifecycle.get("metrics"):
                     metrics = lifecycle["metrics"][:2]  # Top 2 metrics
