@@ -65,11 +65,45 @@ class CodebaseExplorer:
 
         return full_path
 
-    def _should_exclude(self, path: Path) -> bool:
-        """Check if path should be excluded based on exclude_folders."""
+    def should_exclude(self, path: Path) -> bool:
+        """
+        Check if path should be excluded based on exclude_folders.
+
+        Excludes paths where:
+        1. Any folder name in the path exactly matches an excluded folder name, OR
+        2. Any folder name in the path contains an excluded folder name as a substring, OR
+        3. The full path (as a string) contains an excluded folder name or path pattern
+
+        Examples:
+        - exclude_folders = ["test"] will exclude:
+          * "tests" (exact match)
+          * "test_utils" (contains "test")
+          * "integration_tests" (contains "test")
+          * "src/tests/unit/file.py" (path contains "test")
+        - exclude_folders = ["vendor"] will exclude: "vendor", "vendors", "vendor_files"
+        - exclude_folders = ["tests/unit"] will exclude any path containing "tests/unit"
+        """
+        # Normalize path separators for cross-platform compatibility
+        path_str = str(path).replace("\\", "/")
+
+        # Check if full path contains any excluded name (for path-based exclusions)
+        for excluded in self.exclude_folders:
+            excluded_normalized = excluded.replace("\\", "/")
+            if excluded_normalized in path_str:
+                return True
+
+        # Check individual path parts for folder name matches
         for part in path.parts:
+            # Check exact match
             if part in self.exclude_folders:
                 return True
+            # Check if any excluded folder name is contained in this path part
+            for excluded in self.exclude_folders:
+                # Only check folder name, not path patterns, for substring matching
+                if "/" not in excluded and "\\" not in excluded:
+                    if excluded in part:
+                        return True
+
         return False
 
     async def list_directory(self, path: str = ".") -> dict[str, Any]:
@@ -95,7 +129,7 @@ class CodebaseExplorer:
 
         items = []
         for entry in os.scandir(target_path):
-            if self._should_exclude(Path(entry.path)):
+            if self.should_exclude(Path(entry.path)):
                 continue
 
             relative_path = Path(entry.path).relative_to(self.base_dir)
@@ -165,7 +199,7 @@ class CodebaseExplorer:
 
         matches = []
         for match in target_dir.glob(pattern):
-            if self._should_exclude(match):
+            if self.should_exclude(match):
                 continue
             relative_path = match.relative_to(self.base_dir)
             matches.append(
@@ -209,8 +243,13 @@ class CodebaseExplorer:
         for root, dirs, files in os.walk(target_path):
             root_path = Path(root)
 
-            # Filter excluded directories
-            dirs[:] = [d for d in dirs if d not in self.exclude_folders]
+            # Filter excluded directories - check if directory name matches or contains excluded names
+            filtered_dirs = []
+            for d in dirs:
+                dir_path = root_path / d
+                if not self.should_exclude(dir_path):
+                    filtered_dirs.append(d)
+            dirs[:] = filtered_dirs
 
             # Calculate depth
             try:

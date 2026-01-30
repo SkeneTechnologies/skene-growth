@@ -129,7 +129,7 @@ class DocsGenerator:
         Generate an SEO-optimized page.
 
         Creates content optimized for search engines based on
-        the project's growth hubs and features.
+        the project's current growth features and capabilities.
 
         Args:
             manifest: The growth manifest to generate docs from
@@ -199,16 +199,19 @@ class DocsGenerator:
 
     def _get_context_vars(self, manifest: GrowthManifest) -> dict[str, Any]:
         """Get common context variables for templates."""
+        current_features = manifest.current_growth_features
+        opportunities = manifest.growth_opportunities
+
         context = {
             "project_name": manifest.project_name,
             "description": manifest.description,
             "tech_stack": manifest.tech_stack,
-            "growth_hubs": manifest.growth_hubs,
-            "gtm_gaps": manifest.gtm_gaps,
+            "current_growth_features": current_features,
+            "growth_opportunities": opportunities,
             "generated_at": manifest.generated_at,
-            "hub_count": len(manifest.growth_hubs),
-            "gap_count": len(manifest.gtm_gaps),
-            "high_priority_gaps": [g for g in manifest.gtm_gaps if g.priority == "high"],
+            "feature_count": len(current_features),
+            "opportunity_count": len(opportunities),
+            "high_priority_opportunities": [g for g in opportunities if g.priority == "high"],
         }
 
         # Add docs-specific fields if available (DocsManifest)
@@ -216,5 +219,9 @@ class DocsGenerator:
             context["product_overview"] = manifest.product_overview
         if hasattr(manifest, "features"):
             context["features"] = manifest.features
+
+        # Add industry classification if available
+        if hasattr(manifest, "industry"):
+            context["industry"] = manifest.industry
 
         return context

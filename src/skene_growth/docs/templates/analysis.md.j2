@@ -7,9 +7,13 @@
 {% if description %}
 {{ description }}
 {% else %}
-This report summarizes the detected growth opportunities and GTM gaps.
+This report summarizes the current growth features and new growth opportunities.
 {% endif %}
 
+{% if industry and industry.primary %}
+**Industry**: {{ industry.primary }}{% if industry.secondary %} ({{ industry.secondary | join(', ') }}){% endif %}{% if industry.confidence %} — {{ (industry.confidence * 100)|round }}% confidence{% endif %}
+
+{% endif %}
 ## Technology Stack
 
 | Category | Technology |
@@ -23,10 +27,10 @@ This report summarizes the detected growth opportunities and GTM gaps.
 {% endif %}{% if tech_stack.services %}| Services | {{ tech_stack.services | join(', ') }} |
 {% endif %}
 
-## Growth Hubs
+## Current Growth Features
 
-{% if growth_hubs %}
-{% for hub in growth_hubs %}
+{% if current_growth_features %}
+{% for hub in current_growth_features %}
 ### {{ hub.feature_name }}
 
 - **File**: `{{ hub.file_path }}`
@@ -42,19 +46,19 @@ This report summarizes the detected growth opportunities and GTM gaps.
 
 {% endfor %}
 {% else %}
-No growth hubs were identified.
+No current growth features were identified.
 {% endif %}
 
-## GTM Gaps
+## New Growth Opportunities
 
-{% if gtm_gaps %}
+{% if growth_opportunities %}
 | Feature | Description | Priority |
 |---------|-------------|----------|
-{% for gap in gtm_gaps %}
+{% for gap in growth_opportunities %}
 | {{ gap.feature_name }} | {{ gap.description }} | {{ gap.priority }} |
 {% endfor %}
 {% else %}
-No GTM gaps were identified.
+No new growth opportunities were identified.
 {% endif %}
 
 {% if product_overview or features %}

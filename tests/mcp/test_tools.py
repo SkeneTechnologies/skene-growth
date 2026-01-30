@@ -158,18 +158,18 @@ class TestCachePhaseOperations:
     async def test_phases_are_independent(self, cache: AnalysisCache, sample_repo_path: Path):
         """Different phases should be cached independently."""
         tech_stack = {"framework": "Next.js"}
-        growth_hubs = {"hubs": ["invitations"]}
+        product_overview = {"overview": "A test product"}
 
         await cache.set_phase(sample_repo_path, "tech_stack", tech_stack)
-        await cache.set_phase(sample_repo_path, "growth_hubs", growth_hubs)
+        await cache.set_phase(sample_repo_path, "product_overview", product_overview)
 
         assert await cache.get_phase(sample_repo_path, "tech_stack") == tech_stack
-        assert await cache.get_phase(sample_repo_path, "growth_hubs") == growth_hubs
+        assert await cache.get_phase(sample_repo_path, "product_overview") == product_overview
 
         # Clearing one shouldn't affect the other
         await cache.clear_phase(sample_repo_path, "tech_stack")
         assert await cache.get_phase(sample_repo_path, "tech_stack") is None
-        assert await cache.get_phase(sample_repo_path, "growth_hubs") == growth_hubs
+        assert await cache.get_phase(sample_repo_path, "product_overview") == product_overview
 
     def test_invalid_phase_raises(self, cache: AnalysisCache, sample_repo_path: Path):
         """Should raise for invalid phase name."""

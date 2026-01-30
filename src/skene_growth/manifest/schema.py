@@ -3,14 +3,14 @@ Pydantic schemas for growth manifest output.
 
 These models define the structure of growth-manifest.json, which captures:
 - Tech stack detection
-- Growth hub identification
-- Go-to-market gaps
+- Current growth features identification
+- Growth opportunities
 """
 
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TechStack(BaseModel):
@@ -45,8 +45,8 @@ class TechStack(BaseModel):
     )
 
 
-class GrowthHub(BaseModel):
-    """A feature or area with growth potential."""
+class GrowthFeature(BaseModel):
+    """A current feature with growth potential."""
 
     feature_name: str = Field(
         description="Name of the feature or growth area",
@@ -72,17 +72,58 @@ class GrowthHub(BaseModel):
     )
 
 
-class GTMGap(BaseModel):
-    """Go-to-market gap or missing feature."""
+class GrowthOpportunity(BaseModel):
+    """A growth opportunity or missing feature."""
 
     feature_name: str = Field(
-        description="Name of the missing feature or gap",
+        description="Name of the missing feature or opportunity",
     )
     description: str = Field(
         description="Description of what's missing and why it matters",
     )
     priority: Literal["high", "medium", "low"] = Field(
-        description="Priority level for addressing this gap",
+        description="Priority level for addressing this opportunity",
+    )
+
+
+class RevenueLeakage(BaseModel):
+    """Potential revenue leakage issue."""
+
+    issue: str = Field(
+        description="Description of the revenue leakage issue",
+    )
+    file_path: str | None = Field(
+        default=None,
+        description="File path where this issue is detected (if applicable)",
+    )
+    impact: Literal["high", "medium", "low"] = Field(
+        description="Estimated impact on revenue",
+    )
+    recommendation: str = Field(
+        description="Recommendation for addressing this issue",
+    )
+
+
+class IndustryInfo(BaseModel):
+    """Industry/market vertical classification for the project."""
+
+    primary: str | None = Field(
+        default=None,
+        description="Primary industry vertical (e.g., 'DevTools', 'FinTech', 'E-commerce', 'Healthcare', 'EdTech')",
+    )
+    secondary: list[str] = Field(
+        default_factory=list,
+        description="Supporting tags for sub-verticals or go-to-market nuance (e.g., 'B2B', 'SaaS', 'Marketplace')",
+    )
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score (0.0-1.0) for the classification",
+    )
+    evidence: list[str] = Field(
+        default_factory=list,
+        description="Short bullets citing specific repo signals that support the classification",
     )
 
 
@@ -148,20 +189,35 @@ class GrowthManifest(BaseModel):
     tech_stack: TechStack = Field(
         description="Detected technology stack",
     )
-    growth_hubs: list[GrowthHub] = Field(
-        default_factory=list,
-        description="Identified growth hubs and features",
+    industry: IndustryInfo | None = Field(
+        default=None,
+        description="Inferred industry/market vertical classification",
     )
-    gtm_gaps: list[GTMGap] = Field(
+    current_growth_features: list[GrowthFeature] = Field(
         default_factory=list,
-        description="Go-to-market gaps to address",
+        description="Identified current growth features",
+    )
+    growth_opportunities: list[GrowthOpportunity] = Field(
+        default_factory=list,
+        description="Growth opportunities to address",
+    )
+    revenue_leakage: list[RevenueLeakage] = Field(
+        default_factory=list,
+        description="Potential revenue leakage issues",
     )
     generated_at: datetime = Field(
         default_factory=datetime.now,
         description="When the manifest was generated",
     )
 
+    @model_validator(mode="after")
+    def set_generated_at_to_now(self) -> "GrowthManifest":
+        """Always set generated_at to current machine time, ignoring LLM-provided values."""
+        object.__setattr__(self, "generated_at", datetime.now())
+        return self
+
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "version": "1.0",
@@ -176,7 +232,16 @@ class GrowthManifest(BaseModel):
                     "package_manager": "npm",
                     "services": ["Stripe", "SendGrid"],
                 },
-                "growth_hubs": [
+                "industry": {
+                    "primary": "Productivity",
+                    "secondary": ["B2B", "SaaS", "Enterprise"],
+                    "confidence": 0.85,
+                    "evidence": [
+                        "README mentions 'team collaboration' as primary use case",
+                        "Target audience includes 'businesses' and 'teams'",
+                    ],
+                },
+                "current_growth_features": [
                     {
                         "feature_name": "Team Invitations",
                         "file_path": "src/features/invitations/index.ts",
@@ -189,16 +254,24 @@ class GrowthManifest(BaseModel):
                         ],
                     }
                 ],
-                "gtm_gaps": [
+                "growth_opportunities": [
                     {
                         "feature_name": "Analytics Dashboard",
                         "description": "No usage analytics for tracking team activity",
                         "priority": "high",
                     }
                 ],
+                "revenue_leakage": [
+                    {
+                        "issue": "Free tier allows unlimited usage without conversion prompts",
+                        "file_path": "src/pricing/tiers.py",
+                        "impact": "high",
+                        "recommendation": "Add usage limits or upgrade prompts to encourage paid conversions",
+                    }
+                ],
                 "generated_at": "2024-01-15T10:30:00Z",
             }
-        }
+        },
     )
 
 

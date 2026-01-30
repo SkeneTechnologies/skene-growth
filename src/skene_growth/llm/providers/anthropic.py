@@ -10,7 +10,7 @@ from pydantic import SecretStr
 from skene_growth.llm.base import LLMClient
 
 # Default fallback model for rate limiting (429 errors)
-DEFAULT_FALLBACK_MODEL = "claude-sonnet-4-20250514"
+DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5-20251001"
 
 
 class AnthropicClient(LLMClient):
@@ -23,7 +23,7 @@ class AnthropicClient(LLMClient):
     Example:
         client = AnthropicClient(
             api_key=SecretStr("your-api-key"),
-            model_name="claude-sonnet-4-20250514"
+            model_name="claude-haiku-4-5-20251001"
         )
         response = await client.generate_content("Hello!")
     """
@@ -39,8 +39,8 @@ class AnthropicClient(LLMClient):
 
         Args:
             api_key: Anthropic API key (wrapped in SecretStr for security)
-            model_name: Primary model to use (e.g., "claude-sonnet-4-20250514")
-            fallback_model: Model to use when rate limited (default: claude-sonnet-4-20250514)
+            model_name: Primary model to use (e.g., "claude-haiku-4-5-20251001")
+            fallback_model: Model to use when rate limited (default: claude-haiku-4-5-20251001)
         """
         try:
             from anthropic import AsyncAnthropic
@@ -79,7 +79,7 @@ class AnthropicClient(LLMClient):
         try:
             response = await self.client.messages.create(
                 model=self.model_name,
-                max_tokens=4096,
+                max_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text.strip()
@@ -88,7 +88,7 @@ class AnthropicClient(LLMClient):
             try:
                 response = await self.client.messages.create(
                     model=self.fallback_model,
-                    max_tokens=4096,
+                    max_tokens=8192,
                     messages=[{"role": "user", "content": prompt}],
                 )
                 logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
@@ -125,7 +125,7 @@ class AnthropicClient(LLMClient):
         try:
             async with self.client.messages.stream(
                 model=model_to_use,
-                max_tokens=4096,
+                max_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
             ) as stream:
                 async for text in stream.text_stream:
@@ -140,7 +140,7 @@ class AnthropicClient(LLMClient):
                 try:
                     async with self.client.messages.stream(
                         model=self.fallback_model,
-                        max_tokens=4096,
+                        max_tokens=8192,
                         messages=[{"role": "user", "content": prompt}],
                     ) as stream:
                         logger.info(f"Successfully started streaming with fallback model {self.fallback_model}")

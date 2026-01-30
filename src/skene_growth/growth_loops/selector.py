@@ -1,7 +1,7 @@
 """
 LLM-driven growth loop selection.
 
-Selects 3 growth loops incrementally based on manifest, objectives, and daily logs context.
+Selects 3 growth loops incrementally based on manifest and objectives context.
 """
 
 from __future__ import annotations
@@ -20,11 +20,10 @@ from skene_growth.planner.loops import SelectedGrowthLoop
 
 def _build_selection_prompt(
     manifest_data: dict[str, Any],
-    objectives_content: str,
-    daily_logs_summary: str | None,
-    csv_loops: list[dict[str, Any]],
-    previously_selected: list[SelectedGrowthLoop],
-    iteration: int,
+    objectives_content: str = "",
+    csv_loops: list[dict[str, Any]] | None = None,
+    previously_selected: list[SelectedGrowthLoop] | None = None,
+    iteration: int = 1,
 ) -> str:
     """Build a prompt for selecting ONE growth loop."""
 
@@ -32,7 +31,7 @@ def _build_selection_prompt(
     manifest_summary = _format_manifest_summary(manifest_data)
 
     # Format available loops (all 107 from CSV)
-    loops_text = _format_available_loops(csv_loops)
+    loops_text = _format_available_loops(csv_loops or [])
 
     # Format previously selected loops
     previously_selected_text = ""
@@ -44,15 +43,9 @@ def _build_selection_prompt(
             previously_selected_text += f"- **Goal:** {loop.goal}\n"
             previously_selected_text += f"- **Why Selected:** {loop.why_selected}\n"
 
-    # Format daily logs section
-    daily_logs_section = ""
-    if daily_logs_summary:
-        daily_logs_section = f"""
-## Daily Logs Analysis (Performance Metrics)
-{daily_logs_summary}
-
-**IMPORTANT:** Use these metrics to identify weak areas. Prioritize loops that address underperforming metrics.
-"""
+    objectives_section = ""
+    if objectives_content:
+        objectives_section = f"\n## Current Growth Objectives\n{objectives_content}\n"
 
     return f"""You are a Product-Led Growth (PLG) strategist. Your task is to select the SINGLE most impactful growth
 loop for this project.
@@ -62,11 +55,7 @@ Select ONE growth loop that would have the highest impact given the current cont
 
 ## Project Manifest (Current State)
 {manifest_summary}
-
-## Current Growth Objectives
-{objectives_content}
-{daily_logs_section}
-{previously_selected_text}
+{objectives_section}{previously_selected_text}
 
 ## Available Growth Loops (107 total)
 Below are all available growth loops from the catalog. Select ONE that best addresses the project's needs:
@@ -76,9 +65,7 @@ Below are all available growth loops from the catalog. Select ONE that best addr
 ## Selection Criteria
 1. **Do NOT select** any of the previously selected loops
 2. **Ensure diversity**: Try to choose a loop from a different PLG stage than already selected
-3. **Address weak areas**: If daily logs are provided, prioritize loops that address underperforming metrics
-4. **Align with objectives**: The selected loop should support the current growth objectives
-5. **Consider tech stack**: Choose loops compatible with the project's Implementation Stack
+3. **Consider tech stack**: Choose loops compatible with the project's Implementation Stack
 
 ## Your Task
 Select exactly ONE growth loop and provide:
@@ -141,24 +128,24 @@ def _format_manifest_summary(manifest_data: dict[str, Any]) -> str:
         if services:
             lines.append(f"**Services:** {', '.join(services)}")
 
-    # Growth hubs
-    growth_hubs = manifest_data.get("growth_hubs", [])
-    if growth_hubs:
-        lines.append(f"\n**Growth Hubs ({len(growth_hubs)} identified):**")
-        for hub in growth_hubs[:5]:
+    # Current growth features
+    current_growth_features = manifest_data.get("current_growth_features", [])
+    if current_growth_features:
+        lines.append(f"\n**Current Growth Features ({len(current_growth_features)} identified):**")
+        for hub in current_growth_features[:5]:
             lines.append(f"- {hub.get('feature_name', 'Unknown')}: {hub.get('detected_intent', '')}")
-        if len(growth_hubs) > 5:
-            lines.append(f"- ... and {len(growth_hubs) - 5} more")
+        if len(current_growth_features) > 5:
+            lines.append(f"- ... and {len(current_growth_features) - 5} more")
 
-    # GTM gaps
-    gtm_gaps = manifest_data.get("gtm_gaps", [])
-    if gtm_gaps:
-        lines.append(f"\n**GTM Gaps ({len(gtm_gaps)} identified):**")
-        for gap in gtm_gaps[:5]:
+    # Growth opportunities
+    growth_opportunities = manifest_data.get("growth_opportunities", [])
+    if growth_opportunities:
+        lines.append(f"\n**Growth Opportunities ({len(growth_opportunities)} identified):**")
+        for gap in growth_opportunities[:5]:
             priority = gap.get("priority", "medium")
             lines.append(f"- [{priority}] {gap.get('feature_name', 'Unknown')}: {gap.get('description', '')}")
-        if len(gtm_gaps) > 5:
-            lines.append(f"- ... and {len(gtm_gaps) - 5} more")
+        if len(growth_opportunities) > 5:
+            lines.append(f"- ... and {len(growth_opportunities) - 5} more")
 
     return "\n".join(lines)
 
@@ -250,16 +237,10 @@ def _parse_single_loop_response(
 def _format_actionable_markdown(
     selected_loops: list[SelectedGrowthLoop],
     manifest_data: dict[str, Any],
-    has_daily_logs: bool,
 ) -> str:
     """Format all selected loops as actionable markdown."""
     generated_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    # Build sources line
-    sources = ["growth-manifest.json", "growth-objectives.md"]
-    if has_daily_logs:
-        sources.append("daily logs")
-    sources_text = ", ".join(sources)
+    sources_text = "growth-manifest.json"
 
     lines = [
         "# Growth Loops Implementation Plan",
@@ -344,115 +325,13 @@ def _format_actionable_markdown(
     return "\n".join(lines)
 
 
-def load_daily_logs_summary(daily_logs_dir: Path) -> str | None:
-    """
-    Load and summarize daily logs for LLM context.
-
-    Args:
-        daily_logs_dir: Path to daily_logs directory
-
-    Returns:
-        Summary string or None if no logs found
-    """
-    if not daily_logs_dir.exists():
-        return None
-
-    # Find all log files
-    log_files = sorted(daily_logs_dir.glob("daily_logs_*.json"), reverse=True)
-
-    if not log_files:
-        return None
-
-    # Load most recent logs (up to 7 days)
-    recent_logs = []
-    for log_file in log_files[:7]:
-        try:
-            data = json.loads(log_file.read_text())
-            recent_logs.append(
-                {
-                    "date": log_file.stem.replace("daily_logs_", "").replace("_", "-"),
-                    "data": data,
-                }
-            )
-        except (json.JSONDecodeError, IOError):
-            continue
-
-    if not recent_logs:
-        return None
-
-    # Build summary
-    lines = []
-    lines.append(f"**Recent Performance ({len(recent_logs)} days of data):**\n")
-
-    # Aggregate metrics across all logs
-    all_metrics: dict[str, list[Any]] = {}
-
-    for log in recent_logs:
-        data = log.get("data", {})
-        date = log.get("date", "")
-
-        # Handle different log formats
-        if isinstance(data, dict):
-            for key, value in data.items():
-                if key not in all_metrics:
-                    all_metrics[key] = []
-                all_metrics[key].append({"date": date, "value": value})
-        elif isinstance(data, list):
-            # Handle list format: [{"metric_id": "...", "value": "..."}, ...]
-            for entry in data:
-                if isinstance(entry, dict):
-                    metric_id = entry.get("metric_id") or entry.get("metric")
-                    value = entry.get("value")
-                    if metric_id and value is not None:
-                        if metric_id not in all_metrics:
-                            all_metrics[metric_id] = []
-                        all_metrics[metric_id].append({"date": date, "value": value})
-
-    # Identify weak areas (metrics below target or declining)
-    weak_areas = []
-    for metric, values in all_metrics.items():
-        if len(values) >= 2:
-            # Check for declining trend
-            recent_values = [v.get("value") for v in values[:3] if isinstance(v.get("value"), (int, float))]
-            if len(recent_values) >= 2 and recent_values[0] < recent_values[-1]:
-                weak_areas.append(f"- **{metric}**: Declining trend ({recent_values[-1]} → {recent_values[0]})")
-
-    if weak_areas:
-        lines.append("**Weak Areas Identified:**")
-        lines.extend(weak_areas)
-        lines.append("")
-
-    # Show recent data summary
-    lines.append("**Latest Metrics:**")
-    if recent_logs:
-        latest = recent_logs[0]
-        latest_data = latest.get("data", {})
-        if isinstance(latest_data, dict):
-            for key, value in latest_data.items():
-                if isinstance(value, dict):
-                    lines.append(f"- {key}: {json.dumps(value)}")
-                else:
-                    lines.append(f"- {key}: {value}")
-        elif isinstance(latest_data, list):
-            # Handle list format: [{"metric_id": "...", "value": "..."}, ...]
-            for entry in latest_data:
-                if isinstance(entry, dict):
-                    metric_id = entry.get("metric_id") or entry.get("metric")
-                    value = entry.get("value")
-                    if metric_id and value is not None:
-                        lines.append(f"- {metric_id}: {value}")
-
-    return "\n".join(lines)
-
-
 async def select_single_loop(
     llm: LLMClient,
     manifest_data: dict[str, Any],
-    objectives_content: str,
-    daily_logs_summary: str | None,
     csv_loops: list[dict[str, Any]],
     previously_selected: list[SelectedGrowthLoop],
     iteration: int,
+    objectives_content: str = "",
 ) -> SelectedGrowthLoop:
     """
     Select a single growth loop using LLM.
@@ -460,11 +339,10 @@ async def select_single_loop(
     Args:
         llm: LLM client for generation
         manifest_data: Project manifest data
-        objectives_content: Content from growth-objectives.md
-        daily_logs_summary: Summary of daily logs (or None)
         csv_loops: All loops from CSV
         previously_selected: List of already selected loops
         iteration: Current iteration (1, 2, or 3)
+        objectives_content: Optional content from growth-objectives.md (deprecated)
 
     Returns:
         Selected growth loop with implementation details
@@ -472,7 +350,6 @@ async def select_single_loop(
     prompt = _build_selection_prompt(
         manifest_data=manifest_data,
         objectives_content=objectives_content,
-        daily_logs_summary=daily_logs_summary,
         csv_loops=csv_loops,
         previously_selected=previously_selected,
         iteration=iteration,
@@ -490,10 +367,9 @@ async def select_single_loop(
 async def select_growth_loops(
     llm: LLMClient,
     manifest_data: dict[str, Any],
-    objectives_content: str,
     csv_loops: list[dict[str, Any]],
-    daily_logs_summary: str | None = None,
     on_progress: callable | None = None,
+    objectives_content: str = "",
 ) -> list[SelectedGrowthLoop]:
     """
     Select 3 growth loops incrementally using LLM.
@@ -504,10 +380,9 @@ async def select_growth_loops(
     Args:
         llm: LLM client for generation
         manifest_data: Project manifest data (from growth-manifest.json)
-        objectives_content: Content from growth-objectives.md
         csv_loops: All loops from CSV
-        daily_logs_summary: Summary of daily logs (optional)
         on_progress: Optional callback for progress updates
+        objectives_content: Optional content from growth-objectives.md (deprecated, not used)
 
     Returns:
         List of 3 selected growth loops with implementation details
@@ -521,11 +396,10 @@ async def select_growth_loops(
         loop = await select_single_loop(
             llm=llm,
             manifest_data=manifest_data,
-            objectives_content=objectives_content,
-            daily_logs_summary=daily_logs_summary,
             csv_loops=csv_loops,
             previously_selected=selected_loops,
             iteration=iteration,
+            objectives_content=objectives_content,
         )
 
         selected_loops.append(loop)
@@ -541,7 +415,6 @@ def write_growth_loops_output(
     selected_loops: list[SelectedGrowthLoop],
     manifest_data: dict[str, Any],
     output_path: Path | str,
-    has_daily_logs: bool = False,
 ) -> Path:
     """
     Write selected growth loops to markdown file.
@@ -550,7 +423,6 @@ def write_growth_loops_output(
         selected_loops: List of selected loops
         manifest_data: Project manifest data
         output_path: Path to write the file
-        has_daily_logs: Whether daily logs were used
 
     Returns:
         Path to the written file
@@ -561,7 +433,6 @@ def write_growth_loops_output(
     markdown_content = _format_actionable_markdown(
         selected_loops=selected_loops,
         manifest_data=manifest_data,
-        has_daily_logs=has_daily_logs,
     )
 
     output_path.write_text(markdown_content)

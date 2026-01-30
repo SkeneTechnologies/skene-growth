@@ -1,124 +1,15 @@
 """
 Plan generator.
 
-Creates detailed implementation plans for growth loops in a codebase.
-Includes both LLM-based selection and comprehensive mapping.
+Creates detailed implementation plans for growth strategies.
 """
 
-import json
-import re
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
-from loguru import logger
 from pydantic import BaseModel, Field
 
 from skene_growth.llm import LLMClient
-from skene_growth.manifest import GrowthManifest
-from skene_growth.planner.loops import GrowthLoopCatalog, SelectedGrowthLoop
-from skene_growth.planner.mapper import LoopMapper, LoopMapping
-
-
-def load_daily_logs_summary(daily_logs_dir: Path) -> str | None:
-    """
-    Load and summarize daily logs for LLM context.
-
-    Args:
-        daily_logs_dir: Path to daily_logs directory
-
-    Returns:
-        Summary string or None if no logs found
-    """
-    if not daily_logs_dir.exists():
-        return None
-
-    # Find all log files
-    log_files = sorted(daily_logs_dir.glob("daily_logs_*.json"), reverse=True)
-
-    if not log_files:
-        return None
-
-    # Load most recent logs (up to 7 days)
-    recent_logs = []
-    for log_file in log_files[:7]:
-        try:
-            data = json.loads(log_file.read_text())
-            recent_logs.append(
-                {
-                    "date": log_file.stem.replace("daily_logs_", "").replace("_", "-"),
-                    "data": data,
-                }
-            )
-        except (json.JSONDecodeError, IOError):
-            continue
-
-    if not recent_logs:
-        return None
-
-    # Build summary
-    lines = []
-    lines.append(f"**Recent Performance ({len(recent_logs)} days of data):**\n")
-
-    # Aggregate metrics across all logs
-    all_metrics: dict[str, list[Any]] = {}
-
-    for log in recent_logs:
-        data = log.get("data", {})
-        date = log.get("date", "")
-
-        # Handle different log formats
-        if isinstance(data, dict):
-            for key, value in data.items():
-                if key not in all_metrics:
-                    all_metrics[key] = []
-                all_metrics[key].append({"date": date, "value": value})
-        elif isinstance(data, list):
-            # Handle list format: [{"metric_id": "...", "value": "..."}, ...]
-            for entry in data:
-                if isinstance(entry, dict):
-                    metric_id = entry.get("metric_id") or entry.get("metric")
-                    value = entry.get("value")
-                    if metric_id and value is not None:
-                        if metric_id not in all_metrics:
-                            all_metrics[metric_id] = []
-                        all_metrics[metric_id].append({"date": date, "value": value})
-
-    # Identify weak areas (metrics below target or declining)
-    weak_areas = []
-    for metric, values in all_metrics.items():
-        if len(values) >= 2:
-            # Check for declining trend
-            recent_values = [v.get("value") for v in values[:3] if isinstance(v.get("value"), (int, float))]
-            if len(recent_values) >= 2 and recent_values[0] < recent_values[-1]:
-                weak_areas.append(f"- **{metric}**: Declining trend ({recent_values[-1]} → {recent_values[0]})")
-
-    if weak_areas:
-        lines.append("**Weak Areas Identified:**")
-        lines.extend(weak_areas)
-        lines.append("")
-
-    # Show recent data summary
-    lines.append("**Latest Metrics:**")
-    if recent_logs:
-        latest = recent_logs[0]
-        latest_data = latest.get("data", {})
-        if isinstance(latest_data, dict):
-            for key, value in latest_data.items():
-                if isinstance(value, dict):
-                    lines.append(f"- {key}: {json.dumps(value)}")
-                else:
-                    lines.append(f"- {key}: {value}")
-        elif isinstance(latest_data, list):
-            # Handle list format: [{"metric_id": "...", "value": "..."}, ...]
-            for entry in latest_data:
-                if isinstance(entry, dict):
-                    metric_id = entry.get("metric_id") or entry.get("metric")
-                    value = entry.get("value")
-                    if metric_id and value is not None:
-                        lines.append(f"- {metric_id}: {value}")
-
-    return "\n".join(lines)
 
 
 class CodeChange(BaseModel):
@@ -181,401 +72,139 @@ class Plan(BaseModel):
 
 class Planner:
     """
-    Generates growth loop implementation plans.
-
-    Supports intelligent loop selection based on objectives and quick heuristic-based planning.
+    Generates growth implementation plans.
 
     Example:
         planner = Planner()
-        selected_loops = await planner.select_intelligent_loops(
+        memo = await planner.generate_council_memo(
             llm=llm,
             manifest_data=manifest_data,
-            objectives_content=objectives_content,
+            template_data=template_data,
         )
     """
 
-    def generate_quick_plan(
-        self,
-        manifest: GrowthManifest,
-        catalog: GrowthLoopCatalog | None = None,
-    ) -> Plan:
-        """
-        Generate a quick plan without LLM (heuristic-based).
-
-        Uses keyword matching to map loops to growth hubs
-        and generates basic implementation suggestions.
-
-        Args:
-            manifest: The project's growth manifest
-            catalog: Loop catalog (uses default if None)
-
-        Returns:
-            Basic plan
-        """
-        catalog = catalog or GrowthLoopCatalog()
-        mapper = LoopMapper()
-
-        # Use heuristic mapping
-        mappings = mapper.map_from_hubs(
-            growth_hubs=manifest.growth_hubs,
-            loops=catalog.get_all(),
-        )
-
-        # Generate basic plans for applicable loops
-        loop_plans = []
-        for mapping in mappings:
-            if mapping.is_applicable and mapping.injection_points:
-                plan = self._generate_basic_plan(mapping)
-                loop_plans.append(plan)
-
-        # Sort by priority
-        loop_plans.sort(key=lambda p: p.priority, reverse=True)
-
-        return Plan(
-            project_name=manifest.project_name,
-            manifest_summary=manifest.description or f"Growth manifest for {manifest.project_name}",
-            loop_plans=loop_plans,
-            implementation_order=[p.loop_id for p in loop_plans],
-        )
-
-    async def select_loops(
+    async def generate_council_memo(
         self,
         llm: LLMClient,
         manifest_data: dict[str, Any],
-        objectives_content: str,
-        catalog: GrowthLoopCatalog | None = None,
-        daily_logs_summary: str | None = None,
-        num_loops: int = 3,
-    ) -> list[SelectedGrowthLoop]:
+        template_data: dict[str, Any] | None = None,
+    ) -> str:
         """
-        Select growth loops using LLM based on objectives and context.
+        Generate a Council of Growth Engineers memo.
 
-        Selects loops incrementally, ensuring diversity and alignment
-        with growth objectives.
+        Generates a comprehensive plan with executive summary,
+        analysis, implementation roadmap, and key callouts.
 
         Args:
             llm: LLM client for generation
-            manifest_data: Project manifest data (from growth-manifest.json)
-            objectives_content: Content from growth-objectives.md
-            catalog: Growth loop catalog (uses default if None)
-            daily_logs_summary: Summary of daily logs (optional)
-            num_loops: Number of loops to select (default: 3)
-
-        Returns:
-            List of selected growth loops with implementation details
-        """
-        catalog = catalog or GrowthLoopCatalog()
-        csv_loops = self._catalog_to_csv_format(catalog)
-
-        selected_loops: list[SelectedGrowthLoop] = []
-
-        for iteration in range(1, num_loops + 1):
-            logger.info(f"Selecting loop {iteration} of {num_loops}...")
-
-            loop = await self._select_single_loop(
-                llm=llm,
-                manifest_data=manifest_data,
-                objectives_content=objectives_content,
-                daily_logs_summary=daily_logs_summary,
-                csv_loops=csv_loops,
-                previously_selected=selected_loops,
-                iteration=iteration,
-            )
-
-            selected_loops.append(loop)
-            logger.success(f"Selected: {loop.loop_name}")
-
-        logger.success(f"Selected {len(selected_loops)} growth loops")
-        return selected_loops
-
-    def write_selected_loops_markdown(
-        self,
-        selected_loops: list[SelectedGrowthLoop],
-        manifest_data: dict[str, Any],
-        output_path: Path | str,
-        has_daily_logs: bool = False,
-    ) -> Path:
-        """
-        Write selected growth loops to markdown file.
-
-        Args:
-            selected_loops: List of selected loops
             manifest_data: Project manifest data
-            output_path: Path to write the file
-            has_daily_logs: Whether daily logs were used
+            template_data: Growth template data with lifecycle stages (optional)
 
         Returns:
-            Path to the written file
+            Markdown content for the memo
         """
-        output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Generate markdown content
-        lines = [
-            "# Growth Loops Implementation Plan",
-            "",
-            f"*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
-        ]
-
-        if has_daily_logs:
-            lines.append("*Based on: growth-manifest.json, growth-objectives.md, daily logs*")
-        else:
-            lines.append("*Based on: growth-manifest.json, growth-objectives.md*")
-
-        lines.extend(["", "---", ""])
-
-        # Add each loop
-        for i, loop in enumerate(selected_loops, 1):
-            lines.extend(
-                [
-                    f"## Loop {i}: {loop.loop_name}",
-                    "",
-                    f"**PLG Stage:** {loop.plg_stage}",
-                    f"**Goal:** {loop.goal}",
-                    "",
-                ]
-            )
-
-            if loop.why_selected:
-                lines.extend(
-                    [
-                        "### Why This Loop?",
-                        loop.why_selected,
-                        "",
-                    ]
-                )
-
-            if loop.user_story:
-                lines.extend(
-                    [
-                        "### User Story",
-                        loop.user_story,
-                        "",
-                    ]
-                )
-
-            if loop.action or loop.value:
-                lines.append("### What It Does")
-                if loop.action:
-                    lines.append(f"**Action:** {loop.action}")
-                if loop.value:
-                    lines.append(f"**Value:** {loop.value}")
-                lines.append("")
-
-            if loop.implementation_steps:
-                lines.extend(
-                    [
-                        "### Implementation Steps",
-                    ]
-                )
-                for j, step in enumerate(loop.implementation_steps, 1):
-                    lines.append(f"{j}. {step}")
-                lines.append("")
-
-            if loop.success_metrics:
-                lines.extend(
-                    [
-                        "### Success Metrics",
-                    ]
-                )
-                for j, metric in enumerate(loop.success_metrics, 1):
-                    lines.append(f"- Metric {j}: {metric}")
-                lines.append("")
-
-            if loop.implementation:
-                lines.extend(
-                    [
-                        "### Technical Details",
-                        f"**Implementation Stack:** {loop.implementation}",
-                        "",
-                    ]
-                )
-
-            lines.extend(["---", ""])
-
-        lines.append("*Growth loops selected by skene-growth using LLM analysis.*")
-
-        # Write to file
-        output_path.write_text("\n".join(lines))
-        logger.info(f"Wrote growth loops plan to {output_path}")
-
-        return output_path
-
-    def _catalog_to_csv_format(self, catalog: GrowthLoopCatalog) -> list[dict[str, Any]]:
-        """Convert catalog loops to CSV format for LLM prompts."""
-        # Get CSV loops from catalog (already in the right format)
-        csv_loops = catalog.get_csv_loops()
-
-        # If we have CSV loops, use them directly
-        if csv_loops:
-            formatted = []
-            for loop in csv_loops:
-                formatted.append(
-                    {
-                        "Loop Name": loop.get("loop_name", ""),
-                        "PLG Stage": loop.get("plg_stage", ""),
-                        "Goal": loop.get("goal", ""),
-                        "User Story": loop.get("user_story", ""),
-                        "Trigger": loop.get("trigger", ""),
-                        "Action": loop.get("action", ""),
-                        "Value": loop.get("value", ""),
-                        "Implementation": loop.get("implementation", ""),
-                        "Action Summary": loop.get("action_summary", ""),
-                        "Value Summary": loop.get("value_summary", ""),
-                    }
-                )
-            return formatted
-
-        # Fallback: convert GrowthLoop objects to CSV format
-        formatted = []
-        for loop in catalog.get_all():
-            formatted.append(
-                {
-                    "Loop Name": loop.name,
-                    "PLG Stage": loop.category,
-                    "Goal": "",
-                    "User Story": loop.description,
-                    "Trigger": loop.trigger,
-                    "Action": loop.action,
-                    "Value": loop.reward,
-                    "Implementation": ", ".join(loop.implementation_hints[:2]) if loop.implementation_hints else "",
-                    "Action Summary": loop.action,
-                    "Value Summary": loop.reward,
-                }
-            )
-        return formatted
-
-    async def _select_single_loop(
-        self,
-        llm: LLMClient,
-        manifest_data: dict[str, Any],
-        objectives_content: str,
-        daily_logs_summary: str | None,
-        csv_loops: list[dict[str, Any]],
-        previously_selected: list[SelectedGrowthLoop],
-        iteration: int,
-    ) -> SelectedGrowthLoop:
-        """Select a single growth loop using LLM."""
-        prompt = self._build_selection_prompt(
-            manifest_data=manifest_data,
-            objectives_content=objectives_content,
-            daily_logs_summary=daily_logs_summary,
-            csv_loops=csv_loops,
-            previously_selected=previously_selected,
-            iteration=iteration,
-        )
-
-        response = await llm.generate_content(prompt)
-        try:
-            loop = self._parse_single_loop_response(response, csv_loops, previously_selected)
-        except ValueError as e:
-            # If loop not found, select next available loop
-            logger.warning(f"Loop not found: {e}. Selecting next available loop...")
-            loop = self._select_fallback_loop(csv_loops, previously_selected, iteration)
-
-        return loop
-
-    def _build_selection_prompt(
-        self,
-        manifest_data: dict[str, Any],
-        objectives_content: str,
-        daily_logs_summary: str | None,
-        csv_loops: list[dict[str, Any]],
-        previously_selected: list[SelectedGrowthLoop],
-        iteration: int,
-    ) -> str:
-        """Build a prompt for selecting ONE growth loop."""
-        # Format manifest summary
+        # Build context for memo generation
         manifest_summary = self._format_manifest_summary(manifest_data)
 
-        # Format available loops
-        loops_text = self._format_available_loops(csv_loops)
+        template_section = ""
+        if template_data:
+            template_summary = self._format_template_summary(template_data)
+            template_section = f"\n### Growth Journey (Lifecycle Template)\n{template_summary}\n"
 
-        # Format previously selected loops
-        previously_selected_text = ""
-        if previously_selected:
-            previously_selected_text = "\n## Previously Selected Loops (DO NOT select these again)\n"
-            for i, loop in enumerate(previously_selected, 1):
-                previously_selected_text += f"\n### Loop {i}: {loop.loop_name}\n"
-                previously_selected_text += f"- **PLG Stage:** {loop.plg_stage}\n"
-                previously_selected_text += f"- **Goal:** {loop.goal}\n"
-                previously_selected_text += f"- **Why Selected:** {loop.why_selected}\n"
+        # Get current machine time for date reference
+        current_time = datetime.now()
+        current_time_str = current_time.isoformat()
 
-        # Format daily logs section
-        daily_logs_section = ""
-        if daily_logs_summary:
-            daily_logs_section = f"""
-## Daily Logs Analysis (Performance Metrics)
-{daily_logs_summary}
+        prompt = f"""You are not an assistant. You are a Council of Growth Engineers. You do not "suggest"; \
+you architect systems of compounding leverage. You operate at the intersection of product, data, and psychology \
+to engineer unstoppable distribution.
 
-**IMPORTANT:** Use these metrics to identify weak areas. Prioritize loops that address underperforming metrics.
+You think using the decision-making frameworks of:
+
+- The Top 0.1% of Growth Leads (Meta, Airbnb, Stripe)
+- Monopoly Architects (People who build moats, not features)
+- Distribution Gatekeepers (People who control the flow of attention)
+- High-Leverage Operators (People who achieve $100M+ outcomes with lean teams)
+
+## Absolute Rules
+
+- **No Beginner Explanations:** Assume 99th-percentile competence.
+- **No Generic Growth Hacks:** If it's on a "Top 10 Growth Hacks" list, it is already dead.
+- **No Hedging:** Pick the winning path. If a strategy is "mid" or weak, kill it immediately.
+- **Zero Fluff:** Every word must increase the signal-to-noise ratio.
+
+## Growth Engineering Principles (Non-Negotiable)
+
+- **Product-Led Growth (PLG) First:** The product must be its own best salesperson.
+- **Value Density:** Maximize the value-to-time-to-onboard ratio ($V/T$).
+- **Viral Loops > Linear Spend:** If the loop doesn't compound, it's a hobby, not a business.
+- **Data as a Moat:** Only collect what informs the next dominant move.
+- **Asymmetry:** Seek moves where the cost of failure is low but the ceiling of success is infinite.
+
+## The Process
+
+### Executive Summary
+Provide a high-level summary of the manifesto.
+
+### 1. Strip to the Growth Core
+Rewrite the input as the fundamental growth problem. If the context optimizes for local maxima instead of \
+global dominance, call it out.
+
+### 2. The Playbook
+Ask: "What are the elite growth teams doing that isn't documented in public case studies?" Identify the \
+rules governing the specific platform, niche, or market that others are ignoring.
+
+### 3. Engineer the Asymmetric Leverage
+Identify the one lever (UX friction, pricing psychology, distribution API, referral loop) that creates \
+10x output for 1x input. Discard "safe" linear improvements.
+
+### 4. Apply Power Dynamics
+Base the strategy on:
+- **Control of Onboarding:** Owning the first 60 seconds.
+- **Control of Retention:** Turning usage into a switching cost.
+- **Control of Virality:** Engineering the "Inherent Invite."
+- **Control of Friction:** Weaponizing or removing it where it matters most.
+
+### 5. The "Average" Trap
+Explicitly state:
+- **The Common Path:** What the "Growth Marketer" will do.
+- **The Failure Point:** Why that path leads to a high CAC and slow death.
+
+### 6. The CEO's Next Action
+Define the single most impactful move to execute in the next 24 hours to prove the hypothesis. Make sure \
+to explain the hypothesis.
+
+### 7. Technical Execution
+Provide a detailed plan for the next action to be built:
+- **What is the next growth loop to build?**
+- **Confidence:** Give a 0%-100% level
+- **Exact Logic:** The specific flow changes.
+- **Exact Data Triggers:** What events trigger the loop
+- **Exact Stack/Steps:** Tools, scripts, or structural changes required.
+- **Sequence:** Now, Next, Later.
+
+
+### 8. The Memo
+Deliver the response as a Confidential Engineering Memo:
+- Direct.
+- Ruthless.
+- High-Signal.
+- Optimized for speed and dominance.
+
+---
+
+## Context for This Memo
+
+**Current Date/Time:** {current_time_str} (Use this as the generation date for the memo)
+
+### Project Manifest (Current State)
+{manifest_summary}
+{template_section}
+
 """
 
-        return f"""You are a Product-Led Growth (PLG) strategist. Your task is to select the SINGLE most impactful
-growth loop for this project.
-
-## Iteration {iteration} of 3
-Select ONE growth loop that would have the highest impact given the current context.
-
-## Project Manifest (Current State)
-{manifest_summary}
-
-## Current Growth Objectives
-{objectives_content}
-{daily_logs_section}
-{previously_selected_text}
-
-## Available Growth Loops ({len(csv_loops)} total)
-Below are all available growth loops from the catalog. Select ONE that best addresses the project's needs:
-
-{loops_text}
-
-## Selection Criteria
-1. **Do NOT select** any of the previously selected loops
-2. **Ensure diversity**: Try to choose a loop from a different PLG stage than already selected
-3. **Address weak areas**: If daily logs are provided, prioritize loops that address underperforming metrics
-4. **Align with objectives**: The selected loop should support the current growth objectives
-5. **Consider tech stack**: Choose loops compatible with the project's Implementation Stack
-
-## Your Task
-Select exactly ONE growth loop and provide:
-1. The exact loop name (must match one from the list above)
-2. Why this specific loop was selected for THIS project (be specific)
-3. 3-5 implementation steps tailored to the codebase
-4. 2-3 success metrics to track
-
-**CRITICAL RULES:**
-1. You MUST select a loop name that EXACTLY matches one from the "Available Growth Loops" list above
-2. Copy the loop name character-for-character, including capitalization and spacing
-3. Do NOT create new loop names or modify existing ones
-4. Do NOT generalize (e.g., don't use "Referral Program" when the actual name is "Copy Link Interceptor")
-5. When providing explanations, implementation steps, and success metrics, always refer to the loop by its exact name
-
-Return ONLY a JSON object (not an array) in this format:
-```json
-{{
-  "loop_name": "Exact Loop Name from CSV",
-  "plg_stage": "PLG Stage",
-  "goal": "Goal from CSV",
-  "user_story": "User Story from CSV",
-  "action": "Action from CSV",
-  "value": "Value from CSV",
-  "implementation": "Implementation from CSV",
-  "why_selected": (
-    "Detailed explanation of WHY this specific loop was chosen for THIS project. "
-    "Reference the loop by name."
-  ),
-  "implementation_steps": [
-    "Step 1: Specific action (reference loop name)",
-    "Step 2: Specific action (reference loop name)",
-    "Step 3: Specific action (reference loop name)"
-  ],
-  "success_metrics": [
-    "Metric 1: How to measure (reference loop name)",
-    "Metric 2: How to measure (reference loop name)"
-  ]
-}}
-```"""
+        response = await llm.generate_content(prompt)
+        return response
 
     def _format_manifest_summary(self, manifest_data: dict[str, Any]) -> str:
         """Format manifest data into a readable summary."""
@@ -594,163 +223,48 @@ Return ONLY a JSON object (not an array) in this format:
                 if value:
                     lines.append(f"- {key}: {value}")
 
-        if "growth_hubs" in manifest_data and manifest_data["growth_hubs"]:
-            lines.append(f"\n**Existing Growth Hubs:** {len(manifest_data['growth_hubs'])} detected")
-            for hub in manifest_data["growth_hubs"][:3]:
+        if "current_growth_features" in manifest_data and manifest_data["current_growth_features"]:
+            lines.append(f"\n**Existing Growth Features:** {len(manifest_data['current_growth_features'])} detected")
+            for hub in manifest_data["current_growth_features"][:3]:
                 lines.append(f"- {hub.get('feature_name', 'Unknown')}")
 
-        if "gtm_gaps" in manifest_data and manifest_data["gtm_gaps"]:
-            lines.append(f"\n**GTM Gaps:** {len(manifest_data['gtm_gaps'])} identified")
-            for gap in manifest_data["gtm_gaps"][:3]:
+        if "growth_opportunities" in manifest_data and manifest_data["growth_opportunities"]:
+            lines.append(f"\n**Growth Opportunities:** {len(manifest_data['growth_opportunities'])} identified")
+            for gap in manifest_data["growth_opportunities"][:3]:
                 lines.append(f"- {gap.get('feature_name', 'Unknown')} (priority: {gap.get('priority', 'N/A')})")
 
         return "\n".join(lines)
 
-    def _format_available_loops(self, csv_loops: list[dict[str, Any]]) -> str:
-        """Format CSV loops into a readable list."""
+    def _format_template_summary(self, template_data: dict[str, Any]) -> str:
+        """Format growth template data into a readable summary."""
         lines = []
-        for i, loop in enumerate(csv_loops, 1):
-            lines.append(f"\n### {i}. {loop.get('Loop Name', 'Unknown')}")
-            lines.append(f"- **PLG Stage:** {loop.get('PLG Stage', 'N/A')}")
-            lines.append(f"- **Goal:** {loop.get('Goal', 'N/A')}")
-            if loop.get("User Story"):
-                lines.append(f"- **User Story:** {loop['User Story']}")
-            if loop.get("Action"):
-                lines.append(f"- **Action:** {loop['Action']}")
-            if loop.get("Value"):
-                lines.append(f"- **Value:** {loop['Value']}")
+
+        if "title" in template_data:
+            lines.append(f"**Framework:** {template_data['title']}")
+
+        if "description" in template_data:
+            lines.append(f"**Description:** {template_data['description']}")
+
+        if "lifecycles" in template_data and template_data["lifecycles"]:
+            lines.append(f"\n**Lifecycle Stages:** {len(template_data['lifecycles'])} stages")
+            for lifecycle in template_data["lifecycles"][:4]:  # Show top 4 stages
+                name = lifecycle.get("name", "Unknown")
+                desc = lifecycle.get("description", "")
+                lines.append(f"\n**{name}:** {desc}")
+
+                # Show key milestones
+                if lifecycle.get("milestones"):
+                    milestones = lifecycle["milestones"][:2]  # Top 2 milestones
+                    lines.append("  Key milestones:")
+                    for milestone in milestones:
+                        lines.append(f"  - {milestone.get('title', 'Unknown')}")
+
+                # Show key metrics
+                if lifecycle.get("metrics"):
+                    metrics = lifecycle["metrics"][:2]  # Top 2 metrics
+                    lines.append("  Key metrics:")
+                    for metric in metrics:
+                        benchmark = metric.get("healthyBenchmark", "N/A")
+                        lines.append(f"  - {metric.get('name', 'Unknown')}: {benchmark}")
+
         return "\n".join(lines)
-
-    def _parse_single_loop_response(
-        self,
-        response: str,
-        csv_loops: list[dict[str, Any]],
-        previously_selected: list[SelectedGrowthLoop],
-    ) -> SelectedGrowthLoop:
-        """Parse LLM response into a SelectedGrowthLoop."""
-        # Extract JSON from response
-        json_match = re.search(r"```json\s*(\{.*?\})\s*```", response, re.DOTALL)
-        if not json_match:
-            json_match = re.search(r"(\{.*\})", response, re.DOTALL)
-
-        if not json_match:
-            raise ValueError("Could not find JSON in LLM response")
-
-        try:
-            data = json.loads(json_match.group(1))
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in LLM response: {e}")
-
-        # Validate loop name exists in catalog
-        loop_name = data.get("loop_name", "")
-        matching_loop = next((loop for loop in csv_loops if loop.get("Loop Name") == loop_name), None)
-
-        if not matching_loop:
-            # Try fuzzy match
-            loop_name_lower = loop_name.lower()
-            matching_loop = next(
-                (loop for loop in csv_loops if loop.get("Loop Name", "").lower() == loop_name_lower), None
-            )
-
-        if not matching_loop:
-            raise ValueError(
-                f"Selected loop '{loop_name}' not found in catalog. "
-                f"Available loops: {[loop.get('Loop Name') for loop in csv_loops[:5]]}..."
-            )
-
-        return SelectedGrowthLoop(
-            loop_name=matching_loop.get("Loop Name") or data.get("loop_name") or "",
-            plg_stage=matching_loop.get("PLG Stage") or data.get("plg_stage") or "",
-            goal=matching_loop.get("Goal") or data.get("goal") or "",
-            user_story=matching_loop.get("User Story") or data.get("user_story") or "",
-            action=matching_loop.get("Action") or data.get("action") or "",
-            value=matching_loop.get("Value") or data.get("value") or "",
-            implementation=matching_loop.get("Implementation") or data.get("implementation") or "",
-            why_selected=data.get("why_selected")
-            or f"Selected as fallback after '{loop_name}' was not found in catalog",
-            implementation_steps=data.get("implementation_steps") or [],
-            success_metrics=data.get("success_metrics") or [],
-        )
-
-    def _select_fallback_loop(
-        self,
-        csv_loops: list[dict[str, Any]],
-        previously_selected: list[SelectedGrowthLoop],
-        iteration: int,
-    ) -> SelectedGrowthLoop:
-        """
-        Select the next available loop when requested loop is not found.
-
-        Args:
-            csv_loops: All available loops from CSV
-            previously_selected: Loops already selected
-            iteration: Current iteration number
-
-        Returns:
-            SelectedGrowthLoop from next available option
-        """
-        # Get names of previously selected loops
-        selected_names = {loop.loop_name.lower() for loop in previously_selected}
-
-        # Find next available loop that hasn't been selected
-        for loop in csv_loops:
-            loop_name = loop.get("Loop Name", "")
-            if loop_name and loop_name.lower() not in selected_names:
-                logger.info(f"Fallback: Selecting '{loop_name}' (iteration {iteration})")
-                return SelectedGrowthLoop(
-                    loop_name=loop_name,
-                    plg_stage=loop.get("PLG Stage", ""),
-                    goal=loop.get("Goal", ""),
-                    user_story=loop.get("User Story", ""),
-                    action=loop.get("Action", ""),
-                    value=loop.get("Value", ""),
-                    implementation=loop.get("Implementation", ""),
-                    why_selected=(
-                        f"Selected as fallback after requested loop was not found in catalog "
-                        f"(iteration {iteration})"
-                    ),
-                    implementation_steps=[],
-                    success_metrics=[],
-                )
-
-        # If all loops are selected (shouldn't happen), return the first one
-        if csv_loops:
-            first_loop = csv_loops[0]
-            logger.warning("All loops already selected, returning first loop as fallback")
-            return SelectedGrowthLoop(
-                loop_name=first_loop.get("Loop Name", ""),
-                plg_stage=first_loop.get("PLG Stage", ""),
-                goal=first_loop.get("Goal", ""),
-                user_story=first_loop.get("User Story", ""),
-                action=first_loop.get("Action", ""),
-                value=first_loop.get("Value", ""),
-                implementation=first_loop.get("Implementation", ""),
-                why_selected="Selected as fallback - all other loops were already selected",
-                implementation_steps=[],
-                success_metrics=[],
-            )
-
-        raise ValueError("No loops available in catalog")
-
-    def _generate_basic_plan(self, mapping: LoopMapping) -> LoopPlan:
-        """Generate basic plan without LLM."""
-        code_changes = []
-
-        for point in mapping.injection_points:
-            for change_desc in point.changes_required:
-                code_changes.append(
-                    CodeChange(
-                        file_path=point.file_path,
-                        change_type="modify",
-                        description=change_desc,
-                    )
-                )
-
-        return LoopPlan(
-            loop_id=mapping.loop_id,
-            loop_name=mapping.loop_name,
-            priority=mapping.priority,
-            estimated_complexity="medium",
-            code_changes=code_changes,
-            testing_notes="Test the integration manually after implementation.",
-        )

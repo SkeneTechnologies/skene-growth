@@ -15,7 +15,7 @@ import xxhash
 PHASE_PREFIXES = {
     "tech_stack": "tech_stack",
     "product_overview": "product_overview",
-    "growth_hubs": "growth_hubs",
+    "current_growth_features": "current_growth_features",
     "features": "features",
     "manifest": "manifest",
     "growth_template": "growth_template",
@@ -257,7 +257,8 @@ class AnalysisCache:
 
         Args:
             repo_path: Path to the repository
-            phase: Phase name (tech_stack, product_overview, growth_hubs, features, manifest, growth_template)
+            phase: Phase name (tech_stack, product_overview, current_growth_features,
+                features, manifest, growth_template)
 
         Returns:
             Cached phase data if valid, None otherwise
@@ -285,7 +286,8 @@ class AnalysisCache:
 
         Args:
             repo_path: Path to the repository
-            phase: Phase name (tech_stack, product_overview, growth_hubs, features, manifest, growth_template)
+            phase: Phase name (tech_stack, product_overview, current_growth_features,
+                features, manifest, growth_template)
             data: Phase analysis data to cache
         """
         cache_key = self._compute_phase_cache_key(repo_path, phase)

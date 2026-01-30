@@ -16,7 +16,7 @@ class PSEOBuilder:
     Builds multiple SEO-optimized pages from a GrowthManifest.
 
     Generates pages for:
-    - Each growth hub feature
+    - Each current growth feature
     - Each technology in the stack
     - Custom topics based on keywords
 
@@ -41,7 +41,7 @@ class PSEOBuilder:
         output_dir: Path | str,
     ) -> list[Path]:
         """
-        Generate SEO pages for each growth hub feature.
+        Generate SEO pages for each current growth feature.
 
         Args:
             manifest: The growth manifest
@@ -54,19 +54,19 @@ class PSEOBuilder:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         pages = []
-        for hub in manifest.growth_hubs:
+        for feature in manifest.current_growth_features:
             # Generate keywords from growth potential
-            keywords = hub.growth_potential[:5] if hub.growth_potential else []
+            keywords = feature.growth_potential[:5] if feature.growth_potential else []
             keywords.append(manifest.project_name)
 
             content = self.generator.generate_seo_page(
                 manifest=manifest,
-                topic=hub.feature_name,
+                topic=feature.feature_name,
                 keywords=keywords,
             )
 
             # Create slug from feature name
-            slug = self._slugify(hub.feature_name)
+            slug = self._slugify(feature.feature_name)
             page_path = output_dir / f"{slug}.md"
             page_path.write_text(content)
             pages.append(page_path)

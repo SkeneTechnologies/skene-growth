@@ -25,8 +25,9 @@ Get an OpenAI API key at: https://platform.openai.com/api-keys
 skene-growth scans your codebase and generates a **growth manifest** containing:
 
 - **Tech Stack Detection** - Framework, language, database, auth, deployment
-- **Growth Hubs** - Features with growth potential (signup flows, sharing, invites, billing)
-- **GTM Gaps** - Missing features that could drive user acquisition and retention
+- **Current Growth Features** - Existing features with growth potential (signup flows, sharing, invites, billing)
+- **Revenue Leakage** - Potential revenue issues (missing monetization, weak pricing tiers, overly generous free tiers)
+- **Growth Opportunities** - Missing features that could drive user acquisition and retention
 
 With the `--product-docs` flag, it also collects:
 
@@ -34,7 +35,7 @@ With the `--product-docs` flag, it also collects:
 - **Features** - User-facing feature documentation with descriptions and examples
 - **Product Docs** - Generates user-friendly product-docs.md file
 
-After the manifest is created, skene-growth generates a **custom growth template** (JSON + Markdown)
+After the manifest is created, skene-growth generates a **custom growth template** (JSON)
 tailored to your business type using LLM analysis. The templates use examples in `src/templates/` as 
 reference but create custom lifecycle stages and keywords specific to your product.
 
@@ -55,7 +56,7 @@ uvx skene-growth analyze . --api-key "your-openai-api-key"
 uvx skene-growth validate ./growth-manifest.json
 ```
 
-> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`, Anthropic with `--provider anthropic`, or local LLMs with `--provider lmstudio` or `--provider ollama` (experimental).
+> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`, Anthropic with `--provider anthropic` or `--provider claude`, or local LLMs with `--provider lmstudio` or `--provider ollama` (experimental).
 
 ### Option 2: pip install
 
@@ -65,17 +66,11 @@ pip install skene-growth
 
 ## How to use?
 
-skene-growth follows a four-step workflow designed to progressively build AI context, track growth objectives, and generate actionable implementation plans:
+skene-growth follows a flexible workflow:
 
-1. **Analyze** - Establishes the foundation by analyzing your codebase and generating a comprehensive growth manifest. This creates the general AI context about your codebase structure, technology stack, user journey, and growth opportunities. The output includes growth hubs, GTM gaps, and a custom growth template tailored to your business type.
+1. **Analyze** - Establishes the foundation by analyzing your codebase and generating a comprehensive growth manifest. This creates the general AI context about your codebase structure, technology stack, user journey, and growth opportunities. The output includes current growth features, revenue leakage issues, growth opportunities, and a custom growth template tailored to your business type.
 
-2. **Objectives** - Uses the manifest and template to generate 3 prioritized growth objectives. This step focuses the AI's attention on specific, actionable goals based on your lifecycle stages and identified gaps. You can guide the objective selection with prompts to emphasize particular areas like onboarding or retention.
-
-3. **Daily Logs** - Tracks the current status of your objectives by fetching metrics from configured data sources. This provides real-time feedback to the AI about how your objectives are performing, enabling data-driven decision making and progress monitoring.
-
-4. **Plan** - Generates a growth plan by selecting and mapping growth loops to your codebase. When objectives and daily logs are available, it uses LLM-based intelligent selection to choose 3 targeted loops. Otherwise, it performs comprehensive mapping of all applicable loops from the catalog. The output is an actionable implementation plan with specific steps and success metrics.
-
-Together, these commands create a continuous feedback loop: analyze establishes context, objectives define focus, daily logs provide status updates, and plan generates actionable implementation steps to keep your growth strategy aligned with actual performance.
+2. **Plan** - Generates a growth plan using Council of Growth Engineers analysis. This command uses an LLM to analyze your manifest and template to produce a detailed growth plan with 3-5 selected high-impact growth loops, implementation roadmap, and recommendations.
 
 ## CLI Commands
 
@@ -103,8 +98,9 @@ uvx skene-growth analyze . --model gpt-4o
 # Use Gemini instead of OpenAI
 uvx skene-growth analyze . --provider gemini --api-key "your-gemini-api-key"
 
-# Use Anthropic (Claude)
+# Use Anthropic (Claude) - both "anthropic" and "claude" work
 uvx skene-growth analyze . --provider anthropic --api-key "your-anthropic-api-key"
+uvx skene-growth analyze . --provider claude --api-key "your-anthropic-api-key"
 
 # Use LM Studio (local server)
 uvx skene-growth analyze . --provider lmstudio --model "your-loaded-model"
@@ -118,13 +114,15 @@ uvx skene-growth analyze . --business-type "b2b-saas"
 
 # Generate product documentation (collects product overview and features)
 uvx skene-growth analyze . --product-docs
+
+# Exclude folders from analysis (can be used multiple times)
+uvx skene-growth analyze . --exclude tests --exclude vendor --exclude migrations
+uvx skene-growth analyze . -e planner -e docs
 ```
 
 **Output:**
 - `./skene-context/growth-manifest.json` (structured data)
-- `./skene-context/growth-manifest.md` (analysis summary)
 - `./skene-context/growth-template.json` (if --business-type specified)
-- `./skene-context/growth-template.md` (if --business-type specified)
 - `./skene-context/product-docs.md` (if --product-docs flag used)
 
 **Growth Templates:** The system generates custom templates tailored to your business type, with
@@ -134,6 +132,7 @@ the LLM infers it from your codebase.
 **Flags:**
 - `--product-docs`: Generate user-friendly product documentation (collects product overview, features, and generates product-docs.md)
 - `--business-type`: Specify business type for custom growth template
+- `-e, --exclude`: Folder names to exclude from analysis (can be used multiple times). Excludes any folder containing the specified name anywhere in the path. Can also be configured in `.skene-growth.config` file.
 
 The `--product-docs` flag enables enhanced analysis mode which collects product overview and feature documentation, producing a v2.0 manifest with additional fields and a user-friendly product-docs.md file.
 
@@ -143,180 +142,51 @@ The `--product-docs` flag enables enhanced analysis mode which collects product 
 uvx skene-growth validate ./growth-manifest.json
 ```
 
-### `objectives` - Generate growth objectives
-
-Generate 3 prioritized growth objectives from your manifest and template. This command reads existing `growth-manifest.json` and `growth-template.json` files, then uses an LLM to generate targeted growth objectives based on lifecycle stages and identified gaps.
-
-**Prerequisites:**
-- Run `skene-growth analyze` first to generate `growth-manifest.json` and `growth-template.json`
-- These files should be in `./skene-context/` or you can specify their paths
-
-```bash
-# Generate objectives (auto-detects manifest and template from ./skene-context/)
-uvx skene-growth objectives --api-key "your-api-key"
-
-# Specify quarter label
-uvx skene-growth objectives --quarter "Q1 2024"
-
-# With prompt to focus on specific areas
-uvx skene-growth objectives -p "I want all objectives to focus on onboarding"
-uvx skene-growth objectives --prompt "Prioritize retention metrics"
-
-# With specific manifest and template files
-uvx skene-growth objectives --manifest ./my-manifest.json --template ./my-template.json
-
-# Use different provider/model
-uvx skene-growth objectives --provider gemini --model gemini-2.0-flash
-
-# Custom output path
-uvx skene-growth objectives -o ./my-objectives.md
-```
-
-**Output:**
-- `./skene-context/growth-objectives.md` (default) or custom path specified with `-o`
-
-**Flags:**
-- `-p, --prompt`: Prompt text to influence objective selection (e.g., "Focus on onboarding" or "Prioritize retention metrics")
-- `-q, --quarter`: Quarter label (e.g., "Q1", "Q2 2024")
-- `-o, --output`: Output path for growth-objectives.md (default: `./skene-context/growth-objectives.md`)
-- `--manifest`: Path to growth-manifest.json (auto-detected if not specified)
-- `--template`: Path to growth-template.json (auto-detected if not specified)
-- `--api-key`: API key for LLM provider (or set SKENE_API_KEY env var)
-- `--provider`: LLM provider to use (openai, gemini, anthropic, ollama)
-- `-m, --model`: LLM model name
-- `-v, --verbose`: Enable verbose output
-
 ### `plan` - Generate growth plan
 
-Generate a growth plan by mapping growth loops to codebase. This command has conditional behavior based on available context files.
-
-**Conditional Behavior:**
-- If `objectives.md` AND `daily_logs/` exist: Uses LLM-based intelligent selection (selects 3 loops)
-- Otherwise: Uses comprehensive mapping (all applicable loops from catalog)
+Generate a growth plan using Council of Growth Engineers analysis. This command uses an LLM to analyze your manifest and template to produce actionable growth recommendations.
 
 **Prerequisites:**
 - `growth-manifest.json` file (generated by the `analyze` command)
-- For LLM mode: `growth-objectives.md` file AND `daily_logs/` directory
+- `growth-template.json` file (generated by the `analyze` command)
+- API key for LLM provider
 
 ```bash
-# Generate growth plan (auto-detects mode based on available files)
-uvx skene-growth plan
+# Generate growth plan (auto-detects manifest and template)
+uvx skene-growth plan --api-key "your-key"
 
-# Use custom loops from CSV
-uvx skene-growth plan --csv loops.csv
+# Specify context directory containing manifest and template
+uvx skene-growth plan --context ./my-context --api-key "your-key"
+# Or use short form:
+uvx skene-growth plan -c ./my-context --api-key "your-key"
 
-# Specify manifest and use LLM mode
-uvx skene-growth plan --manifest ./manifest.json --api-key "your-key"
+# Specify all files explicitly
+uvx skene-growth plan --manifest ./manifest.json --template ./template.json
 
 # Use different provider/model
 uvx skene-growth plan --provider gemini --model gemini-2.0-flash
-
-# Specify custom paths
-uvx skene-growth plan --objectives ./my-objectives.md --daily-logs ./my-logs
 ```
 
 **Output:**
-- `./skene-context/skene-growth-plan.md` (default) or custom path specified with `-o`
+- `./skene-context/growth-plan.md` (default) or custom path specified with `-o`
 
 **Flags:**
-- `-m, --manifest`: Path to growth-manifest.json (auto-detected if not specified)
-- `--objectives`: Path to growth-objectives.md (auto-detected if not specified)
-- `--daily-logs`: Path to daily_logs directory (auto-detected if not specified)
-- `--csv`: Path to custom growth loops CSV file (uses built-in if not specified)
+- `--manifest`: Path to growth-manifest.json (auto-detected if not specified)
+- `--template`: Path to growth-template.json (auto-detected if not specified)
+- `-c, --context`: Directory containing growth-manifest.json and growth-template.json (detected at working directory if not specified)
 - `-o, --output`: Output path for growth plan (markdown format)
-- `--api-key`: API key for LLM provider (or set SKENE_API_KEY env var, required for LLM mode)
-- `-p, --provider`: LLM provider to use (openai, gemini, anthropic, ollama)
+- `--api-key`: API key for LLM provider (or set SKENE_API_KEY env var)
+- `-p, --provider`: LLM provider to use (openai, gemini, anthropic/claude, ollama)
 - `-m, --model`: LLM model name
 - `-v, --verbose`: Enable verbose output
 
-### `daily-logs` - Fetch and store daily metrics
-
-Fetch data from sources defined in `skene.json` and store in daily logs. The command reads the `skene.json` configuration file to find configured data sources, then fetches metrics for each objective defined in `growth-objectives.md`. If sources are not configured, you'll be prompted to manually add daily status.
-
-**Prerequisites:**
-- `growth-objectives.md` file (generated by the `objectives` command)
-- `skene.json` file in skene-context directory (auto-created with example comments on first run)
-
-```bash
-# Use default skene-context directory
-uvx skene-growth daily-logs
-
-# Specify custom skene-context path
-uvx skene-growth daily-logs --context ./my-context
-```
-
-**Output:**
-- `./skene-context/daily_logs/daily_logs_YYYY_MM_DD.json` (dated log files)
-
-**Configuration:**
-
-The `skene.json` file is automatically created in your skene-context directory (or config-defined root) when you first run `daily-logs` if it doesn't exist. The file includes example comments explaining the structure and what should be configured. Edit this file to define your data sources:
-
-- **sources**: Array of data source configurations (APIs, databases, files) - these are what `daily-logs` uses to fetch metrics
-- **objectives**: Array of growth objectives to track (references to growth-objectives file)
-- **config**: Optional configuration for data fetching (timeouts, retries, etc.)
-
-**Example skene.json structure:**
-
-```json
-{
-  "sources": [
-    {
-      "name": "analytics_api",
-      "type": "api",
-      "endpoint": "https://api.example.com/analytics",
-      "auth": {
-        "type": "bearer",
-        "token_env": "ANALYTICS_API_TOKEN"
-      }
-    }
-  ],
-  "objectives": [
-    {
-      "id": "user_acquisition",
-      "source": "analytics_api",
-      "metric": "new_users",
-      "period": "daily"
-    }
-  ],
-  "config": {
-    "timeout": 30,
-    "retries": 3
-  }
-}
-```
-
-When you run `daily-logs`, it reads the `sources` array from `skene.json` to determine where to fetch data from. Each objective in your `growth-objectives.md` can reference a source by name to pull its metrics.
-
-**Flags:**
-- `-c, --context`: Path to skene-context directory (default: `./skene-context` or config-defined `output_dir`)
-- `--list-metrics`: List metrics that need values (useful for AI/non-interactive mode)
-- `--values`: JSON string with metric values: `'{"metric_id": "value", ...}'` (automatically enables non-interactive mode)
-
-**Non-interactive mode (for AI assistants):**
-
-When running `daily-logs` in non-interactive mode (e.g., via AI chat), use these steps:
-
-1. **List required metrics:**
-   ```bash
-   uvx skene-growth daily-logs --list-metrics
-   ```
-   This outputs the metrics that need values, including their IDs, names, and targets.
-
-2. **Provide values and run:**
-   ```bash
-   # Using JSON string (--values automatically enables non-interactive mode)
-   uvx skene-growth daily-logs --values '{"user_acquisition": "150", "retention_rate": "95%"}'
-   ```
-
-   The values format is a JSON object with metric IDs as keys:
-   ```json
-   {
-     "user_acquisition": "150",
-     "retention_rate": "95%",
-     "daily_active_users": "1,234"
-   }
-   ```
+**Council of Growth Engineers Analysis:**
+The plan command uses a "Council of Growth Engineers" system prompt that acts as an elite advisory board of growth strategists. It provides:
+- Assessment of current state and opportunities
+- 3-5 selected high-impact growth loops with detailed implementation steps
+- Week-by-week implementation roadmap
+- Key callouts on what to avoid and what to prioritize
+- Specific metrics and measurement strategies
 
 ### `config` - Manage configuration
 
@@ -327,6 +197,44 @@ uvx skene-growth config
 # Create a config file in current directory
 uvx skene-growth config --init
 ```
+
+## Excluding Folders from Analysis
+
+You can exclude specific folders from analysis to skip test files, vendor directories, documentation, or any other folders you don't want analyzed.
+
+### How Exclusion Works
+
+Exclusion matches folders in three ways:
+1. **Exact folder name match** - Excluding `"tests"` matches exactly `"tests"`
+2. **Substring match in folder names** - Excluding `"test"` matches `"tests"`, `"test_utils"`, `"integration_tests"`, etc.
+3. **Path pattern matching** - Excluding `"tests/unit"` matches any path containing that pattern
+
+### Examples
+
+```bash
+# Exclude test folders and vendor directories
+uvx skene-growth analyze . --exclude tests --exclude vendor
+
+# Exclude multiple folders (short form)
+uvx skene-growth analyze . -e planner -e migrations -e docs
+
+# Exclude path patterns
+uvx skene-growth analyze . --exclude "tests/unit" --exclude "vendor/legacy"
+```
+
+### Default Exclusions
+
+By default, skene-growth excludes common build and cache directories:
+- `.git`, `.svn`, `.hg` (version control)
+- `__pycache__`, `.pytest_cache` (Python cache)
+- `node_modules` (Node.js dependencies)
+- `.idea`, `.vscode` (IDE configs)
+- `venv`, `.venv` (Python virtual environments)
+- `dist`, `build` (build outputs)
+- `.next`, `.nuxt` (framework builds)
+- `coverage`, `.cache` (test/build artifacts)
+
+Your custom exclusions are merged with these defaults.
 
 ## Configuration
 
@@ -347,11 +255,11 @@ skene-growth supports configuration files for storing defaults:
 # API key for LLM provider (can also use SKENE_API_KEY env var)
 # api_key = "your-api-key"
 
-# LLM provider to use: "openai" (default), "gemini", "anthropic", "lmstudio", or "ollama" (experimental)
+# LLM provider to use: "openai" (default), "gemini", "anthropic"/"claude", "lmstudio", or "ollama" (experimental)
 provider = "openai"
 
 # Model to use (provider-specific defaults apply if not set)
-# openai: gpt-4o-mini | gemini: gemini-2.0-flash | anthropic: claude-sonnet-4-20250514 | ollama: llama2
+# openai: gpt-4o-mini | gemini: gemini-2.0-flash | anthropic: claude-haiku-4-5-20251001 | ollama: llama2
 # model = "gpt-4o-mini"
 
 # Default output directory
@@ -359,6 +267,12 @@ output_dir = "./skene-context"
 
 # Enable verbose output
 verbose = false
+
+# Folders to exclude from analysis (folder names or path patterns)
+# Excludes any folder containing these names anywhere in the path
+# Examples: "test" will exclude "tests", "test_utils", "integration_tests"
+# Path patterns like "tests/unit" will exclude any path containing that pattern
+exclude_folders = ["tests", "vendor", "migrations", "docs"]
 ```
 
 ### Configuration Priority
@@ -379,12 +293,19 @@ Safe, sandboxed access to codebase files:
 ```python
 from skene_growth import CodebaseExplorer
 
+# Create explorer with default exclusions
 explorer = CodebaseExplorer("/path/to/repo")
 
-# Get directory tree
+# Exclude specific folders from analysis
+explorer = CodebaseExplorer(
+    "/path/to/repo",
+    exclude_folders=["tests", "vendor", "migrations"]
+)
+
+# Get directory tree (excluded folders are automatically filtered)
 tree = await explorer.get_directory_tree(".", max_depth=3)
 
-# Search for files
+# Search for files (excluded folders are automatically filtered)
 files = await explorer.search_files(".", "**/*.py")
 
 # Read file contents
@@ -392,6 +313,10 @@ content = await explorer.read_file("src/main.py")
 
 # Read multiple files
 contents = await explorer.read_multiple_files(["src/a.py", "src/b.py"])
+
+# Check if a path should be excluded
+from pathlib import Path
+should_exclude = explorer.should_exclude(Path("src/tests/unit.py"))
 ```
 
 ### Analyzers
@@ -404,9 +329,9 @@ from skene_growth.llm import create_llm_client
 # Initialize
 codebase = CodebaseExplorer("/path/to/repo")
 llm = create_llm_client(
-    provider="openai",  # or "gemini", "anthropic", "lmstudio", or "ollama" (experimental)
+    provider="openai",  # or "gemini", "anthropic"/"claude", "lmstudio", or "ollama" (experimental)
     api_key=SecretStr("your-api-key"),
-    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-sonnet-4-20250514" / local model
+    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-haiku-4-5-20251001" / local model
 )
 
 # Run analysis
@@ -420,7 +345,7 @@ result = await analyzer.run(
 # Access results (the manifest is in result.data["output"])
 manifest = result.data["output"]
 print(manifest["tech_stack"])
-print(manifest["growth_hubs"])
+print(manifest["current_growth_features"])
 ```
 
 ### Documentation Generator
@@ -453,7 +378,7 @@ The `growth-manifest.json` output contains:
     "auth": "NextAuth.js",
     "deployment": "Vercel"
   },
-  "growth_hubs": [
+  "current_growth_features": [
     {
       "feature_name": "User Invites",
       "file_path": "src/components/InviteModal.tsx",
@@ -462,7 +387,15 @@ The `growth-manifest.json` output contains:
       "growth_potential": ["viral_coefficient", "user_acquisition"]
     }
   ],
-  "gtm_gaps": [
+  "revenue_leakage": [
+    {
+      "issue": "Free tier allows unlimited usage without conversion prompts",
+      "file_path": "src/pricing/tiers.py",
+      "impact": "high",
+      "recommendation": "Add usage limits or upgrade prompts to encourage paid conversions"
+    }
+  ],
+  "growth_opportunities": [
     {
       "feature_name": "Social Sharing",
       "description": "No social sharing for user content",
@@ -483,8 +416,9 @@ When using `--product-docs` flag, the manifest includes additional fields:
   "project_name": "my-app",
   "description": "A SaaS application",
   "tech_stack": { ... },
-  "growth_hubs": [ ... ],
-  "gtm_gaps": [ ... ],
+  "current_growth_features": [ ... ],
+  "revenue_leakage": [ ... ],
+  "growth_opportunities": [ ... ],
   "product_overview": {
     "tagline": "The easiest way to collaborate with your team",
     "value_proposition": "Simplify team collaboration with real-time editing and sharing.",
@@ -508,7 +442,7 @@ When using `--product-docs` flag, the manifest includes additional fields:
 | Variable | Description |
 |----------|-------------|
 | `SKENE_API_KEY` | API key for LLM provider |
-| `SKENE_PROVIDER` | LLM provider to use: `openai` (default), `gemini`, `anthropic`, `lmstudio`, or `ollama` (experimental) |
+| `SKENE_PROVIDER` | LLM provider to use: `openai` (default), `gemini`, `anthropic`/`claude`, `lmstudio`, or `ollama` (experimental) |
 | `LMSTUDIO_BASE_URL` | LM Studio server URL (default: `http://localhost:1234/v1`) |
 | `OLLAMA_BASE_URL` | Ollama server URL (default: `http://localhost:11434/v1`) - Experimental |
 

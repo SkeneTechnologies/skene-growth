@@ -89,6 +89,9 @@ class SelectFilesStep(AnalysisStep):
             # Parse response to get file list
             selected_files = self._parse_response(response)
 
+            # Filter out excluded files
+            selected_files = self._filter_excluded_files(codebase, selected_files)
+
             # Limit to max_files
             selected_files = selected_files[: self.max_files]
 
@@ -201,3 +204,23 @@ class SelectFilesStep(AnalysisStep):
 
         logger.warning(f"Could not parse file selection response: {response[:200]}")
         return []
+
+    def _filter_excluded_files(self, codebase: CodebaseExplorer, file_paths: list[str]) -> list[str]:
+        """Filter out files that match exclusion criteria."""
+        filtered = []
+        for file_path in file_paths:
+            # Resolve the file path relative to codebase base_dir
+            try:
+                # Create a Path object relative to base_dir
+                full_path = codebase.base_dir / file_path
+                # Check if this path should be excluded
+                if not codebase.should_exclude(full_path):
+                    filtered.append(file_path)
+                else:
+                    logger.debug(f"Excluding file: {file_path}")
+            except Exception as e:
+                # If path resolution fails, log and skip
+                logger.warning(f"Could not check exclusion for {file_path}: {e}")
+                # Include it by default to avoid breaking the analysis
+                filtered.append(file_path)
+        return filtered

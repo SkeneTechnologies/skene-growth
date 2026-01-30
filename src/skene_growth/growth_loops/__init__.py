@@ -7,11 +7,10 @@ The Planner class now includes selection methods:
 - Planner.select_loops() - LLM-based loop selection
 - Planner.write_selected_loops_markdown() - Write results to markdown
 
-For backwards compatibility only. This module is not exported in the public API.
+This module is not exported in the public API.
 """
 
 from skene_growth.growth_loops.selector import (
-    load_daily_logs_summary,
     select_growth_loops,
     select_single_loop,
     write_growth_loops_output,
@@ -21,5 +20,4 @@ __all__ = [
     "select_growth_loops",
     "select_single_loop",
     "write_growth_loops_output",
-    "load_daily_logs_summary",
 ]

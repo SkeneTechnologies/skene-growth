@@ -21,7 +21,8 @@ except ImportError:
 DEFAULT_MODEL_BY_PROVIDER = {
     "openai": "gpt-4o-mini",
     "gemini": "gemini-2.0-flash",
-    "anthropic": "claude-sonnet-4-20250514",
+    "anthropic": "claude-haiku-4-5-20251001",
+    "claude": "claude-haiku-4-5-20251001",
     "ollama": "llama2",
 }
 
@@ -78,6 +79,17 @@ class Config:
         if model:
             return model
         return default_model_for_provider(self.provider)
+
+    @property
+    def exclude_folders(self) -> list[str]:
+        """Get list of folder names to exclude from analysis."""
+        exclude = self.get("exclude_folders")
+        if exclude:
+            if isinstance(exclude, list):
+                return exclude
+            elif isinstance(exclude, str):
+                return [exclude]
+        return []
 
 
 def find_project_config() -> Path | None:

@@ -1,16 +1,18 @@
 """
 Full manifest analyzer using MultiStepStrategy.
 
-Combines tech stack and growth hub analysis to produce
+Combines tech stack and growth features analysis to produce
 a complete GrowthManifest.
 """
 
 from skene_growth.analyzers.prompts import (
-    GROWTH_HUB_PROMPT,
+    GROWTH_FEATURES_PROMPT,
+    INDUSTRY_PROMPT,
     MANIFEST_PROMPT,
+    REVENUE_LEAKAGE_PROMPT,
     TECH_STACK_PROMPT,
 )
-from skene_growth.manifest import GrowthManifest, TechStack
+from skene_growth.manifest import GrowthManifest, IndustryInfo, TechStack
 from skene_growth.strategies import MultiStepStrategy
 from skene_growth.strategies.steps import (
     AnalyzeStep,
@@ -24,10 +26,12 @@ class ManifestAnalyzer(MultiStepStrategy):
     """
     Full-pipeline analyzer that produces a complete GrowthManifest.
 
-    This analyzer runs in three phases:
+    This analyzer runs in four phases:
     1. Tech stack detection (config files)
-    2. Growth hub identification (source files)
-    3. Manifest generation (combining results + GTM gaps)
+    2. Current growth features identification (source files)
+    3. Revenue leakage analysis (pricing/payment files)
+    4. Industry classification (docs/README)
+    5. Manifest generation (combining results + growth opportunities)
 
     Example:
         analyzer = ManifestAnalyzer()
@@ -82,7 +86,7 @@ class ManifestAnalyzer(MultiStepStrategy):
                     output_key="tech_stack",
                     source_key="file_contents",
                 ),
-                # Phase 2: Find growth hubs
+                # Phase 2: Find current growth features
                 # Note: file_contents will be overwritten, but tech_stack is preserved
                 SelectFilesStep(
                     prompt="Select source files with potential growth features. "
@@ -105,15 +109,75 @@ class ManifestAnalyzer(MultiStepStrategy):
                     output_key="file_contents",
                 ),
                 AnalyzeStep(
-                    prompt=GROWTH_HUB_PROMPT,
-                    output_key="growth_hubs",
+                    prompt=GROWTH_FEATURES_PROMPT,
+                    output_key="current_growth_features",
                     source_key="file_contents",
                 ),
-                # Phase 3: Generate final manifest
+                # Phase 2.5: Analyze revenue leakage
+                SelectFilesStep(
+                    prompt="Select files related to pricing, payments, subscriptions, billing, "
+                    "usage limits, feature flags, tier management, and monetization. "
+                    "Look for payment processing, subscription logic, free tier restrictions, "
+                    "upgrade prompts, and pricing configurations.",
+                    patterns=[
+                        "**/pricing/**/*",
+                        "**/payment/**/*",
+                        "**/billing/**/*",
+                        "**/subscription/**/*",
+                        "**/plan/**/*",
+                        "**/tier/**/*",
+                        "**/usage/**/*",
+                        "**/limit/**/*",
+                        "**/upgrade/**/*",
+                        "**/monetization/**/*",
+                        "**/stripe/**/*",
+                        "**/paypal/**/*",
+                    ],
+                    max_files=20,
+                    output_key="revenue_files",
+                ),
+                ReadFilesStep(
+                    source_key="revenue_files",
+                    output_key="revenue_file_contents",
+                ),
+                AnalyzeStep(
+                    prompt=REVENUE_LEAKAGE_PROMPT,
+                    output_key="revenue_leakage",
+                    source_key="revenue_file_contents",
+                ),
+                # Phase 3: Industry classification
+                SelectFilesStep(
+                    prompt="Select documentation and package metadata files for industry classification. "
+                    "Look for README, docs, and package descriptors that describe what the product does.",
+                    patterns=[
+                        "README.md",
+                        "README*.md",
+                        "readme.md",
+                        "docs/*.md",
+                        "docs/**/*.md",
+                        "package.json",
+                        "pyproject.toml",
+                        "Cargo.toml",
+                        "go.mod",
+                    ],
+                    max_files=10,
+                    output_key="industry_files",
+                ),
+                ReadFilesStep(
+                    source_key="industry_files",
+                    output_key="industry_file_contents",
+                ),
+                AnalyzeStep(
+                    prompt=INDUSTRY_PROMPT,
+                    output_schema=IndustryInfo,
+                    output_key="industry",
+                    source_key="industry_file_contents",
+                ),
+                # Phase 4: Generate final manifest
                 GenerateStep(
                     prompt=MANIFEST_PROMPT,
                     output_schema=GrowthManifest,
-                    include_context_keys=["tech_stack", "growth_hubs"],
+                    include_context_keys=["tech_stack", "current_growth_features", "revenue_leakage", "industry"],
                     output_key="output",
                 ),
             ]
