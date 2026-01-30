@@ -1,10 +1,10 @@
 """
-Growth hub analyzer using MultiStepStrategy.
+Growth features analyzer using MultiStepStrategy.
 
-Identifies features and areas of a codebase with growth potential.
+Identifies current features and areas of a codebase with growth potential.
 """
 
-from skene_growth.analyzers.prompts import GROWTH_HUB_PROMPT
+from skene_growth.analyzers.prompts import GROWTH_FEATURES_PROMPT
 from skene_growth.strategies import MultiStepStrategy
 from skene_growth.strategies.steps import (
     AnalyzeStep,
@@ -13,11 +13,11 @@ from skene_growth.strategies.steps import (
 )
 
 
-class GrowthHubAnalyzer(MultiStepStrategy):
+class GrowthFeaturesAnalyzer(MultiStepStrategy):
     """
-    Analyzer for identifying growth hubs in a codebase.
+    Analyzer for identifying current growth features in a codebase.
 
-    Growth hubs are features or areas that:
+    Current growth features are features or areas that:
     - Enable viral growth (sharing, invitations, referrals)
     - Drive user engagement
     - Facilitate onboarding
@@ -25,17 +25,17 @@ class GrowthHubAnalyzer(MultiStepStrategy):
     - Enable data-driven decisions
 
     Example:
-        analyzer = GrowthHubAnalyzer()
+        analyzer = GrowthFeaturesAnalyzer()
         result = await analyzer.run(
             codebase=CodebaseExplorer("/path/to/repo"),
             llm=create_llm_client(),
             request="Find growth opportunities",
         )
-        growth_hubs = result.data.get("growth_hubs", [])
+        features = result.data.get("current_growth_features", [])
     """
 
     def __init__(self):
-        """Initialize the growth hub analyzer with predefined steps."""
+        """Initialize the growth features analyzer with predefined steps."""
         super().__init__(
             steps=[
                 SelectFilesStep(
@@ -63,9 +63,13 @@ class GrowthHubAnalyzer(MultiStepStrategy):
                     output_key="file_contents",
                 ),
                 AnalyzeStep(
-                    prompt=GROWTH_HUB_PROMPT,
-                    output_key="growth_hubs",
+                    prompt=GROWTH_FEATURES_PROMPT,
+                    output_key="current_growth_features",
                     source_key="file_contents",
                 ),
             ]
         )
+
+
+# Backwards compatibility alias
+GrowthHubAnalyzer = GrowthFeaturesAnalyzer

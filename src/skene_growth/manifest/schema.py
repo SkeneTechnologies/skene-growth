@@ -3,8 +3,8 @@ Pydantic schemas for growth manifest output.
 
 These models define the structure of growth-manifest.json, which captures:
 - Tech stack detection
-- Growth hub identification
-- Go-to-market gaps
+- Current growth features identification
+- Growth opportunities
 """
 
 from datetime import datetime
@@ -45,8 +45,8 @@ class TechStack(BaseModel):
     )
 
 
-class GrowthHub(BaseModel):
-    """A feature or area with growth potential."""
+class GrowthFeature(BaseModel):
+    """A current feature with growth potential."""
 
     feature_name: str = Field(
         description="Name of the feature or growth area",
@@ -72,18 +72,26 @@ class GrowthHub(BaseModel):
     )
 
 
-class GTMGap(BaseModel):
-    """Go-to-market gap or missing feature."""
+# Backwards compatibility alias
+GrowthHub = GrowthFeature
+
+
+class GrowthOpportunity(BaseModel):
+    """A growth opportunity or missing feature."""
 
     feature_name: str = Field(
-        description="Name of the missing feature or gap",
+        description="Name of the missing feature or opportunity",
     )
     description: str = Field(
         description="Description of what's missing and why it matters",
     )
     priority: Literal["high", "medium", "low"] = Field(
-        description="Priority level for addressing this gap",
+        description="Priority level for addressing this opportunity",
     )
+
+
+# Backwards compatibility alias
+GTMGap = GrowthOpportunity
 
 
 class RevenueLeakage(BaseModel):
@@ -166,13 +174,15 @@ class GrowthManifest(BaseModel):
     tech_stack: TechStack = Field(
         description="Detected technology stack",
     )
-    growth_hubs: list[GrowthHub] = Field(
+    current_growth_features: list[GrowthFeature] = Field(
         default_factory=list,
-        description="Identified growth hubs and features",
+        description="Identified current growth features",
+        alias="growth_hubs",
     )
-    gtm_gaps: list[GTMGap] = Field(
+    growth_opportunities: list[GrowthOpportunity] = Field(
         default_factory=list,
-        description="Go-to-market gaps to address",
+        description="Growth opportunities to address",
+        alias="gtm_gaps",
     )
     revenue_leakage: list[RevenueLeakage] = Field(
         default_factory=list,
@@ -189,7 +199,18 @@ class GrowthManifest(BaseModel):
         object.__setattr__(self, "generated_at", datetime.now())
         return self
 
+    @property
+    def growth_hubs(self) -> list[GrowthFeature]:
+        """Backwards compatibility alias for current_growth_features."""
+        return self.current_growth_features
+
+    @property
+    def gtm_gaps(self) -> list[GrowthOpportunity]:
+        """Backwards compatibility alias for growth_opportunities."""
+        return self.growth_opportunities
+
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "version": "1.0",
@@ -204,7 +225,7 @@ class GrowthManifest(BaseModel):
                     "package_manager": "npm",
                     "services": ["Stripe", "SendGrid"],
                 },
-                "growth_hubs": [
+                "current_growth_features": [
                     {
                         "feature_name": "Team Invitations",
                         "file_path": "src/features/invitations/index.ts",
@@ -217,7 +238,7 @@ class GrowthManifest(BaseModel):
                         ],
                     }
                 ],
-                "gtm_gaps": [
+                "growth_opportunities": [
                     {
                         "feature_name": "Analytics Dashboard",
                         "description": "No usage analytics for tracking team activity",

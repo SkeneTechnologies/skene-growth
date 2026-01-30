@@ -50,18 +50,18 @@ Be conservative - only include values you're confident about. Use null for uncer
 Return an empty array for services if none are detected.
 """
 
-# Growth Hub Detection Prompt
-GROWTH_HUB_PROMPT = """
-Analyze the provided source files and identify features with growth potential.
+# Current Growth Features Detection Prompt
+GROWTH_FEATURES_PROMPT = """
+Analyze the provided source files and identify current features with growth potential.
 
-A "growth hub" is a feature or area of the codebase that:
+A "current growth feature" is an existing feature in the codebase that:
 - Enables viral growth (sharing, invitations, referrals)
 - Drives user engagement (notifications, gamification, progress tracking)
 - Facilitates user onboarding (tutorials, tooltips, guided flows)
 - Supports monetization (payments, subscriptions, upgrades)
 - Enables data-driven decisions (analytics, dashboards, reporting)
 
-For each growth hub you identify, provide:
+For each growth feature you identify, provide:
 1. **feature_name**: A clear name for the feature
 2. **file_path**: The primary file where this feature is implemented
 3. **detected_intent**: What growth purpose does this feature serve?
@@ -69,9 +69,12 @@ For each growth hub you identify, provide:
 5. **entry_point**: URL path or function name users interact with (if identifiable)
 6. **growth_potential**: List of specific improvements that could boost growth
 
-Return your analysis as a JSON array of growth hubs.
-Focus on quality over quantity - identify the most impactful growth opportunities.
+Return your analysis as a JSON array of current growth features.
+Focus on quality over quantity - identify the most impactful features.
 """
+
+# Backwards compatibility alias
+GROWTH_HUB_PROMPT = GROWTH_FEATURES_PROMPT
 
 # Revenue Leakage Detection Prompt
 REVENUE_LEAKAGE_PROMPT = """
@@ -104,16 +107,16 @@ Generate a complete growth manifest by combining the analysis results.
 
 You have been provided with:
 - Tech stack analysis (detected technologies)
-- Growth hub analysis (features with growth potential)
+- Current growth features analysis (existing features with growth potential)
 - Revenue leakage analysis (potential revenue issues)
 
 Your task is to:
 1. Create a cohesive project summary
-2. Include the tech stack and growth hubs from the analysis
+2. Include the tech stack and current growth features from the analysis
 3. Include revenue leakage issues from the analysis
-4. Identify GTM (Go-to-Market) gaps - missing features that could drive growth
+4. Identify growth opportunities - missing features that could drive growth
 
-For GTM gaps, consider what's missing:
+For growth opportunities, consider what's missing:
 - User onboarding flows
 - Viral/sharing mechanisms
 - Analytics and insights
@@ -125,9 +128,9 @@ Return a complete growth manifest as JSON with:
 - project_name: Inferred from the codebase
 - description: Brief project description
 - tech_stack: From the tech stack analysis
-- growth_hubs: From the growth hub analysis
+- current_growth_features: From the growth features analysis (use key "growth_hubs" in JSON for backwards compatibility)
 - revenue_leakage: From the revenue leakage analysis
-- gtm_gaps: Your identified gaps with priority (high/medium/low)
+- growth_opportunities: Your identified opportunities with priority (high/medium/low) (use key "gtm_gaps" in JSON for backwards compatibility)
 """
 
 # Product Overview Extraction Prompt
@@ -195,16 +198,16 @@ You have been provided with:
 - Tech stack analysis (detected technologies)
 - Product overview (tagline, value proposition, target audience)
 - Features documentation (user-facing feature descriptions)
-- Growth hub analysis (features with growth potential)
+- Current growth features analysis (existing features with growth potential)
 
 Your task is to:
 1. Create a cohesive DocsManifest combining all sections
 2. Infer a project_name from the codebase structure or package files
 3. Write a brief description summarizing the project
 4. Include all provided analysis data
-5. Identify GTM (Go-to-Market) gaps - missing features that could drive growth
+5. Identify growth opportunities - missing features that could drive growth
 
-For GTM gaps, consider what's missing:
+For growth opportunities, consider what's missing:
 - User onboarding flows
 - Viral/sharing mechanisms
 - Analytics and insights
@@ -218,6 +221,6 @@ Return a complete manifest as JSON with:
 - tech_stack: From the tech stack analysis
 - product_overview: From the product overview analysis
 - features: From the features documentation
-- growth_hubs: From the growth hub analysis
-- gtm_gaps: Your identified gaps with priority (high/medium/low)
+- current_growth_features: From the growth features analysis (use key "growth_hubs" in JSON)
+- growth_opportunities: Your identified opportunities with priority (high/medium/low) (use key "gtm_gaps" in JSON)
 """
