@@ -134,7 +134,6 @@ class Planner:
         self,
         llm: LLMClient,
         manifest_data: dict[str, Any],
-        objectives_content: str = "",
         template_data: dict[str, Any] | None = None,
     ) -> str:
         """
@@ -146,7 +145,6 @@ class Planner:
         Args:
             llm: LLM client for generation
             manifest_data: Project manifest data
-            objectives_content: Current growth objectives (optional)
             template_data: Growth template data with lifecycle stages (optional)
 
         Returns:
@@ -154,10 +152,6 @@ class Planner:
         """
         # Build context for memo generation
         manifest_summary = self._format_manifest_summary(manifest_data)
-        
-        objectives_section = ""
-        if objectives_content:
-            objectives_section = f"\n## Current Growth Objectives\n{objectives_content}\n"
         
         template_section = ""
         if template_data:
@@ -194,7 +188,7 @@ You think using the decision-making frameworks of:
 Provide a high-level summary of the manifesto.
 
 ### 1. Strip to the Growth Core
-Rewrite the input as the fundamental growth problem. You can challenge the objectives and suggest better ones. If the context optimizes for local maxima instead of global dominance, call it out.
+Rewrite the input as the fundamental growth problem. If the context optimizes for local maxima instead of global dominance, call it out.
 
 ### 2. The Playbook
 Ask: "What are the elite growth teams doing that isn't documented in public case studies?" Identify the rules governing the specific platform, niche, or market that others are ignoring.
@@ -237,7 +231,6 @@ Deliver the response as a Confidential Engineering Memo:
 ---
 
 ## Context for This Memo
-{objectives_section}
 ### Project Manifest (Current State)
 {manifest_summary}
 {template_section}

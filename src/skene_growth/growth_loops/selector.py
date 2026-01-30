@@ -20,10 +20,10 @@ from skene_growth.planner.loops import SelectedGrowthLoop
 
 def _build_selection_prompt(
     manifest_data: dict[str, Any],
-    objectives_content: str,
-    csv_loops: list[dict[str, Any]],
-    previously_selected: list[SelectedGrowthLoop],
-    iteration: int,
+    objectives_content: str = "",
+    csv_loops: list[dict[str, Any]] | None = None,
+    previously_selected: list[SelectedGrowthLoop] | None = None,
+    iteration: int = 1,
 ) -> str:
     """Build a prompt for selecting ONE growth loop."""
 
@@ -31,7 +31,7 @@ def _build_selection_prompt(
     manifest_summary = _format_manifest_summary(manifest_data)
 
     # Format available loops (all 107 from CSV)
-    loops_text = _format_available_loops(csv_loops)
+    loops_text = _format_available_loops(csv_loops or [])
 
     # Format previously selected loops
     previously_selected_text = ""
@@ -43,6 +43,10 @@ def _build_selection_prompt(
             previously_selected_text += f"- **Goal:** {loop.goal}\n"
             previously_selected_text += f"- **Why Selected:** {loop.why_selected}\n"
 
+    objectives_section = ""
+    if objectives_content:
+        objectives_section = f"\n## Current Growth Objectives\n{objectives_content}\n"
+
     return f"""You are a Product-Led Growth (PLG) strategist. Your task is to select the SINGLE most impactful growth
 loop for this project.
 
@@ -51,10 +55,7 @@ Select ONE growth loop that would have the highest impact given the current cont
 
 ## Project Manifest (Current State)
 {manifest_summary}
-
-## Current Growth Objectives
-{objectives_content}
-{previously_selected_text}
+{objectives_section}{previously_selected_text}
 
 ## Available Growth Loops (107 total)
 Below are all available growth loops from the catalog. Select ONE that best addresses the project's needs:
@@ -64,8 +65,7 @@ Below are all available growth loops from the catalog. Select ONE that best addr
 ## Selection Criteria
 1. **Do NOT select** any of the previously selected loops
 2. **Ensure diversity**: Try to choose a loop from a different PLG stage than already selected
-3. **Align with objectives**: The selected loop should support the current growth objectives
-4. **Consider tech stack**: Choose loops compatible with the project's Implementation Stack
+3. **Consider tech stack**: Choose loops compatible with the project's Implementation Stack
 
 ## Your Task
 Select exactly ONE growth loop and provide:
@@ -240,7 +240,7 @@ def _format_actionable_markdown(
 ) -> str:
     """Format all selected loops as actionable markdown."""
     generated_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    sources_text = "growth-manifest.json, growth-objectives.md"
+    sources_text = "growth-manifest.json"
 
     lines = [
         "# Growth Loops Implementation Plan",
@@ -328,10 +328,10 @@ def _format_actionable_markdown(
 async def select_single_loop(
     llm: LLMClient,
     manifest_data: dict[str, Any],
-    objectives_content: str,
     csv_loops: list[dict[str, Any]],
     previously_selected: list[SelectedGrowthLoop],
     iteration: int,
+    objectives_content: str = "",
 ) -> SelectedGrowthLoop:
     """
     Select a single growth loop using LLM.
@@ -339,10 +339,10 @@ async def select_single_loop(
     Args:
         llm: LLM client for generation
         manifest_data: Project manifest data
-        objectives_content: Content from growth-objectives.md
         csv_loops: All loops from CSV
         previously_selected: List of already selected loops
         iteration: Current iteration (1, 2, or 3)
+        objectives_content: Optional content from growth-objectives.md (deprecated)
 
     Returns:
         Selected growth loop with implementation details
@@ -367,9 +367,9 @@ async def select_single_loop(
 async def select_growth_loops(
     llm: LLMClient,
     manifest_data: dict[str, Any],
-    objectives_content: str,
     csv_loops: list[dict[str, Any]],
     on_progress: callable | None = None,
+    objectives_content: str = "",
 ) -> list[SelectedGrowthLoop]:
     """
     Select 3 growth loops incrementally using LLM.
@@ -380,9 +380,9 @@ async def select_growth_loops(
     Args:
         llm: LLM client for generation
         manifest_data: Project manifest data (from growth-manifest.json)
-        objectives_content: Content from growth-objectives.md
         csv_loops: All loops from CSV
         on_progress: Optional callback for progress updates
+        objectives_content: Optional content from growth-objectives.md (deprecated, not used)
 
     Returns:
         List of 3 selected growth loops with implementation details
@@ -396,10 +396,10 @@ async def select_growth_loops(
         loop = await select_single_loop(
             llm=llm,
             manifest_data=manifest_data,
-            objectives_content=objectives_content,
             csv_loops=csv_loops,
             previously_selected=selected_loops,
             iteration=iteration,
+            objectives_content=objectives_content,
         )
 
         selected_loops.append(loop)
