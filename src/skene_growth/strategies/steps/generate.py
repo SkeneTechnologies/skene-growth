@@ -154,15 +154,18 @@ class GenerateStep(AnalysisStep):
 
     def _parse_response(self, response: str) -> dict[str, Any]:
         """Parse LLM response to extract structured data."""
+        # Clean the response
+        response = response.strip()
+        
         # Try direct JSON parse
         try:
-            parsed = json.loads(response.strip())
+            parsed = json.loads(response)
             if isinstance(parsed, dict):
                 return self._validate_output(parsed)
         except json.JSONDecodeError:
             pass
 
-        # Try to extract JSON from markdown code block
+        # Try to extract JSON from markdown code block (with closing backticks)
         json_match = re.search(r"```(?:json)?\s*\n?([\s\S]*?)\n?```", response)
         if json_match:
             try:
@@ -172,7 +175,17 @@ class GenerateStep(AnalysisStep):
             except json.JSONDecodeError:
                 pass
 
-        # Try to find JSON object pattern
+        # Try to extract JSON from incomplete markdown code block (without closing backticks)
+        json_match = re.search(r"```(?:json)?\s*\n([\s\S]*?)$", response)
+        if json_match:
+            try:
+                parsed = json.loads(json_match.group(1).strip())
+                if isinstance(parsed, dict):
+                    return self._validate_output(parsed)
+            except json.JSONDecodeError:
+                pass
+
+        # Try to find JSON object pattern (greedy match for complete object)
         obj_match = re.search(r"\{[\s\S]*\}", response)
         if obj_match:
             try:

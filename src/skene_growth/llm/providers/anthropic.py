@@ -79,7 +79,7 @@ class AnthropicClient(LLMClient):
         try:
             response = await self.client.messages.create(
                 model=self.model_name,
-                max_tokens=4096,
+                max_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text.strip()
@@ -88,7 +88,7 @@ class AnthropicClient(LLMClient):
             try:
                 response = await self.client.messages.create(
                     model=self.fallback_model,
-                    max_tokens=4096,
+                    max_tokens=8192,
                     messages=[{"role": "user", "content": prompt}],
                 )
                 logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
@@ -125,7 +125,7 @@ class AnthropicClient(LLMClient):
         try:
             async with self.client.messages.stream(
                 model=model_to_use,
-                max_tokens=4096,
+                max_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
             ) as stream:
                 async for text in stream.text_stream:
@@ -140,7 +140,7 @@ class AnthropicClient(LLMClient):
                 try:
                     async with self.client.messages.stream(
                         model=self.fallback_model,
-                        max_tokens=4096,
+                        max_tokens=8192,
                         messages=[{"role": "user", "content": prompt}],
                     ) as stream:
                         logger.info(f"Successfully started streaming with fallback model {self.fallback_model}")
