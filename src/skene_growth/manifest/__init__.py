@@ -12,6 +12,7 @@ from skene_growth.manifest.schema import (
     GrowthManifest,
     GTMGap,
     ProductOverview,
+    RevenueLeakage,
     TechStack,
 )
 
@@ -19,6 +20,7 @@ __all__ = [
     "TechStack",
     "GrowthHub",
     "GTMGap",
+    "RevenueLeakage",
     "GrowthManifest",
     "ProductOverview",
     "Feature",

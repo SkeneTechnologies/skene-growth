@@ -287,8 +287,8 @@ class SkeneGrowthMCPServer:
                     name="write_analysis_outputs",
                     description=(
                         "Write analysis outputs to disk (<1s). "
-                        "Writes growth-manifest.json, growth-manifest.md, and optionally "
-                        "product-docs.md, growth-template.json, growth-template.md. "
+                        "Writes growth-manifest.json, and optionally "
+                        "product-docs.md, growth-template.json. "
                         "IMPORTANT: Run generate_manifest and generate_growth_template FIRST "
                         "to populate the cache before calling this tool."
                     ),

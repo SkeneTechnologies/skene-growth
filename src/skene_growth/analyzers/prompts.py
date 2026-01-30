@@ -73,6 +73,31 @@ Return your analysis as a JSON array of growth hubs.
 Focus on quality over quantity - identify the most impactful growth opportunities.
 """
 
+# Revenue Leakage Detection Prompt
+REVENUE_LEAKAGE_PROMPT = """
+Analyze the provided source files and identify potential revenue leakage issues.
+
+Revenue leakage occurs when a product or service could be generating more revenue but isn't due to:
+- Missing or weak monetization strategies (free features that should be paid)
+- Inadequate pricing tiers or upgrade prompts
+- Features that could be monetized but are given away for free
+- Missing usage limits or restrictions on free tiers
+- Lack of conversion funnels from free to paid
+- Missing payment processing or subscription management
+- Overly generous free tiers that reduce paid conversions
+- Missing premium features or add-ons
+- Inefficient pricing models
+
+For each revenue leakage issue you identify, provide:
+1. **issue**: Clear description of the revenue leakage problem
+2. **file_path**: File where this is detected (if applicable, null otherwise)
+3. **impact**: Estimated impact level (high/medium/low)
+4. **recommendation**: Specific recommendation for addressing this issue
+
+Return your analysis as a JSON array of revenue leakage issues.
+Focus on actionable issues that could realistically impact revenue.
+"""
+
 # Manifest Generation Prompt
 MANIFEST_PROMPT = """
 Generate a complete growth manifest by combining the analysis results.
@@ -80,11 +105,13 @@ Generate a complete growth manifest by combining the analysis results.
 You have been provided with:
 - Tech stack analysis (detected technologies)
 - Growth hub analysis (features with growth potential)
+- Revenue leakage analysis (potential revenue issues)
 
 Your task is to:
 1. Create a cohesive project summary
 2. Include the tech stack and growth hubs from the analysis
-3. Identify GTM (Go-to-Market) gaps - missing features that could drive growth
+3. Include revenue leakage issues from the analysis
+4. Identify GTM (Go-to-Market) gaps - missing features that could drive growth
 
 For GTM gaps, consider what's missing:
 - User onboarding flows
@@ -99,6 +126,7 @@ Return a complete growth manifest as JSON with:
 - description: Brief project description
 - tech_stack: From the tech stack analysis
 - growth_hubs: From the growth hub analysis
+- revenue_leakage: From the revenue leakage analysis
 - gtm_gaps: Your identified gaps with priority (high/medium/low)
 """
 

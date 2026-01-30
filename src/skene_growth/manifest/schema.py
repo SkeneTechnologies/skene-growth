@@ -86,6 +86,24 @@ class GTMGap(BaseModel):
     )
 
 
+class RevenueLeakage(BaseModel):
+    """Potential revenue leakage issue."""
+
+    issue: str = Field(
+        description="Description of the revenue leakage issue",
+    )
+    file_path: str | None = Field(
+        default=None,
+        description="File path where this issue is detected (if applicable)",
+    )
+    impact: Literal["high", "medium", "low"] = Field(
+        description="Estimated impact on revenue",
+    )
+    recommendation: str = Field(
+        description="Recommendation for addressing this issue",
+    )
+
+
 class ProductOverview(BaseModel):
     """High-level product information for documentation."""
 
@@ -156,6 +174,10 @@ class GrowthManifest(BaseModel):
         default_factory=list,
         description="Go-to-market gaps to address",
     )
+    revenue_leakage: list[RevenueLeakage] = Field(
+        default_factory=list,
+        description="Potential revenue leakage issues",
+    )
     generated_at: datetime = Field(
         default_factory=datetime.now,
         description="When the manifest was generated",
@@ -200,6 +222,14 @@ class GrowthManifest(BaseModel):
                         "feature_name": "Analytics Dashboard",
                         "description": "No usage analytics for tracking team activity",
                         "priority": "high",
+                    }
+                ],
+                "revenue_leakage": [
+                    {
+                        "issue": "Free tier allows unlimited usage without conversion prompts",
+                        "file_path": "src/pricing/tiers.py",
+                        "impact": "high",
+                        "recommendation": "Add usage limits or upgrade prompts to encourage paid conversions",
                     }
                 ],
                 "generated_at": "2024-01-15T10:30:00Z",

@@ -26,6 +26,7 @@ skene-growth scans your codebase and generates a **growth manifest** containing:
 
 - **Tech Stack Detection** - Framework, language, database, auth, deployment
 - **Growth Hubs** - Features with growth potential (signup flows, sharing, invites, billing)
+- **Revenue Leakage** - Potential revenue issues (missing monetization, weak pricing tiers, overly generous free tiers)
 - **GTM Gaps** - Missing features that could drive user acquisition and retention
 
 With the `--product-docs` flag, it also collects:
@@ -34,7 +35,7 @@ With the `--product-docs` flag, it also collects:
 - **Features** - User-facing feature documentation with descriptions and examples
 - **Product Docs** - Generates user-friendly product-docs.md file
 
-After the manifest is created, skene-growth generates a **custom growth template** (JSON + Markdown)
+After the manifest is created, skene-growth generates a **custom growth template** (JSON)
 tailored to your business type using LLM analysis. The templates use examples in `src/templates/` as 
 reference but create custom lifecycle stages and keywords specific to your product.
 
@@ -67,7 +68,7 @@ pip install skene-growth
 
 skene-growth follows a flexible workflow:
 
-1. **Analyze** - Establishes the foundation by analyzing your codebase and generating a comprehensive growth manifest. This creates the general AI context about your codebase structure, technology stack, user journey, and growth opportunities. The output includes growth hubs, GTM gaps, and a custom growth template tailored to your business type.
+1. **Analyze** - Establishes the foundation by analyzing your codebase and generating a comprehensive growth manifest. This creates the general AI context about your codebase structure, technology stack, user journey, and growth opportunities. The output includes growth hubs, revenue leakage issues, GTM gaps, and a custom growth template tailored to your business type.
 
 2. **Plan** - Generates a strategic growth plan using Council of PLG analysis. This command uses an LLM to analyze your manifest, template, and optionally objectives to produce a detailed growth plan with 3-5 selected high-impact growth loops, implementation roadmap, and strategic recommendations.
 
@@ -119,9 +120,7 @@ uvx skene-growth analyze . --product-docs
 
 **Output:**
 - `./skene-context/growth-manifest.json` (structured data)
-- `./skene-context/growth-manifest.md` (analysis summary)
 - `./skene-context/growth-template.json` (if --business-type specified)
-- `./skene-context/growth-template.md` (if --business-type specified)
 - `./skene-context/product-docs.md` (if --product-docs flag used)
 
 **Growth Templates:** The system generates custom templates tailored to your business type, with
@@ -378,6 +377,14 @@ The `growth-manifest.json` output contains:
       "growth_potential": ["viral_coefficient", "user_acquisition"]
     }
   ],
+  "revenue_leakage": [
+    {
+      "issue": "Free tier allows unlimited usage without conversion prompts",
+      "file_path": "src/pricing/tiers.py",
+      "impact": "high",
+      "recommendation": "Add usage limits or upgrade prompts to encourage paid conversions"
+    }
+  ],
   "gtm_gaps": [
     {
       "feature_name": "Social Sharing",
@@ -400,6 +407,7 @@ When using `--product-docs` flag, the manifest includes additional fields:
   "description": "A SaaS application",
   "tech_stack": { ... },
   "growth_hubs": [ ... ],
+  "revenue_leakage": [ ... ],
   "gtm_gaps": [ ... ],
   "product_overview": {
     "tagline": "The easiest way to collaborate with your team",

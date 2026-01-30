@@ -234,19 +234,12 @@ async def generate_growth_template(
 def write_growth_template_outputs(
     template_data: dict[str, Any],
     output_dir: Path | str,
-) -> tuple[Path, Path]:
+) -> Path:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     json_path = output_dir / "growth-template.json"
     json_path.write_text(json.dumps(template_data, indent=2))
 
-    from skene_growth.docs import DocsGenerator
-
-    generator = DocsGenerator()
-    markdown_content = generator.generate_growth_template(template_data)
-    markdown_path = output_dir / "growth-template.md"
-    markdown_path.write_text(markdown_content)
-
-    logger.info(f"Wrote growth template outputs to {output_dir}")
-    return json_path, markdown_path
+    logger.info(f"Wrote growth template to {json_path}")
+    return json_path

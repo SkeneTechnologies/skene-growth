@@ -757,10 +757,8 @@ async def write_analysis_outputs(
 
     Writes:
     - growth-manifest.json
-    - growth-manifest.md
     - product-docs.md (if product_docs=True)
     - growth-template.json (if available in cache or provided)
-    - growth-template.md (if available in cache or provided)
 
     IMPORTANT: Run generate_manifest and generate_growth_template first to
     populate the cache before calling this tool.
@@ -805,10 +803,6 @@ async def write_analysis_outputs(
     manifest_path.write_text(json.dumps(manifest_data, indent=2, default=_json_serializer))
     written_files.append(str(manifest_path))
 
-    # Write manifest markdown
-    _write_manifest_markdown(manifest_data, manifest_path)
-    written_files.append(str(manifest_path.with_suffix(".md")))
-
     # Write product docs if requested
     if product_docs:
         _write_product_docs(manifest_data, manifest_path)
@@ -816,36 +810,13 @@ async def write_analysis_outputs(
 
     # Write template if available
     if template_data:
-        json_path, md_path = write_growth_template_outputs(template_data, output_dir)
+        json_path = write_growth_template_outputs(template_data, output_dir)
         written_files.append(str(json_path))
-        written_files.append(str(md_path))
 
     return {
         "output_dir": str(output_dir),
         "written_files": written_files,
     }
-
-
-def _write_manifest_markdown(manifest_data: dict, output_path: Path) -> None:
-    """Render a markdown summary next to the JSON manifest."""
-    from skene_growth.docs import DocsGenerator
-    from skene_growth.manifest import DocsManifest, GrowthManifest
-
-    try:
-        if manifest_data.get("version") == "2.0" or "product_overview" in manifest_data or "features" in manifest_data:
-            manifest = DocsManifest.model_validate(manifest_data)
-        else:
-            manifest = GrowthManifest.model_validate(manifest_data)
-    except Exception:
-        return
-
-    markdown_path = output_path.with_suffix(".md")
-    try:
-        generator = DocsGenerator()
-        markdown_content = generator.generate_analysis(manifest)
-        markdown_path.write_text(markdown_content)
-    except Exception:
-        pass
 
 
 def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:

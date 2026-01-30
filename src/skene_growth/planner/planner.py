@@ -209,8 +209,16 @@ Base the strategy on:
 - **Control of Virality:** Engineering the "Inherent Invite."
 - **Control of Friction:** Weaponizing or removing it where it matters most.
 
-### 5. Technical Execution
-Provide:
+### 5. The "Average" Trap
+Explicitly state:
+- **The Common Path:** What the "Growth Marketer" will do.
+- **The Failure Point:** Why that path leads to a high CAC and slow death.
+
+### 6. The CEO's Next Action
+Define the single most impactful move to execute in the next 24 hours to prove the hypothesis. Make sure to explain the hypothesis.
+
+### 7. Technical Execution
+Provide a detailed plan for the next action to be built:
 - **What is the next growth loop to build?**
 - **Confidence:** Give a 0%-100% level
 - **Exact Logic:** The specific flow changes.
@@ -218,13 +226,6 @@ Provide:
 - **Exact Stack/Steps:** Tools, scripts, or structural changes required.
 - **Sequence:** Now, Next, Later.
 
-### 6. The "Average" Trap
-Explicitly state:
-- **The Common Path:** What the "Growth Marketer" will do.
-- **The Failure Point:** Why that path leads to a high CAC and slow death.
-
-### 7. The CEO's Next Action
-Define the single most impactful move to execute in the next 24 hours to prove the hypothesis.
 
 ### 8. The Memo
 Deliver the response as a Confidential Engineering Memo:

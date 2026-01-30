@@ -8,6 +8,7 @@ a complete GrowthManifest.
 from skene_growth.analyzers.prompts import (
     GROWTH_HUB_PROMPT,
     MANIFEST_PROMPT,
+    REVENUE_LEAKAGE_PROMPT,
     TECH_STACK_PROMPT,
 )
 from skene_growth.manifest import GrowthManifest, TechStack
@@ -109,11 +110,43 @@ class ManifestAnalyzer(MultiStepStrategy):
                     output_key="growth_hubs",
                     source_key="file_contents",
                 ),
+                # Phase 2.5: Analyze revenue leakage
+                SelectFilesStep(
+                    prompt="Select files related to pricing, payments, subscriptions, billing, "
+                    "usage limits, feature flags, tier management, and monetization. "
+                    "Look for payment processing, subscription logic, free tier restrictions, "
+                    "upgrade prompts, and pricing configurations.",
+                    patterns=[
+                        "**/pricing/**/*",
+                        "**/payment/**/*",
+                        "**/billing/**/*",
+                        "**/subscription/**/*",
+                        "**/plan/**/*",
+                        "**/tier/**/*",
+                        "**/usage/**/*",
+                        "**/limit/**/*",
+                        "**/upgrade/**/*",
+                        "**/monetization/**/*",
+                        "**/stripe/**/*",
+                        "**/paypal/**/*",
+                    ],
+                    max_files=20,
+                    output_key="revenue_files",
+                ),
+                ReadFilesStep(
+                    source_key="revenue_files",
+                    output_key="revenue_file_contents",
+                ),
+                AnalyzeStep(
+                    prompt=REVENUE_LEAKAGE_PROMPT,
+                    output_key="revenue_leakage",
+                    source_key="revenue_file_contents",
+                ),
                 # Phase 3: Generate final manifest
                 GenerateStep(
                     prompt=MANIFEST_PROMPT,
                     output_schema=GrowthManifest,
-                    include_context_keys=["tech_stack", "growth_hubs"],
+                    include_context_keys=["tech_stack", "growth_hubs", "revenue_leakage"],
                     output_key="output",
                 ),
             ]

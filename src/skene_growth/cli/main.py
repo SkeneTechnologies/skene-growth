@@ -291,7 +291,6 @@ async def _run_analysis(
             output.parent.mkdir(parents=True, exist_ok=True)
             manifest_data = result.data.get("output", result.data) if "output" in result.data else result.data
             output.write_text(json.dumps(manifest_data, indent=2, default=json_serializer))
-            _write_manifest_markdown(manifest_data, output)
 
             # Generate product docs if requested
             if product_docs:
@@ -345,6 +344,14 @@ def _show_analysis_summary(data: dict, template_data: dict | None = None):
         gaps = data["gtm_gaps"]
         table.add_row("GTM Gaps", f"{len(gaps)} opportunities identified")
 
+    if "revenue_leakage" in data:
+        leakage = data["revenue_leakage"]
+        high_impact = sum(1 for item in leakage if item.get("impact") == "high")
+        table.add_row(
+            "Revenue Leakage",
+            f"{len(leakage)} issues found ({high_impact} high impact)" if leakage else "None detected",
+        )
+
     # Add growth template summary
     if template_data:
         if "lifecycles" in template_data:
@@ -365,30 +372,6 @@ def _show_analysis_summary(data: dict, template_data: dict | None = None):
             table.add_row("Lifecycle Stages", f"{lifecycle_count} stages: {lifecycle_summary}")
 
     console.print(table)
-
-
-def _write_manifest_markdown(manifest_data: dict, output_path: Path) -> None:
-    """Render a markdown summary next to the JSON manifest."""
-    from skene_growth.docs import DocsGenerator
-    from skene_growth.manifest import DocsManifest, GrowthManifest
-
-    try:
-        if manifest_data.get("version") == "2.0" or "product_overview" in manifest_data or "features" in manifest_data:
-            manifest = DocsManifest.model_validate(manifest_data)
-        else:
-            manifest = GrowthManifest.model_validate(manifest_data)
-    except Exception as exc:
-        console.print(f"[yellow]Warning:[/yellow] Failed to parse manifest: {exc}")
-        return
-
-    markdown_path = output_path.with_suffix(".md")
-    try:
-        generator = DocsGenerator()
-        markdown_content = generator.generate_analysis(manifest)
-        markdown_path.write_text(markdown_content)
-        console.print(f"[green]Markdown saved to:[/green] {markdown_path}")
-    except Exception as exc:
-        console.print(f"[yellow]Warning:[/yellow] Failed to generate markdown: {exc}")
 
 
 def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
@@ -425,7 +408,7 @@ def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
 
 
 async def _write_growth_template(llm, manifest_data: dict, business_type: Optional[str] = None) -> dict | None:
-    """Generate and save the growth template JSON and Markdown outputs.
+    """Generate and save the growth template JSON output.
 
     Returns:
         Template data dict if successful, None if failed
@@ -435,9 +418,8 @@ async def _write_growth_template(llm, manifest_data: dict, business_type: Option
     try:
         template_data = await generate_growth_template(llm, manifest_data, business_type)
         output_dir = Path("./skene-context")
-        json_path, markdown_path = write_growth_template_outputs(template_data, output_dir)
+        json_path = write_growth_template_outputs(template_data, output_dir)
         console.print(f"[green]Growth template saved to:[/green] {json_path}")
-        console.print(f"[green]Growth template markdown saved to:[/green] {markdown_path}")
         return template_data
     except Exception as exc:
         console.print(f"[yellow]Warning:[/yellow] Failed to generate growth template: {exc}")
