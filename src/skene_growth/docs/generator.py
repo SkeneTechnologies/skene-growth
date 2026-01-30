@@ -201,7 +201,7 @@ class DocsGenerator:
         """Get common context variables for templates."""
         current_features = manifest.current_growth_features
         opportunities = manifest.growth_opportunities
-        
+
         context = {
             "project_name": manifest.project_name,
             "description": manifest.description,

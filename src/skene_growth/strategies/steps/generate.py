@@ -156,7 +156,7 @@ class GenerateStep(AnalysisStep):
         """Parse LLM response to extract structured data."""
         # Clean the response
         response = response.strip()
-        
+
         # Try direct JSON parse
         try:
             parsed = json.loads(response)
@@ -223,13 +223,13 @@ class GenerateStep(AnalysisStep):
                     # Always set generated_at to current machine date, overriding any LLM-provided value
                     # Remove it from data first so Pydantic uses the default_factory, then we'll set it explicitly
                     data.pop("generated_at", None)
-                
+
                 validated = self.output_schema.model_validate(data)
-                
+
                 # Explicitly set generated_at to current machine date after validation
                 if schema_name in ("GrowthManifest", "DocsManifest"):
                     validated.generated_at = datetime.now()
-                
+
                 return validated.model_dump()
             except Exception as e:
                 logger.warning(f"Output validation failed: {e}")

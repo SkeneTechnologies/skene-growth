@@ -498,7 +498,7 @@ def plan(
     Generate a growth plan using Council of Growth Engineers.
 
     Uses manifest and template when present (auto-detected from
-    ./skene-context/ or current dir) to generate a strategic growth plan.
+    ./skene-context/ or current dir) to generate a growth plan.
     None of these context files are required.
 
     Examples:
@@ -587,44 +587,44 @@ def plan(
 
 def _extract_ceo_next_action(memo_content: str) -> str | None:
     """Extract the CEO's Next Action section from the memo.
-    
+
     Args:
         memo_content: Full memo markdown content
-        
+
     Returns:
         Extracted next action text or None if not found
     """
     import re
-    
+
     # Look for the CEO's Next Action section (flexible patterns)
     # Pattern 1: Match section heading followed by any bold text
     pattern = r"##?\s*7?\.\s*(?:THE\s+)?CEO'?s?\s+Next\s+Action.*?\n\n\*\*(.*?):\*\*\s*(.*?)(?=\n\n###|\n\n##|\Z)"
     match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
-    
+
     if match:
         intro = match.group(1).strip()  # e.g., "Within 24 hours", "Ship in 24 Hours"
         action = match.group(2).strip()
-        
+
         # Combine intro and action for context
         full_action = f"{intro}: {action}" if intro else action
-        
+
         # Clean up markdown and extra formatting
-        full_action = re.sub(r'\[.*?\]', '', full_action)  # Remove markdown links
-        full_action = re.sub(r'\n\n+', '\n\n', full_action)  # Normalize line breaks
+        full_action = re.sub(r"\[.*?\]", "", full_action)  # Remove markdown links
+        full_action = re.sub(r"\n\n+", "\n\n", full_action)  # Normalize line breaks
         return full_action
-    
+
     # Fallback: Look for any bold text after CEO's Next Action heading
     pattern2 = r"##?\s*7?\.\s*(?:THE\s+)?CEO'?s?\s+Next\s+Action.*?\n\n(.*?)(?=\n\n###|\n\n##|\Z)"
     match2 = re.search(pattern2, memo_content, re.IGNORECASE | re.DOTALL)
-    
+
     if match2:
         action = match2.group(1).strip()
-        action = re.sub(r'\[.*?\]', '', action)
-        action = re.sub(r'\n\n+', '\n\n', action)
+        action = re.sub(r"\[.*?\]", "", action)
+        action = re.sub(r"\n\n+", "\n\n", action)
         # Remove the bold markers if present
-        action = re.sub(r'\*\*', '', action)
+        action = re.sub(r"\*\*", "", action)
         return action
-    
+
     return None
 
 
@@ -643,7 +643,7 @@ async def _run_cycle(
     from skene_growth.llm import create_llm_client
 
     next_action = None
-    
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -671,7 +671,7 @@ async def _run_cycle(
             llm = create_llm_client(provider, SecretStr(api_key), model)
 
             # Generate Council memo
-            progress.update(task, description="Generating strategic memo...")
+            progress.update(task, description="Generating Council memo...")
             from skene_growth.planner import Planner
 
             planner = Planner()
@@ -700,7 +700,7 @@ async def _run_cycle(
             raise typer.Exit(1)
 
     console.print(f"\n[green]Success![/green] Growth plan saved to: {output_path}")
-    
+
     # Display next action box
     if next_action:
         console.print("\n")
