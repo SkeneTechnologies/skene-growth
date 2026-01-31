@@ -704,6 +704,92 @@ def plan(
     )
 
 
+@app.command()
+def chat(
+    path: Path = typer.Argument(
+        ".",
+        help="Path to codebase to analyze",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM provider (or set SKENE_API_KEY env var)",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider to use (openai, gemini, anthropic/claude, ollama)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model name (e.g., gemini-2.0-flash)",
+    ),
+    max_steps: int = typer.Option(
+        4,
+        "--max-steps",
+        help="Maximum tool calls per user request",
+    ),
+    tool_output_limit: int = typer.Option(
+        4000,
+        "--tool-output-limit",
+        help="Max tool output characters kept in context",
+    ),
+):
+    """
+    Interactive terminal chat that invokes skene-growth tools.
+
+    Examples:
+
+        uvx skene-growth chat . --api-key "your-key"
+        uvx skene-growth chat ./my-project --provider gemini --model gemini-2.0-flash
+    """
+    config = load_config()
+
+    resolved_api_key = api_key or config.api_key
+    resolved_provider = provider or config.provider
+    if model:
+        resolved_model = model
+    else:
+        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
+
+    is_local_provider = resolved_provider.lower() in (
+        "lmstudio",
+        "lm-studio",
+        "lm_studio",
+        "ollama",
+    )
+
+    if not resolved_api_key:
+        if is_local_provider:
+            resolved_api_key = resolved_provider
+        else:
+            console.print(
+                "[yellow]Warning:[/yellow] No API key provided. "
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
+            )
+            raise typer.Exit(1)
+
+    from skene_growth.cli.chat import run_chat
+
+    run_chat(
+        console=console,
+        repo_path=path,
+        api_key=resolved_api_key,
+        provider=resolved_provider,
+        model=resolved_model,
+        max_steps=max_steps,
+        tool_output_limit=tool_output_limit,
+    )
+
+
 def _extract_ceo_next_action(memo_content: str) -> str | None:
     """Extract the CEO's Next Action section from the memo.
 

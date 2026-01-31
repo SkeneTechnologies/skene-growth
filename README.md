@@ -188,6 +188,32 @@ The plan command uses a "Council of Growth Engineers" system prompt that acts as
 - Key callouts on what to avoid and what to prioritize
 - Specific metrics and measurement strategies
 
+### `chat` - Interactive terminal assistant
+
+Terminal chat mode that routes requests to skene-growth tools (the same tools exposed via MCP).
+Use it to explore a repo, run analysis phases, and generate outputs with conversational prompts.
+
+> **Note:** Chat uses the MCP tool registry and cache helpers. Install the extra dependencies:
+> `pip install skene-growth[mcp]` (or `uv pip install skene-growth[mcp]`).
+
+```bash
+# Start chat (uses OpenAI by default)
+uvx skene-growth chat . --api-key "your-openai-api-key"
+
+# Use Gemini
+uvx skene-growth chat . --provider gemini --model gemini-2.0-flash
+```
+
+Example session:
+
+```
+You: Give me a quick overview of this repo.
+Assistant: Running get_codebase_overview...
+
+You: Detect the tech stack.
+Assistant: Here's the stack I found...
+```
+
 ### `config` - Manage configuration
 
 ```bash
