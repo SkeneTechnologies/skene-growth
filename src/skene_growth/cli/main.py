@@ -62,7 +62,7 @@ def _generate_sample_growth_analysis():
     This demonstrates the kind of insights available with API key configuration.
     """
     timestamp = datetime.now().strftime("%Y-%m-%d")
-    
+
     report = f"""
 
 ╔═════════════════════════════════════════════════════════════════════════════╗
@@ -96,23 +96,23 @@ def _generate_sample_growth_analysis():
 ### EXECUTIVE SUMMARY
 
 Growth infrastructure is the engineering layer that injects growth without manual
-intervention. It's not marketing—it's architecting viral loops, activation 
-triggers, and retention mechanics directly into your codebase. Elite products (Slack, 
-Notion, Figma) don't grow through ads; they grow through engineered network effects, 
-frictionless onboarding, and compounding user value. This analysis detects where your 
-code creates growth opportunities and where it creates friction. To unlock the full 
-AI-powered analysis of YOUR codebase's growth infrastructure, run `skene config` to 
+intervention. It's not marketing—it's architecting viral loops, activation
+triggers, and retention mechanics directly into your codebase. Elite products (Slack,
+Notion, Figma) don't grow through ads; they grow through engineered network effects,
+frictionless onboarding, and compounding user value. This analysis detects where your
+code creates growth opportunities and where it creates friction. To unlock the full
+AI-powered analysis of YOUR codebase's growth infrastructure, run `skene config` to
 get started (2 minutes).
 
 ───────────────────────────────────────────────────────────────────────────────
 
 ### 1. THE CEO'S NEXT ACTION
 
-**Hypothesis:** The barrier between you and exponential growth insights is a 2-minute 
-API key setup. Every day without Skene Growth is a day of missed optimization 
+**Hypothesis:** The barrier between you and exponential growth insights is a 2-minute
+API key setup. Every day without Skene Growth is a day of missed optimization
 opportunities.
 
-**The Action:** Run `skene config` in your terminal. This interactive setup will 
+**The Action:** Run `skene config` in your terminal. This interactive setup will
 guide you through:
 1. Selecting your preferred LLM provider (Gemini, Anthropic, OpenAI)
 2. Creating an API key (we'll provide direct links)
@@ -125,18 +125,18 @@ After setup, run `skene-growth analyze .` to get your complete growth analysis.
 ### 2. STRIP TO THE GROWTH CORE
 
 The fundamental problem is **Feature Accumulation Fallacy**.
-Most teams believe more features = more growth. This is false. Growth comes from 
-helping customers achieve their desired outcome faster, not from giving them more 
-options. Every feature adds cognitive load. Every configuration step increases 
+Most teams believe more features = more growth. This is false. Growth comes from
+helping customers achieve their desired outcome faster, not from giving them more
+options. Every feature adds cognitive load. Every configuration step increases
 friction. The products that win are the ones that eliminate steps, not add them.
 
-Growth is not about committing code to a codebase and then not looking at the data. 
-It's about instrumenting your product, measuring what actually drives customer 
-success, and iterating based on evidence—not assumptions. You can't optimize what 
+Growth is not about committing code to a codebase and then not looking at the data.
+It's about instrumenting your product, measuring what actually drives customer
+success, and iterating based on evidence—not assumptions. You can't optimize what
 you don't measure.
 
 **Current Core:** Building features customers might want.
-**Optimal Core:** Engineering the fastest path to customer success, measured and 
+**Optimal Core:** Engineering the fastest path to customer success, measured and
 optimized continuously.
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -166,43 +166,43 @@ Elite growth teams don't wait. Here's how to get started:
 
 **Lever:** Automated Growth Loops with Skene
 
-Most teams build growth features manually, one at a time. This is linear effort for 
-linear results. Skene automates the detection, implementation, and optimization of 
+Most teams build growth features manually, one at a time. This is linear effort for
+linear results. Skene automates the detection, implementation, and optimization of
 growth infrastructure—turning weeks of engineering into minutes of analysis.
 
-*   **The Shadow Rule:** Growth infrastructure should be as automated as your CI/CD 
-    pipeline. If you're manually implementing analytics, onboarding flows, or viral 
+*   **The Shadow Rule:** Growth infrastructure should be as automated as your CI/CD
+    pipeline. If you're manually implementing analytics, onboarding flows, or viral
     mechanics, you're moving too slow.
-*   **The Move:** Use Skene to identify growth opportunities, generate implementation 
-    code, and continuously measure impact. Every analysis improves the next. Your 
+*   **The Move:** Use Skene to identify growth opportunities, generate implementation
+    code, and continuously measure impact. Every analysis improves the next. Your
     codebase becomes a growth engine, not just a product.
 
-The leverage compounds: More codebases analyzed → Better pattern detection → 
+The leverage compounds: More codebases analyzed → Better pattern detection →
 Faster growth implementation → More successful products.
 
 ───────────────────────────────────────────────────────────────────────────────
 
 ### 5. APPLY POWER DYNAMICS
 
-*   **Control of Onboarding:** Build instant value delivery into your codebase. Auto-generate 
-    demo data, template workspaces, and guided flows. Users experience success before 
+*   **Control of Onboarding:** Build instant value delivery into your codebase. Auto-generate
+    demo data, template workspaces, and guided flows. Users experience success before
     configuration, not after.
-*   **Control of Retention:** Instrument every critical action. Measure time-to-value, 
-    activation rates, and feature adoption. Growth infrastructure surfaces what's working 
+*   **Control of Retention:** Instrument every critical action. Measure time-to-value,
+    activation rates, and feature adoption. Growth infrastructure surfaces what's working
     and what's not—automatically.
-*   **Control of Virality:** Engineer sharing into your product. Export with attribution, 
+*   **Control of Virality:** Engineer sharing into your product. Export with attribution,
     public showcases, team invites. Every user action becomes a potential acquisition channel.
 
 ───────────────────────────────────────────────────────────────────────────────
 
 ### 6. THE "AVERAGE" TRAP
 
-*   **The Common Path:** Building features without measuring impact. Shipping code and 
+*   **The Common Path:** Building features without measuring impact. Shipping code and
     hoping it drives growth. Optimizing for "more" instead of "faster customer success."
-*   **The Failure Point:** Feature-rich products with single-digit activation rates. 
+*   **The Failure Point:** Feature-rich products with single-digit activation rates.
     Beautiful codebases with no growth infrastructure. Teams that build but never measure.
 
-The average team ships features. The elite team engineers growth loops and measures 
+The average team ships features. The elite team engineers growth loops and measures
 everything. Don't be average. Configure Skene and start measuring what actually matters.
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -242,11 +242,11 @@ everything. Don't be average. Configure Skene and start measuring what actually 
 **STATUS:** URGENT
 **OBJECTIVE:** ENGINEER GROWTH INFRASTRUCTURE. MEASURE EVERYTHING. ITERATE FAST.
 
-Growth is not about features. It's about helping customers succeed faster. Every 
-line of code should either deliver value or measure value delivery. If you're not 
+Growth is not about features. It's about helping customers succeed faster. Every
+line of code should either deliver value or measure value delivery. If you're not
 measuring, you're guessing. If you're guessing, you're losing.
 
-This sample preview shows the format. The real analysis identifies YOUR specific 
+This sample preview shows the format. The real analysis identifies YOUR specific
 growth bottlenecks, YOUR missing infrastructure, YOUR optimization opportunities.
 
 **Run this now:**
@@ -268,12 +268,10 @@ Then analyze:
     return report
 
 
-def _show_sample_report(
-    path: Path, output: Optional[Path] = None, exclude_folders: Optional[list[str]] = None
-):
+def _show_sample_report(path: Path, output: Optional[Path] = None, exclude_folders: Optional[list[str]] = None):
     """
     Display sample growth analysis preview (no API key required).
-    
+
     Shows the kind of strategic insights available with full API access.
     Automatically creates .skene-growth.config file in the working directory if it doesn't exist.
 
@@ -312,9 +310,7 @@ verbose = false
 
     console.print(
         Panel.fit(
-            "[bold blue]Growth Analysis Preview[/bold blue]\n"
-            f"Path: {path}\n"
-            "Mode: Sample Report (no API key required)",
+            f"[bold blue]Growth Analysis Preview[/bold blue]\nPath: {path}\nMode: Sample Report (no API key required)",
             title="skene-growth",
         )
     )
@@ -323,7 +319,7 @@ verbose = false
     console.print()
     sample_report = _generate_sample_growth_analysis()
     console.print(sample_report)
-    
+
     # Call to action
     console.print()
     console.print(
@@ -338,7 +334,7 @@ verbose = false
             "• Anthropic: https://console.anthropic.com/\n"
             "• OpenAI: https://platform.openai.com/api-keys",
             title="🚀 Unlock Full Analysis",
-            border_style="yellow"
+            border_style="yellow",
         )
     )
 
@@ -1011,7 +1007,8 @@ def plan(
         sample_path = context if context else Path(".")
         console.print(
             "[yellow]No API key provided.[/yellow] Showing sample growth plan preview.\n"
-            "For full AI-powered plan generation, set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config\n"
+            "For full AI-powered plan generation, set --api-key, SKENE_API_KEY env var, "
+            "or add to .skene-growth.config\n"
         )
         _show_sample_report(sample_path, output, exclude_folders=None)
         return
@@ -1153,7 +1150,7 @@ def chat(
 
 
 def _extract_ceo_next_action(memo_content: str) -> str | None:
-    """Extract the CEO's Next Action section from the memo.
+    """Extract the CEO's Next Action or NEXT ACTION section from the memo.
 
     Args:
         memo_content: Full memo markdown content
@@ -1166,7 +1163,9 @@ def _extract_ceo_next_action(memo_content: str) -> str | None:
     # Look for the CEO's Next Action section (flexible patterns)
     # Pattern 1: Match section heading followed by any bold text
     # Now section 1 (after Executive Summary), but also match old formats for backwards compatibility
-    pattern = r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?CEO'?s?\s+Next\s+Action.*?\n\n\*\*(.*?):\*\*\s*(.*?)(?=\n\n###|\n\n##|\Z)"
+    pattern = (
+        r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?(?:CEO'?s?\s+)?Next\s+Action.*?\n\n\*\*(.*?):\*\*\s*(.*?)(?=\n\n###|\n\n##|\Z)"
+    )
     match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
 
     if match:
@@ -1181,19 +1180,146 @@ def _extract_ceo_next_action(memo_content: str) -> str | None:
         full_action = re.sub(r"\n\n+", "\n\n", full_action)  # Normalize line breaks
         return full_action
 
-    # Fallback: Look for any bold text after CEO's Next Action heading
-    pattern2 = r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?CEO'?s?\s+Next\s+Action.*?\n\n(.*?)(?=\n\n###|\n\n##|\Z)"
+    # Fallback: Look for any text after CEO's Next Action or NEXT ACTION heading
+    pattern2 = r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?(?:CEO'?s?\s+)?NEXT\s+ACTION.*?\n+(.*?)(?=\n\n###|\n\n##|\Z)"
     match2 = re.search(pattern2, memo_content, re.IGNORECASE | re.DOTALL)
 
     if match2:
         action = match2.group(1).strip()
-        action = re.sub(r"\[.*?\]", "", action)
-        action = re.sub(r"\n\n+", "\n\n", action)
+        # Clean up markdown formatting
+        action = re.sub(r"\[.*?\]", "", action)  # Remove markdown links
+        action = re.sub(r"\n\n+", "\n\n", action)  # Normalize line breaks
         # Remove the bold markers if present
         action = re.sub(r"\*\*", "", action)
         return action
 
     return None
+
+
+def _build_prompt_from_plan(plan_path: Path, next_action: str) -> str:
+    """Build an AI prompt from the growth plan and next action.
+
+    Args:
+        plan_path: Path to the growth plan file
+        next_action: Extracted next action text
+
+    Returns:
+        Formatted prompt for Cursor AI
+    """
+    prompt = f"""I need help implementing the next action from my growth plan. Please reference the growth plan at @{plan_path} for full context.
+
+Next Action (to be completed in 24 hours):
+{next_action}
+
+Please help me implement this action step by step, referencing the growth plan for additional context and details."""
+    return prompt
+
+
+def _open_cursor_deeplink(prompt: str) -> None:
+    """Open Cursor with a deep link containing the prompt.
+
+    Args:
+        prompt: The prompt text to send to Cursor
+
+    Raises:
+        RuntimeError: If opening the deep link fails
+    """
+    import platform
+    import subprocess
+    from urllib.parse import quote
+
+    # URL encode the prompt
+    encoded_prompt = quote(prompt, safe="")
+
+    # Construct the deep link
+    deep_link = f"cursor://anysphere.cursor-deeplink/prompt?text={encoded_prompt}"
+
+    # Determine the command based on platform
+    system = platform.system()
+
+    try:
+        if system == "Darwin":  # macOS
+            subprocess.run(["open", deep_link], check=True)
+        elif system == "Linux":
+            subprocess.run(["xdg-open", deep_link], check=True)
+        elif system == "Windows":
+            subprocess.run(["start", deep_link], shell=True, check=True)
+        else:
+            raise RuntimeError(f"Unsupported platform: {system}")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to open Cursor deep link: {e}")
+    except FileNotFoundError:
+        raise RuntimeError(
+            f"Could not find command to open URLs on {system}. "
+            "Please ensure Cursor is installed and try opening the link manually."
+        )
+
+
+def _open_claude_terminal(prompt: str) -> None:
+    """Open a new terminal window with Claude CLI and the prompt.
+
+    Args:
+        prompt: The prompt text to send to Claude
+
+    Raises:
+        RuntimeError: If opening the terminal fails
+    """
+    import platform
+    import subprocess
+    import shlex
+
+    system = platform.system()
+
+    # Escape the prompt for shell execution
+    # We'll use shlex.quote for proper shell escaping
+    escaped_prompt = shlex.quote(prompt)
+
+    try:
+        if system == "Darwin":  # macOS
+            # Use osascript to open Terminal with claude command
+            applescript = f'''
+tell application "Terminal"
+    activate
+    do script "claude {escaped_prompt}"
+end tell
+'''
+            subprocess.run(["osascript", "-e", applescript], check=True)
+
+        elif system == "Linux":
+            # Try common terminal emulators in order of preference
+            terminals = [
+                ["gnome-terminal", "--", "bash", "-c", f"claude {escaped_prompt}; exec bash"],
+                ["konsole", "-e", "bash", "-c", f"claude {escaped_prompt}; exec bash"],
+                ["xterm", "-e", "bash", "-c", f"claude {escaped_prompt}; exec bash"],
+            ]
+
+            for terminal_cmd in terminals:
+                try:
+                    subprocess.run(terminal_cmd, check=True)
+                    return
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+
+            raise RuntimeError(
+                "Could not find a terminal emulator. "
+                "Please install gnome-terminal, konsole, or xterm."
+            )
+
+        elif system == "Windows":
+            # Use cmd.exe to open a new window with claude
+            cmd = f'start cmd /k "claude {escaped_prompt}"'
+            subprocess.run(cmd, shell=True, check=True)
+
+        else:
+            raise RuntimeError(f"Unsupported platform: {system}")
+
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to open terminal with Claude: {e}")
+    except FileNotFoundError:
+        raise RuntimeError(
+            f"Could not find required command on {system}. "
+            "Please ensure Claude CLI is installed (https://docs.anthropic.com/claude-code)"
+        )
 
 
 async def _run_cycle(
@@ -1350,6 +1476,225 @@ def validate(
         raise typer.Exit(1)
 
 
+@app.command()
+def build(
+    plan: Optional[Path] = typer.Option(
+        None,
+        "--plan",
+        help="Path to growth plan markdown file",
+    ),
+    context: Optional[Path] = typer.Option(
+        None,
+        "--context",
+        "-c",
+        help="Directory containing growth-plan.md (auto-detected if not specified)",
+    ),
+    target: Optional[str] = typer.Option(
+        None,
+        "--target",
+        "-t",
+        help="Target AI tool: 'cursor', 'claude', or 'show' (if not specified, will prompt interactively)",
+    ),
+    interactive: bool = typer.Option(
+        True,
+        "--interactive/--no-interactive",
+        help="Ask where to send the prompt (default: True)",
+    ),
+):
+    """
+    Build an AI prompt from your growth plan's next action.
+
+    Extracts the single next action from your growth plan and opens
+    your chosen AI tool (Cursor or Claude) with a prompt to help implement it.
+
+    Examples:
+
+        # Interactive mode (asks where to send)
+        skene build
+
+        # Open in Cursor directly
+        skene build --target cursor
+
+        # Open in Claude terminal directly
+        skene build --target claude
+
+        # Just show the prompt without opening anything
+        skene build --target show
+
+        # Specify custom plan location
+        skene build --plan ./my-plan.md
+
+        # Non-interactive with default target
+        skene build --target cursor --no-interactive
+    """
+    # Validate target if provided
+    if target:
+        target = target.lower()
+        if target not in ["cursor", "claude", "show"]:
+            console.print(f"[red]Error:[/red] Invalid target '{target}'. Must be 'cursor', 'claude', or 'show'.")
+            raise typer.Exit(1)
+    # Auto-detect plan file
+    if plan is None:
+        default_paths = []
+
+        # If context is specified, check there first
+        if context:
+            if not context.exists():
+                console.print(f"[red]Error:[/red] Context directory does not exist: {context}")
+                raise typer.Exit(1)
+            if not context.is_dir():
+                console.print(f"[red]Error:[/red] Context path is not a directory: {context}")
+                raise typer.Exit(1)
+            default_paths.append(context / "growth-plan.md")
+
+        # Then check standard default paths
+        default_paths.extend(
+            [
+                Path("./skene-context/growth-plan.md"),
+                Path("./growth-plan.md"),
+            ]
+        )
+
+        for p in default_paths:
+            if p.exists():
+                plan = p
+                break
+
+    # Validate plan file exists
+    if plan is None or not plan.exists():
+        console.print(
+            "[red]Error:[/red] Growth plan not found.\n\n"
+            "Please ensure a growth plan exists at one of:\n"
+            "  - ./skene-context/growth-plan.md (default)\n"
+            "  - ./growth-plan.md\n"
+            "  - Or specify a custom path with --plan\n\n"
+            "Generate a plan first with: [cyan]skene plan[/cyan]"
+        )
+        raise typer.Exit(1)
+
+    # Read the plan
+    try:
+        plan_content = plan.read_text()
+    except Exception as e:
+        console.print(f"[red]Error reading plan file:[/red] {e}")
+        raise typer.Exit(1)
+
+    # Extract next action
+    next_action = _extract_ceo_next_action(plan_content)
+
+    if not next_action:
+        console.print(
+            "[yellow]Warning:[/yellow] Could not extract next action from growth plan.\n"
+            "The plan may not have a 'CEO's Next Action' or 'NEXT ACTION' section.\n\n"
+            "Opening Cursor with a generic prompt to reference the plan..."
+        )
+        next_action = "Review the growth plan and implement the highest priority action."
+
+    # Build prompt
+    console.print(f"\n[bold blue]Building prompt from:[/bold blue] {plan}\n")
+    console.print(
+        Panel(
+            next_action,
+            title="[bold yellow]Next Action[/bold yellow]",
+            border_style="yellow",
+            padding=(1, 2),
+        )
+    )
+
+    prompt = _build_prompt_from_plan(plan.resolve(), next_action)
+
+    # Show the prompt preview
+    console.print("\n[bold]Prompt Preview:[/bold]")
+    preview = prompt if len(prompt) <= 200 else prompt[:200] + "..."
+    console.print(f"[dim]{preview}[/dim]\n")
+
+    # Interactive selection if target not specified
+    if target is None and interactive:
+        console.print("[bold cyan]Where do you want to send this prompt?[/bold cyan]")
+        
+        # Use questionary for arrow key selection (with fallback)
+        try:
+            import questionary
+            
+            choices_list = [
+                questionary.Choice("Cursor (open via deep link)", value="cursor"),
+                questionary.Choice("Claude (open in terminal)", value="claude"),
+                questionary.Choice("Show prompt", value="show"),
+                questionary.Choice("Cancel", value="cancel"),
+            ]
+
+            selection = questionary.select(
+                "",
+                choices=choices_list,
+                use_arrow_keys=True,
+                use_shortcuts=True,
+                instruction="(Use arrow keys to navigate, Enter to select)",
+            ).ask()
+
+            if selection == "cancel" or selection is None:
+                console.print("\n[dim]Cancelled.[/dim]")
+                return
+
+            target = selection
+            
+        except ImportError:
+            # Fallback to numbered menu if questionary not installed
+            choices = [
+                "1. Cursor (open via deep link)",
+                "2. Claude (open in terminal)",
+                "3. Show full prompt only",
+                "4. Cancel",
+            ]
+            for choice in choices:
+                console.print(f"  {choice}")
+
+            console.print()
+            selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
+
+            if selection == "1":
+                target = "cursor"
+            elif selection == "2":
+                target = "claude"
+            elif selection == "3":
+                target = "show"
+            elif selection == "4":
+                console.print("[dim]Cancelled.[/dim]")
+                return
+
+    # Execute based on target
+    if target == "show":
+        console.print("\n")
+        console.print(Panel(prompt, title="[bold]Full Prompt[/bold]", border_style="blue", padding=(1, 2)))
+        console.print("\n[green]✓[/green] Prompt displayed above. Copy and use as needed.\n")
+
+    elif target == "cursor":
+        console.print("\n[dim]Opening Cursor with deep link...[/dim]")
+        try:
+            _open_cursor_deeplink(prompt)
+            console.print("[green]Success![/green] Cursor should now open with your prompt.\n")
+        except RuntimeError as e:
+            console.print(f"\n[red]Error:[/red] {e}\n")
+            console.print("[yellow]Manual deep link:[/yellow]")
+            console.print(f"cursor://anysphere.cursor-deeplink/prompt?text=...")
+            console.print("\n[dim]You can copy the prompt below and paste it manually:[/dim]\n")
+            console.print(Panel(prompt, title="Prompt", border_style="blue"))
+            raise typer.Exit(1)
+
+    elif target == "claude":
+        console.print("\n[dim]Opening new terminal with Claude...[/dim]")
+        try:
+            _open_claude_terminal(prompt)
+            console.print("[green]Success![/green] A new terminal window should open with Claude.\n")
+            console.print("[dim]Note: Requires Claude CLI to be installed. See: https://docs.anthropic.com/claude-code[/dim]")
+        except RuntimeError as e:
+            console.print(f"\n[red]Error:[/red] {e}\n")
+            console.print("[yellow]Manual command:[/yellow]")
+            console.print(f"claude \"{prompt[:100]}...\"")
+            console.print("\n[dim]You can copy the full prompt below and run it with Claude manually:[/dim]\n")
+            console.print(Panel(prompt, title="Prompt", border_style="blue"))
+            raise typer.Exit(1)
+
+
 def _get_provider_models(provider: str) -> list[str]:
     """Get list of recommended models for a provider (up to 5)."""
     models_by_provider = {
@@ -1368,12 +1713,12 @@ def _get_provider_models(provider: str) -> list[str]:
             "gemini-3-nano-preview",  # Legacy
         ],
         "anthropic": [
-            "claude-opus-4-5",            
+            "claude-opus-4-5",
             "claude-sonnet-4-5",
             "claude-haiku-4-5",
         ],
         "claude": [
-            "claude-opus-4-5",            
+            "claude-opus-4-5",
             "claude-sonnet-4-5",
             "claude-haiku-4-5",
         ],
@@ -1416,22 +1761,15 @@ def _save_config(config_path: Path, provider: str, model: str, api_key: str) -> 
     if config_path.exists():
         try:
             from skene_growth.config import load_toml
+
             existing_config = load_toml(config_path)
         except Exception:
             pass  # If we can't read it, start fresh
 
-    # Update values
-    config_data = {
-        **existing_config,
-        "provider": provider,
-        "model": model,
-        "api_key": api_key,
-    }
-
     # Write TOML file
     # Since tomli_w might not be available, we'll write manually
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     lines = ["# skene-growth configuration"]
     lines.append("# See: https://github.com/skene-technologies/skene-growth")
     lines.append("")
@@ -1444,7 +1782,7 @@ def _save_config(config_path: Path, provider: str, model: str, api_key: str) -> 
     lines.append("# Model to use")
     lines.append(f'model = "{model}"')
     lines.append("")
-    
+
     # Preserve other settings
     for key, value in existing_config.items():
         if key not in ["api_key", "provider", "model"]:
@@ -1453,21 +1791,21 @@ def _save_config(config_path: Path, provider: str, model: str, api_key: str) -> 
             elif isinstance(value, bool):
                 lines.append(f"{key} = {str(value).lower()}")
             elif isinstance(value, list):
-                lines.append(f'{key} = {value}')
+                lines.append(f"{key} = {value}")
             else:
                 lines.append(f"{key} = {value}")
-    
+
     # Add defaults if not present
     if "output_dir" not in existing_config:
         lines.append("")
         lines.append("# Default output directory")
         lines.append('output_dir = "./skene-context"')
-    
+
     if "verbose" not in existing_config:
         lines.append("")
         lines.append("# Enable verbose output")
         lines.append("verbose = false")
-    
+
     config_path.write_text("\n".join(lines))
 
 
@@ -1572,7 +1910,7 @@ verbose = false
 
     current_provider = cfg.provider
     current_model = cfg.model
-    
+
     values_table.add_row("provider", current_provider, "config/default")
     values_table.add_row("model", current_model, "config/default")
     values_table.add_row("output_dir", cfg.output_dir, "config/default")
@@ -1587,10 +1925,10 @@ verbose = false
     # Ask if user wants to edit
     console.print()
     edit = Confirm.ask("[bold yellow]Do you want to edit this configuration?[/bold yellow]", default=False)
-    
+
     if not edit:
         return
-    
+
     # Determine which config file to edit (prefer project, fallback to user)
     config_path = project_cfg if project_cfg else user_cfg
     if not config_path:
@@ -1602,17 +1940,17 @@ verbose = false
             config_dir = Path.home() / ".config" / "skene-growth"
         config_dir.mkdir(parents=True, exist_ok=True)
         config_path = config_dir / "config"
-    
+
     # Ask for provider
     console.print()
     providers = ["openai", "gemini", "anthropic", "claude", "lmstudio", "ollama"]
-    provider_options = "\n".join([f"  {i+1}. {p}" for i, p in enumerate(providers)])
+    provider_options = "\n".join([f"  {i + 1}. {p}" for i, p in enumerate(providers)])
     console.print(f"[bold]Select LLM provider:[/bold]\n{provider_options}")
-    
+
     while True:
         provider_choice = Prompt.ask(
             f"\n[cyan]Provider[/cyan] (1-{len(providers)})",
-            default=str(providers.index(current_provider) + 1) if current_provider in providers else "1"
+            default=str(providers.index(current_provider) + 1) if current_provider in providers else "1",
         )
         try:
             idx = int(provider_choice) - 1
@@ -1620,69 +1958,70 @@ verbose = false
                 selected_provider = providers[idx]
                 break
             else:
-                console.print("[red]Invalid choice. Please enter a number between 1 and {}[/red]".format(len(providers)))
+                console.print(
+                    "[red]Invalid choice. Please enter a number between 1 and {}[/red]".format(len(providers))
+                )
         except ValueError:
             console.print("[red]Please enter a valid number[/red]")
-    
+
     # Ask for model based on provider
     console.print()
     models = _get_provider_models(selected_provider)
-    model_options = "\n".join([f"  {i+1}. {m}" for i, m in enumerate(models)])
+    model_options = "\n".join([f"  {i + 1}. {m}" for i, m in enumerate(models)])
     console.print(f"[bold]Select model for {selected_provider}:[/bold]\n{model_options}")
-    
+
     # Determine default model
     default_model_idx = None
     default_model_text = ""
-    
+
     # If provider matches and current model is in the list, use it as default
     if selected_provider == current_provider and current_model in models:
         default_model_idx = str(models.index(current_model) + 1)
         default_model_text = f" (current: {current_model})"
     elif selected_provider == current_provider and current_model:
         # Same provider but model not in list - show as hint
-        console.print(f"\n[dim]Note: Current model '{current_model}' not in recommended list. You can enter it manually.[/dim]")
-    
+        console.print(
+            f"\n[dim]Note: Current model '{current_model}' not in recommended list. You can enter it manually.[/dim]"
+        )
+
     while True:
         prompt_text = f"\n[cyan]Model[/cyan] (1-{len(models)} or enter custom model name)"
         if default_model_text:
             prompt_text += default_model_text
-        
-        model_choice = Prompt.ask(
-            prompt_text,
-            default=default_model_idx if default_model_idx else "1"
-        )
-        
+
+        model_choice = Prompt.ask(prompt_text, default=default_model_idx if default_model_idx else "1")
+
         try:
             idx = int(model_choice) - 1
             if 0 <= idx < len(models):
                 selected_model = models[idx]
                 break
             else:
-                console.print(f"[yellow]Number out of range. Using as custom model name.[/yellow]")
+                console.print("[yellow]Number out of range. Using as custom model name.[/yellow]")
                 selected_model = model_choice
                 break
         except ValueError:
             # Allow custom model name
             selected_model = model_choice
             break
-    
+
     # Ask for API key
     console.print()
     api_key_prompt = "[cyan]API Key[/cyan]"
     if api_key:
-        api_key_prompt += f" (current: {api_key[:4]}...{api_key[-4:]})"
+        api_key_prompt += f" (current: {api_key[:4]}...{api_key[-4:]}, press Enter to keep)"
     api_key_prompt += ": "
-    
-    new_api_key = Prompt.ask(
-        api_key_prompt,
-        password=True,
-        default=api_key if api_key else ""
-    )
-    
-    if not new_api_key:
+
+    # Don't pass default for password prompts to avoid displaying full key
+    new_api_key = Prompt.ask(api_key_prompt, password=True, default="")
+
+    # If user pressed Enter without typing, keep existing API key
+    if not new_api_key and api_key:
+        new_api_key = api_key
+    elif not new_api_key:
         console.print("[yellow]No API key provided. Configuration will be saved without API key.[/yellow]")
         new_api_key = ""
-    
+
     # Save configuration
     try:
         _save_config(config_path, selected_provider, selected_model, new_api_key)
@@ -1842,6 +2181,7 @@ def skene_entry_point():
     skene_app.command()(plan)
     skene_app.command()(chat)
     skene_app.command()(validate)
+    skene_app.command()(build)
     skene_app.command()(config)
 
     # Add callback to handle default case (no subcommand) - launches chat
@@ -1854,13 +2194,14 @@ def skene_entry_point():
         if ctx.invoked_subcommand is None:
             # Parse all arguments manually from sys.argv
             import sys
+
             path_arg = "."
             api_key_arg = None
             provider_arg = None
             model_arg = None
             max_steps_arg = 4
             tool_output_limit_arg = 4000
-            
+
             args = sys.argv[1:]  # Skip script name
             i = 0
             while i < len(args):
@@ -1895,11 +2236,11 @@ def skene_entry_point():
                     i += 1
                 else:
                     i += 1
-            
+
             # Check environment variable for API key if not provided
             if not api_key_arg:
                 api_key_arg = os.environ.get("SKENE_API_KEY")
-            
+
             _run_chat_default(
                 Path(path_arg),
                 api_key_arg,
