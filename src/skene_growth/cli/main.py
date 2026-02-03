@@ -229,9 +229,7 @@ def analyze(
     # Generic provider requires base_url
     if resolved_provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
         if not resolved_base_url:
-            console.print(
-                "[red]Error:[/red] The 'generic' provider requires --base-url to be set."
-            )
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
             raise typer.Exit(1)
 
     if not resolved_api_key:
@@ -681,9 +679,7 @@ def plan(
     # Generic provider requires base_url
     if resolved_provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
         if not resolved_base_url:
-            console.print(
-                "[red]Error:[/red] The 'generic' provider requires --base-url to be set."
-            )
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
             raise typer.Exit(1)
 
     if not resolved_api_key:

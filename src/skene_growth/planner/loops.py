@@ -81,5 +81,3 @@ class SelectedGrowthLoop(BaseModel):
     technical_example: str = Field(
         default="", description="Technical implementation example using the project's tech stack"
     )
-
-

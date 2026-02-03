@@ -45,8 +45,7 @@ class OpenAICompatibleClient(LLMClient):
             from openai import AsyncOpenAI
         except ImportError:
             raise ImportError(
-                "openai is required for OpenAI-compatible providers. "
-                "Install with: pip install skene-growth[openai]"
+                "openai is required for OpenAI-compatible providers. Install with: pip install skene-growth[openai]"
             )
 
         self.model_name = model_name
@@ -115,9 +114,7 @@ class OpenAICompatibleClient(LLMClient):
                     yield chunk.choices[0].delta.content
 
         except Exception as e:
-            raise RuntimeError(
-                f"Error in {self.get_provider_name()} streaming generation: {e}"
-            )
+            raise RuntimeError(f"Error in {self.get_provider_name()} streaming generation: {e}")
 
     def get_model_name(self) -> str:
         """Return the model name."""
