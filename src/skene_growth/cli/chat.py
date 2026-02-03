@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import typer
 from pydantic import SecretStr
 from rich.console import Console
 from rich.panel import Panel
@@ -40,22 +39,15 @@ def run_chat(
     tool_output_limit: int = DEFAULT_TOOL_OUTPUT_LIMIT,
 ) -> None:
     """Run the interactive chat loop."""
-    try:
-        from skene_growth.mcp.cache import AnalysisCache
-        from skene_growth.mcp.registry import (
-            ToolRunner,
-            get_cache_dir,
-            get_cache_ttl,
-            get_tool_definitions,
-            is_cache_enabled,
-        )
-    except ModuleNotFoundError:
-        console.print(
-            "[red]Chat requires skene-growth[mcp].[/red] Install with:\n"
-            "  pip install skene-growth[mcp]\n"
-            "  uv pip install skene-growth[mcp]"
-        )
-        raise typer.Exit(1)
+    # Import chat dependencies (these don't require the MCP package)
+    from skene_growth.mcp.cache import AnalysisCache
+    from skene_growth.mcp.registry import (
+        ToolRunner,
+        get_cache_dir,
+        get_cache_ttl,
+        get_tool_definitions,
+        is_cache_enabled,
+    )
 
     resolved_repo_path = repo_path.resolve()
     tool_definitions = get_tool_definitions()
@@ -222,7 +214,7 @@ def _render_history(history: list[dict[str, str]]) -> str:
     if not history:
         return "(no prior messages)"
 
-    recent = history[-DEFAULT_HISTORY_LIMIT :]
+    recent = history[-DEFAULT_HISTORY_LIMIT:]
     lines: list[str] = []
     for item in recent:
         role = item.get("role", "user")

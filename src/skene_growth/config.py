@@ -19,11 +19,11 @@ except ImportError:
 
 
 DEFAULT_MODEL_BY_PROVIDER = {
-    "openai": "gpt-4o-mini",
-    "gemini": "gemini-2.0-flash",
-    "anthropic": "claude-haiku-4-5-20251001",
-    "claude": "claude-haiku-4-5-20251001",
-    "ollama": "llama2",
+    "openai": "gpt-4o",
+    "gemini": "gemini-3-flash-preview",  # v1beta API requires -preview suffix
+    "anthropic": "claude-sonnet-4-5",
+    "claude": "claude-sonnet-4-5",
+    "ollama": "llama3.3",
 }
 
 
@@ -55,7 +55,9 @@ class Config:
     @property
     def api_key(self) -> str | None:
         """Get API key."""
-        return self.get("api_key")
+        key = self.get("api_key")
+        # Treat empty strings as None
+        return key if key else None
 
     @property
     def provider(self) -> str:

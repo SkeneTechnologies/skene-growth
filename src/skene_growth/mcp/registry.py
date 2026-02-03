@@ -8,7 +8,22 @@ from pathlib import Path
 from typing import Any
 
 from skene_growth.mcp.cache import AnalysisCache
-from skene_growth.mcp import tools as mcp_tools
+
+# Import tools directly as submodule to avoid triggering mcp/__init__.py imports
+from skene_growth.mcp.tools import (
+    analyze_features,
+    analyze_growth_hubs,
+    analyze_industry,
+    analyze_product_overview,
+    analyze_tech_stack,
+    clear_cache,
+    generate_growth_template_tool,
+    generate_manifest,
+    get_codebase_overview,
+    get_manifest,
+    search_codebase,
+    write_analysis_outputs,
+)
 
 
 @dataclass(frozen=True)
@@ -260,8 +275,7 @@ def get_tool_definitions() -> list[ToolDefinition]:
                     "business_type": {
                         "type": "string",
                         "description": (
-                            "Business type hint (e.g., 'b2b-saas', 'marketplace'). "
-                            "LLM will infer if not provided."
+                            "Business type hint (e.g., 'b2b-saas', 'marketplace'). LLM will infer if not provided."
                         ),
                     },
                     "force_refresh": {
@@ -369,10 +383,10 @@ class ToolRunner:
 
         # Tier 1: Quick Tools
         if name == "get_codebase_overview":
-            return await mcp_tools.get_codebase_overview(path=arguments["path"])
+            return await get_codebase_overview(path=arguments["path"])
 
         if name == "search_codebase":
-            return await mcp_tools.search_codebase(
+            return await search_codebase(
                 path=arguments["path"],
                 pattern=arguments["pattern"],
                 directory=arguments.get("directory", "."),
@@ -380,35 +394,35 @@ class ToolRunner:
 
         # Tier 2: Analysis Phase Tools
         if name == "analyze_tech_stack":
-            return await mcp_tools.analyze_tech_stack(
+            return await analyze_tech_stack(
                 path=arguments["path"],
                 cache=cache,
                 force_refresh=arguments.get("force_refresh", False),
             )
 
         if name == "analyze_product_overview":
-            return await mcp_tools.analyze_product_overview(
+            return await analyze_product_overview(
                 path=arguments["path"],
                 cache=cache,
                 force_refresh=arguments.get("force_refresh", False),
             )
 
         if name == "analyze_growth_hubs":
-            return await mcp_tools.analyze_growth_hubs(
+            return await analyze_growth_hubs(
                 path=arguments["path"],
                 cache=cache,
                 force_refresh=arguments.get("force_refresh", False),
             )
 
         if name == "analyze_features":
-            return await mcp_tools.analyze_features(
+            return await analyze_features(
                 path=arguments["path"],
                 cache=cache,
                 force_refresh=arguments.get("force_refresh", False),
             )
 
         if name == "analyze_industry":
-            return await mcp_tools.analyze_industry(
+            return await analyze_industry(
                 path=arguments["path"],
                 cache=cache,
                 force_refresh=arguments.get("force_refresh", False),
@@ -416,7 +430,7 @@ class ToolRunner:
 
         # Tier 3: Generation Tools
         if name == "generate_manifest":
-            return await mcp_tools.generate_manifest(
+            return await generate_manifest(
                 path=arguments["path"],
                 cache=cache,
                 auto_analyze=False,  # Require phase tools to be called first
@@ -425,7 +439,7 @@ class ToolRunner:
             )
 
         if name == "generate_growth_template":
-            return await mcp_tools.generate_growth_template_tool(
+            return await generate_growth_template_tool(
                 path=arguments["path"],
                 cache=cache,
                 business_type=arguments.get("business_type"),
@@ -433,7 +447,7 @@ class ToolRunner:
             )
 
         if name == "write_analysis_outputs":
-            return await mcp_tools.write_analysis_outputs(
+            return await write_analysis_outputs(
                 path=arguments["path"],
                 cache=cache,
                 product_docs=arguments.get("product_docs", False),
@@ -441,10 +455,10 @@ class ToolRunner:
 
         # Utility Tools
         if name == "get_manifest":
-            return await mcp_tools.get_manifest(path=arguments["path"])
+            return await get_manifest(path=arguments["path"])
 
         if name == "clear_cache":
-            return await mcp_tools.clear_cache(
+            return await clear_cache(
                 cache=self.cache,
                 path=arguments.get("path"),
             )

@@ -31,7 +31,7 @@ def create_llm_client(
         client = create_llm_client(
             provider="gemini",
             api_key=SecretStr("your-api-key"),
-            model_name="gemini-2.5-pro"
+            model_name="gemini-3-flash-preview"
         )
     """
     match provider.lower():

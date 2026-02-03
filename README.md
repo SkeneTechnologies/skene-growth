@@ -95,8 +95,8 @@ uvx skene-growth analyze . -v
 # Use a specific model
 uvx skene-growth analyze . --model gpt-4o
 
-# Use Gemini instead of OpenAI
-uvx skene-growth analyze . --provider gemini --api-key "your-gemini-api-key"
+# Use Gemini instead of OpenAI (v1beta API uses -preview suffix)
+uvx skene-growth analyze . --provider gemini --model gemini-3-flash-preview --api-key "your-gemini-api-key"
 
 # Use Anthropic (Claude) - both "anthropic" and "claude" work
 uvx skene-growth analyze . --provider anthropic --api-key "your-anthropic-api-key"
@@ -106,7 +106,7 @@ uvx skene-growth analyze . --provider claude --api-key "your-anthropic-api-key"
 uvx skene-growth analyze . --provider lmstudio --model "your-loaded-model"
 
 # Use Ollama (local server) - Experimental
-uvx skene-growth analyze . --provider ollama --model "llama2"
+uvx skene-growth analyze . --provider ollama --model "llama3.3"
 
 # Specify business type for custom growth template
 uvx skene-growth analyze . --business-type "design-agency"
@@ -136,6 +136,25 @@ the LLM infers it from your codebase.
 
 The `--product-docs` flag enables enhanced analysis mode which collects product overview and feature documentation, producing a v2.0 manifest with additional fields and a user-friendly product-docs.md file.
 
+### `audit` - Sample Growth Analysis Preview (No API Key Required)
+
+Show a sample growth analysis preview (no API key required).
+
+```bash
+# Show sample report
+uvx skene-growth audit .
+
+# Exclude specific folders
+uvx skene-growth audit . --exclude tests --exclude vendor
+```
+
+**What it shows:**
+- Sample growth analysis report demonstrating the kind of insights available with full API access
+- Strategic recommendations and implementation roadmaps
+- Growth opportunity identification examples
+
+**Note:** For full codebase-specific analysis, configure an API key and use the `analyze` command.
+
 ### `validate` - Validate a manifest
 
 ```bash
@@ -164,7 +183,7 @@ uvx skene-growth plan -c ./my-context --api-key "your-key"
 uvx skene-growth plan --manifest ./manifest.json --template ./template.json
 
 # Use different provider/model
-uvx skene-growth plan --provider gemini --model gemini-2.0-flash
+uvx skene-growth plan --provider gemini --model gemini-3-flash-preview
 ```
 
 **Output:**
@@ -200,8 +219,8 @@ Use it to explore a repo, run analysis phases, and generate outputs with convers
 # Start chat (uses OpenAI by default)
 uvx skene-growth chat . --api-key "your-openai-api-key"
 
-# Use Gemini
-uvx skene-growth chat . --provider gemini --model gemini-2.0-flash
+# Use Gemini (v1beta API uses -preview suffix)
+uvx skene-growth chat . --provider gemini --model gemini-3-flash-preview
 ```
 
 Example session:
@@ -285,8 +304,8 @@ skene-growth supports configuration files for storing defaults:
 provider = "openai"
 
 # Model to use (provider-specific defaults apply if not set)
-# openai: gpt-4o-mini | gemini: gemini-2.0-flash | anthropic: claude-haiku-4-5-20251001 | ollama: llama2
-# model = "gpt-4o-mini"
+# openai: gpt-4o | gemini: gemini-3-flash-preview | anthropic: claude-sonnet-4-5 | ollama: llama3.3
+# model = "gpt-4o"
 
 # Default output directory
 output_dir = "./skene-context"
@@ -357,7 +376,7 @@ codebase = CodebaseExplorer("/path/to/repo")
 llm = create_llm_client(
     provider="openai",  # or "gemini", "anthropic"/"claude", "lmstudio", or "ollama" (experimental)
     api_key=SecretStr("your-api-key"),
-    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-haiku-4-5-20251001" / local model
+    model_name="gpt-4o-mini",  # or "gemini-3-flash-preview" / "claude-haiku-4-5" / local model
 )
 
 # Run analysis
@@ -530,7 +549,7 @@ To get started with Ollama:
 ```bash
 # Install Ollama (see https://ollama.com)
 # Pull a model
-ollama pull llama2
+ollama pull llama3.3
 
 # Run the server (usually runs automatically)
 ollama serve

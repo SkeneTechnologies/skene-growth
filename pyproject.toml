@@ -42,10 +42,14 @@ mcp = [
     "mcp>=1.0.0",
     "xxhash>=3.0",
 ]
+ui = [
+    "questionary>=2.0",
+]
 
 [project.scripts]
 skene-growth = "skene_growth.cli.main:app"
 skene-growth-mcp = "skene_growth.mcp:main"
+skene = "skene_growth.cli.main:skene_entry_point"
 
 [project.urls]
 Homepage = "https://www.skene.ai"

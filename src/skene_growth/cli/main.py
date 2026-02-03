@@ -1196,22 +1196,254 @@ def _extract_ceo_next_action(memo_content: str) -> str | None:
     return None
 
 
-def _build_prompt_from_plan(plan_path: Path, next_action: str) -> str:
-    """Build an AI prompt from the growth plan and next action.
+def _extract_technical_execution(plan_content: str) -> dict[str, str] | None:
+    """Extract the Technical Execution section from the growth plan.
+
+    Args:
+        plan_content: Full growth plan markdown content
+
+    Returns:
+        Dictionary with 'next_build', 'confidence', 'exact_logic', 'data_triggers', 'sequence'
+        or None if not found
+    """
+    import re
+
+    # Look for Technical Execution section (section 5 or 7)
+    pattern = r"##?\s*(?:5|7)?\.\s*TECHNICAL\s+EXECUTION.*?\n(.*?)(?=\n\n###|\n\n##|\Z)"
+    match = re.search(pattern, plan_content, re.IGNORECASE | re.DOTALL)
+
+    if not match:
+        return None
+
+    section_content = match.group(1)
+
+    result = {
+        "next_build": "",
+        "confidence": "",
+        "exact_logic": "",
+        "data_triggers": "",
+        "sequence": "",
+    }
+
+    # Extract "The Next Build" - handles format like "**The Next Build: The "Zero-Key" Discovery Engine**\nDescription..."
+    next_build_match = re.search(r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    if next_build_match:
+        title = next_build_match.group(1).strip()
+        description = next_build_match.group(2).strip()
+        result["next_build"] = f"{title}\n{description}"
+    else:
+        # Fallback: simpler pattern
+        next_build_match = re.search(r"\*\*The Next Build[:\*]*\*\*\s*[:\-]?\s*(.*?)(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+        if next_build_match:
+            result["next_build"] = next_build_match.group(1).strip()
+
+    # Extract Confidence Score
+    confidence_match = re.search(r"\*\*Confidence\s+Score[:\*]*\*\*[:\s]*(.*?)(?=\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    if confidence_match:
+        result["confidence"] = confidence_match.group(1).strip()
+
+    # Extract Exact Logic
+    logic_match = re.search(r"\*\*Exact\s+Logic.*?\*\*(.*?)(?=\*\*Exact\s+Data|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    if logic_match:
+        result["exact_logic"] = logic_match.group(1).strip()
+
+    # Extract Exact Data Triggers
+    triggers_match = re.search(r"\*\*Exact\s+Data\s+Triggers.*?\*\*(.*?)(?=\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    if triggers_match:
+        result["data_triggers"] = triggers_match.group(1).strip()
+
+    # Extract Sequence
+    sequence_match = re.search(r"\*\*Sequence[:\*]*\*\*(.*?)(?=\n\n###|\n\n##|\Z)", section_content, re.IGNORECASE | re.DOTALL)
+    if sequence_match:
+        result["sequence"] = sequence_match.group(1).strip()
+
+    return result if any(result.values()) else None
+
+
+def _extract_now_sequence_item(sequence_text: str) -> str | None:
+    """Extract the 'NOW' (L+24h) item from the Sequence section.
+
+    Args:
+        sequence_text: The Sequence section content
+
+    Returns:
+        The NOW/L+24h item text or None if not found
+    """
+    import re
+
+    # Patterns to stop at (these indicate the end of the NOW item)
+    stop_patterns = [
+        r"\n\s*[-*]?\s*\*\*L\+",           # **L+7d etc
+        r"\n\s*[-*]?\s*L\+",               # L+7d etc
+        r"\n\s*\d+\.\s*Next:",             # 2. Next:
+        r"\n\s*\d+\.\s*Later:",            # 3. Later:
+        r"\n\s*[-*]\s*\*\*Next",           # - **Next
+        r"\n\s*[-*]\s*\*\*Later",          # - **Later
+        r"\n\s*[-*]\s*Next:",              # - Next:
+        r"\n\s*[-*]\s*Later:",             # - Later:
+        r"\n\s*\*\*Next",                  # **Next
+        r"\n\s*\*\*Later",                 # **Later
+        r"\n\n",                           # Double newline
+    ]
+    
+    def clean_now_item(item: str) -> str:
+        """Clean the NOW item by removing any trailing Next/Later content."""
+        # Stop at any of the stop patterns
+        for pattern in stop_patterns:
+            parts = re.split(pattern, item, maxsplit=1, flags=re.IGNORECASE)
+            item = parts[0]
+        # Clean up markdown formatting
+        item = re.sub(r"\*\*", "", item)
+        item = re.sub(r"\[.*?\]", "", item)
+        return item.strip()
+
+    # Look for L+24h, NOW, or similar patterns
+    patterns = [
+        r"\*\*L\+24h[:\*]*\*\*\s*[:\-]?\s*(.*)",
+        r"\*\*NOW[:\*]*\*\*\s*[:\-]?\s*(.*)",
+        r"L\+24h[:\s]+(.*)",
+        r"NOW[:\s]+(.*)",
+        r"1\.\s*(?:Now|NOW)[:\s]*(.*)",    # 1. Now:
+        r"[-*]\s*\*\*(?:Now|NOW)[:\*]*\*\*\s*(.*)",  # - **Now**
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, sequence_text, re.IGNORECASE | re.DOTALL)
+        if match:
+            item = clean_now_item(match.group(1))
+            if item:
+                return item
+
+    # Fallback: get first item (numbered or bullet)
+    # Try numbered list first
+    first_numbered = re.search(r"^\s*1\.\s*(.*?)(?=\n\s*2\.|\n\n|\Z)", sequence_text, re.MULTILINE | re.DOTALL)
+    if first_numbered:
+        item = clean_now_item(first_numbered.group(1))
+        if item:
+            return item
+
+    # Try bullet point
+    first_bullet = re.search(r"^\s*[-*]\s*(.*?)(?=\n\s*[-*]|\n\n|\Z)", sequence_text, re.MULTILINE | re.DOTALL)
+    if first_bullet:
+        item = clean_now_item(first_bullet.group(1))
+        if item:
+            return item
+
+    return None
+
+
+async def _build_prompt_with_llm(
+    plan_path: Path,
+    technical_execution: dict[str, str],
+    now_task: str,
+    llm,
+) -> str:
+    """Use LLM to build an intelligent prompt from the growth plan.
 
     Args:
         plan_path: Path to the growth plan file
-        next_action: Extracted next action text
+        technical_execution: Extracted technical execution section
+        now_task: The NOW/L+24h task to complete
+        llm: LLM client instance
 
     Returns:
-        Formatted prompt for Cursor AI
+        LLM-generated prompt for Cursor AI
     """
-    prompt = f"""I need help implementing the next action from my growth plan. Please reference the growth plan at @{plan_path} for full context.
+    # Prepare the context for the LLM
+    context_parts = []
+    
+    if technical_execution.get("next_build"):
+        context_parts.append(f"What We're Building: {technical_execution['next_build']}")
+    
+    if technical_execution.get("confidence"):
+        context_parts.append(f"Confidence: {technical_execution['confidence']}")
+    
+    if technical_execution.get("exact_logic"):
+        context_parts.append(f"Exact Logic:\n{technical_execution['exact_logic']}")
+    
+    if technical_execution.get("data_triggers"):
+        context_parts.append(f"Data Triggers:\n{technical_execution['data_triggers']}")
 
-Next Action (to be completed in 24 hours):
-{next_action}
+    context = "\n\n".join(context_parts) if context_parts else "No additional context available."
 
-Please help me implement this action step by step, referencing the growth plan for additional context and details."""
+    # Prompt the LLM to generate an implementation prompt
+    meta_prompt = f"""You are a prompt engineer. Create a focused, actionable prompt for an AI coding assistant to help implement a specific task.
+
+## Input Information
+
+**Growth Plan Reference:** @{plan_path}
+
+**Technical Execution Context:**
+{context}
+
+**Task to Complete NOW (L+24h):**
+{now_task}
+
+## Your Task
+
+Generate a clear, concise prompt that:
+1. States the immediate task to be completed
+2. Includes relevant technical context (What We're Building, Confidence, Logic, Data Triggers)
+3. References the growth plan file for additional context using @{plan_path}
+4. Asks for step-by-step implementation with code examples
+5. Focuses ONLY on the NOW task - DO NOT mention Next, Later, L+7d, L+30d, or future steps
+6. Is direct and actionable (no fluff)
+7. Is formatted clearly with markdown headers
+
+Generate the prompt now (output ONLY the prompt, no explanations):"""
+
+    try:
+        generated_prompt = await llm.generate_content(meta_prompt)
+        # Clean up any markdown code fences if present
+        generated_prompt = generated_prompt.strip()
+        if generated_prompt.startswith("```"):
+            lines = generated_prompt.split("\n")
+            generated_prompt = "\n".join(lines[1:-1]) if len(lines) > 2 else generated_prompt
+        return generated_prompt
+    except Exception as e:
+        console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
+        console.print("[dim]Falling back to template...[/dim]")
+        return _build_prompt_from_template(plan_path, technical_execution, now_task)
+
+
+def _build_prompt_from_template(plan_path: Path, technical_execution: dict[str, str], now_task: str) -> str:
+    """Build a prompt from static template (fallback).
+
+    Args:
+        plan_path: Path to the growth plan file
+        technical_execution: Extracted technical execution section
+        now_task: The NOW/L+24h task to complete
+
+    Returns:
+        Template-generated prompt for Cursor AI
+    """
+    # Build technical context (excluding sequence - we only want NOW)
+    context_parts = []
+    
+    if technical_execution.get("next_build"):
+        context_parts.append(f"**What We're Building:** {technical_execution['next_build']}")
+    
+    if technical_execution.get("confidence"):
+        context_parts.append(f"**Confidence:** {technical_execution['confidence']}")
+    
+    if technical_execution.get("exact_logic"):
+        context_parts.append(f"**Exact Logic:**\n{technical_execution['exact_logic']}")
+    
+    if technical_execution.get("data_triggers"):
+        context_parts.append(f"**Data Triggers:**\n{technical_execution['data_triggers']}")
+
+    context = "\n\n".join(context_parts) if context_parts else ""
+    
+    context_section = f"\n\n## Technical Execution Context\n\n{context}" if context else ""
+    
+    prompt = f"""I need to implement this task immediately. Reference @{plan_path} for full context.
+
+## Task to Complete NOW
+
+{now_task}{context_section}
+
+Please help me implement this specific task. Break it down into concrete, actionable steps with code examples. Focus only on completing this immediate task."""
+    
     return prompt
 
 
@@ -1489,50 +1721,81 @@ def build(
         "-c",
         help="Directory containing growth-plan.md (auto-detected if not specified)",
     ),
-    target: Optional[str] = typer.Option(
+    api_key: Optional[str] = typer.Option(
         None,
-        "--target",
-        "-t",
-        help="Target AI tool: 'cursor', 'claude', or 'show' (if not specified, will prompt interactively)",
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM (uses config if not provided)",
     ),
-    interactive: bool = typer.Option(
-        True,
-        "--interactive/--no-interactive",
-        help="Ask where to send the prompt (default: True)",
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider: openai, gemini, anthropic, ollama (uses config if not provided)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model (uses provider default if not provided)",
     ),
 ):
     """
-    Build an AI prompt from your growth plan's next action.
+    Build an AI prompt from your growth plan using LLM, then choose where to send it.
 
-    Extracts the single next action from your growth plan and opens
-    your chosen AI tool (Cursor or Claude) with a prompt to help implement it.
+    Workflow:
+    1. Extracts Technical Execution from growth plan
+    2. Uses LLM to generate intelligent, focused prompt
+    3. Asks where to send: Cursor, Claude, or Show
 
     Examples:
 
-        # Interactive mode (asks where to send)
+        # Uses config for LLM, then asks where to send
         skene build
 
-        # Open in Cursor directly
-        skene build --target cursor
+        # Override LLM settings from config
+        skene build --api-key "your-key" --provider gemini
 
-        # Open in Claude terminal directly
-        skene build --target claude
-
-        # Just show the prompt without opening anything
-        skene build --target show
+        # Custom model
+        skene build --provider anthropic --model claude-sonnet-4
 
         # Specify custom plan location
         skene build --plan ./my-plan.md
 
-        # Non-interactive with default target
-        skene build --target cursor --no-interactive
+    Configuration:
+        Set api_key and provider in .skene-growth.config or ~/.config/skene-growth/config
     """
-    # Validate target if provided
-    if target:
-        target = target.lower()
-        if target not in ["cursor", "claude", "show"]:
-            console.print(f"[red]Error:[/red] Invalid target '{target}'. Must be 'cursor', 'claude', or 'show'.")
-            raise typer.Exit(1)
+    # Run async logic
+    asyncio.run(_build_async(plan, context, api_key, provider, model))
+
+
+async def _build_async(
+    plan: Optional[Path],
+    context: Optional[Path],
+    api_key: Optional[str],
+    provider: Optional[str],
+    model: Optional[str],
+):
+    """Async implementation of build command."""
+    # Load config to get LLM settings
+    config = load_config()
+    api_key = api_key or config.api_key
+    provider = provider or config.provider
+    
+    # Validate LLM configuration
+    if not api_key or not provider:
+        console.print(
+            "[red]Error:[/red] LLM configuration required.\n\n"
+            "Please set api_key and provider in one of:\n"
+            "  1. .skene-growth.config (in current directory)\n"
+            "  2. ~/.config/skene-growth/config\n"
+            "  3. Command options: --api-key and --provider\n"
+            "  4. Environment: SKENE_API_KEY\n\n"
+            "Example config:\n"
+            "  api_key = \"your-api-key\"\n"
+            "  provider = \"gemini\"  # or anthropic, openai, ollama\n"
+        )
+        raise typer.Exit(1)
     # Auto-detect plan file
     if plan is None:
         default_paths = []
@@ -1579,87 +1842,141 @@ def build(
         console.print(f"[red]Error reading plan file:[/red] {e}")
         raise typer.Exit(1)
 
-    # Extract next action
-    next_action = _extract_ceo_next_action(plan_content)
+    # Extract Technical Execution section
+    technical_execution = _extract_technical_execution(plan_content)
 
-    if not next_action:
+    if not technical_execution:
         console.print(
-            "[yellow]Warning:[/yellow] Could not extract next action from growth plan.\n"
-            "The plan may not have a 'CEO's Next Action' or 'NEXT ACTION' section.\n\n"
-            "Opening Cursor with a generic prompt to reference the plan..."
+            "[red]Error:[/red] Could not extract Technical Execution section from growth plan.\n"
+            "Please ensure your growth plan has a 'TECHNICAL EXECUTION' section with:\n"
+            "  - The Next Build\n"
+            "  - Confidence Score\n"
+            "  - Exact Logic\n"
+            "  - Data Triggers\n"
+            "  - Sequence (with NOW/L+24h task)\n\n"
+            "Generate a proper plan with: [cyan]skene plan[/cyan]\n"
         )
-        next_action = "Review the growth plan and implement the highest priority action."
+        raise typer.Exit(1)
+    
+    # Extract NOW task from sequence
+    sequence_text = technical_execution.get("sequence", "")
+    now_task = _extract_now_sequence_item(sequence_text)
 
-    # Build prompt
-    console.print(f"\n[bold blue]Building prompt from:[/bold blue] {plan}\n")
+    if not now_task:
+        console.print(
+            "[yellow]Warning:[/yellow] Could not extract NOW (L+24h) task from Sequence.\n"
+            "Using first sequence item or falling back...\n"
+        )
+        # Try to get any sequence item
+        if sequence_text:
+            # Get first bullet point
+            import re
+            first_match = re.search(r"[-*]\s*\*\*.*?\*\*\s*(.*?)(?=\n|$)", sequence_text, re.MULTILINE)
+            if first_match:
+                now_task = first_match.group(1).strip()
+            else:
+                now_task = sequence_text.split("\n")[0].strip()
+        else:
+            now_task = "Review the growth plan Technical Execution section and implement the immediate task."
+
+    # Create LLM client and generate prompt
+    if model is None:
+        model = config.get("model") or default_model_for_provider(provider)
+    
+    try:
+        from pydantic import SecretStr
+        from skene_growth.llm import create_llm_client
+        
+        llm = create_llm_client(provider, SecretStr(api_key), model)
+        console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
+        
+        # Generate prompt with LLM
+        prompt = await _build_prompt_with_llm(plan.resolve(), technical_execution, now_task, llm)
+        
+    except Exception as e:
+        console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
+        console.print("[dim]Falling back to template...[/dim]\n")
+        prompt = _build_prompt_from_template(plan.resolve(), technical_execution, now_task)
+
+    # Display the NOW task
+    console.print(f"\n[bold blue]Building prompt from Technical Execution:[/bold blue] {plan}\n")
+    
+    if technical_execution.get("next_build"):
+        console.print(
+            Panel(
+                technical_execution["next_build"],
+                title="[bold cyan]The Next Build[/bold cyan]",
+                border_style="cyan",
+                padding=(1, 2),
+            )
+        )
+    
     console.print(
         Panel(
-            next_action,
-            title="[bold yellow]Next Action[/bold yellow]",
+            now_task,
+            title="[bold yellow]Task to Complete NOW (L+24h)[/bold yellow]",
             border_style="yellow",
             padding=(1, 2),
         )
     )
 
-    prompt = _build_prompt_from_plan(plan.resolve(), next_action)
-
     # Show the prompt preview
-    console.print("\n[bold]Prompt Preview:[/bold]")
+    console.print("\n[bold]Generated Prompt Preview:[/bold]")
     preview = prompt if len(prompt) <= 200 else prompt[:200] + "..."
     console.print(f"[dim]{preview}[/dim]\n")
 
-    # Interactive selection if target not specified
-    if target is None and interactive:
-        console.print("[bold cyan]Where do you want to send this prompt?[/bold cyan]")
+    # Always ask where to send the prompt
+    console.print("[bold cyan]Where do you want to send this prompt?[/bold cyan]")
+    
+    # Use questionary for arrow key selection (with fallback)
+    target = None
+    try:
+        import questionary
         
-        # Use questionary for arrow key selection (with fallback)
-        try:
-            import questionary
-            
-            choices_list = [
-                questionary.Choice("Cursor (open via deep link)", value="cursor"),
-                questionary.Choice("Claude (open in terminal)", value="claude"),
-                questionary.Choice("Show prompt", value="show"),
-                questionary.Choice("Cancel", value="cancel"),
-            ]
+        choices_list = [
+            questionary.Choice("Cursor (open via deep link)", value="cursor"),
+            questionary.Choice("Claude (open in terminal)", value="claude"),
+            questionary.Choice("Show full prompt", value="show"),
+            questionary.Choice("Cancel", value="cancel"),
+        ]
 
-            selection = questionary.select(
-                "",
-                choices=choices_list,
-                use_arrow_keys=True,
-                use_shortcuts=True,
-                instruction="(Use arrow keys to navigate, Enter to select)",
-            ).ask()
+        selection = questionary.select(
+            "",
+            choices=choices_list,
+            use_arrow_keys=True,
+            use_shortcuts=True,
+            instruction="(Use arrow keys to navigate, Enter to select)",
+        ).ask()
 
-            if selection == "cancel" or selection is None:
-                console.print("\n[dim]Cancelled.[/dim]")
-                return
+        if selection == "cancel" or selection is None:
+            console.print("\n[dim]Cancelled.[/dim]")
+            return
 
-            target = selection
-            
-        except ImportError:
-            # Fallback to numbered menu if questionary not installed
-            choices = [
-                "1. Cursor (open via deep link)",
-                "2. Claude (open in terminal)",
-                "3. Show full prompt only",
-                "4. Cancel",
-            ]
-            for choice in choices:
-                console.print(f"  {choice}")
+        target = selection
+        
+    except ImportError:
+        # Fallback to numbered menu if questionary not installed
+        choices = [
+            "1. Cursor (open via deep link)",
+            "2. Claude (open in terminal)",
+            "3. Show full prompt",
+            "4. Cancel",
+        ]
+        for choice in choices:
+            console.print(f"  {choice}")
 
-            console.print()
-            selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
+        console.print()
+        selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
 
-            if selection == "1":
-                target = "cursor"
-            elif selection == "2":
-                target = "claude"
-            elif selection == "3":
-                target = "show"
-            elif selection == "4":
-                console.print("[dim]Cancelled.[/dim]")
-                return
+        if selection == "1":
+            target = "cursor"
+        elif selection == "2":
+            target = "claude"
+        elif selection == "3":
+            target = "show"
+        elif selection == "4":
+            console.print("[dim]Cancelled.[/dim]")
+            return
 
     # Execute based on target
     if target == "show":

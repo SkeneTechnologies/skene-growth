@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from dataclasses import dataclass, field
@@ -9,7 +10,11 @@ from pathlib import Path
 from typing import Any
 
 import aiofiles
-import xxhash
+
+try:
+    import xxhash
+except ImportError:
+    xxhash = None
 
 # Phase-specific cache key prefixes
 PHASE_PREFIXES = {
@@ -181,7 +186,10 @@ class AnalysisCache:
             "params": params,
         }
         key_str = json.dumps(key_data, sort_keys=True)
-        return xxhash.xxh64(key_str.encode()).hexdigest()
+        if xxhash:
+            return xxhash.xxh64(key_str.encode()).hexdigest()
+        else:
+            return hashlib.sha256(key_str.encode()).hexdigest()
 
     async def _compute_marker_hashes(self, repo_path: Path) -> dict[str, str]:
         """Compute hashes for marker files in the repository."""
@@ -193,7 +201,10 @@ class AnalysisCache:
                 try:
                     async with aiofiles.open(marker_path, "rb") as f:
                         content = await f.read()
-                        hashes[marker] = xxhash.xxh64(content).hexdigest()
+                        if xxhash:
+                            hashes[marker] = xxhash.xxh64(content).hexdigest()
+                        else:
+                            hashes[marker] = hashlib.sha256(content).hexdigest()
                 except (OSError, PermissionError):
                     pass
 
@@ -250,7 +261,11 @@ class AnalysisCache:
             "phase": phase,
         }
         key_str = json.dumps(key_data, sort_keys=True)
-        return f"{PHASE_PREFIXES[phase]}_{xxhash.xxh64(key_str.encode()).hexdigest()}"
+        if xxhash:
+            hash_digest = xxhash.xxh64(key_str.encode()).hexdigest()
+        else:
+            hash_digest = hashlib.sha256(key_str.encode()).hexdigest()
+        return f"{PHASE_PREFIXES[phase]}_{hash_digest}"
 
     async def get_phase(self, repo_path: Path, phase: str) -> dict[str, Any] | None:
         """Get cached result for a specific analysis phase.
