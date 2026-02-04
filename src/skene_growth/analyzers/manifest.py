@@ -48,15 +48,15 @@ class ManifestAnalyzer(MultiStepStrategy):
     def __init__(self, existing_growth_loops: list[dict[str, Any]] | None = None):
         """Initialize the manifest analyzer with all analysis steps."""
         self.existing_growth_loops = existing_growth_loops or []
-        
+
         # Format existing loops for prompt inclusion
         from skene_growth.growth_loops.storage import format_growth_loops_summary
         loops_summary = format_growth_loops_summary(self.existing_growth_loops)
-        
+
         # Build prompts with existing loops context
         growth_features_prompt = build_growth_features_prompt(loops_summary)
         manifest_prompt = build_manifest_prompt(loops_summary)
-        
+
         super().__init__(
             steps=[
                 # Phase 1: Detect tech stack

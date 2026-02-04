@@ -165,7 +165,7 @@ async def generate_loop_definition_with_llm(
     # Derive loop name and ID from technical execution
     loop_name = derive_loop_name(technical_execution)
     loop_id = derive_loop_id(loop_name)
-    
+
     # Build context from technical execution
     context_parts = []
 
@@ -187,7 +187,9 @@ async def generate_loop_definition_with_llm(
     context = "\n\n".join(context_parts)
 
     # Construct the LLM prompt
-    prompt = f"""You are a growth engineering expert. Generate a complete growth loop definition that conforms to the GROWTH_LOOP_VERIFICATION_SPEC schema.
+    prompt = (
+        f"""You are a growth engineering expert. Generate a complete growth loop definition """
+        f"""that conforms to the GROWTH_LOOP_VERIFICATION_SPEC schema.
 
 ## Schema Requirements
 
@@ -222,7 +224,7 @@ The output MUST be a valid JSON object with these REQUIRED fields:
 
 ## Your Task
 
-Analyze the technical execution context and generate a complete, actionable growth loop definition. 
+Analyze the technical execution context and generate a complete, actionable growth loop definition.
 
 **For `requirements.files`:**
 - Identify specific files that need to be created or modified
@@ -252,6 +254,7 @@ Analyze the technical execution context and generate a complete, actionable grow
 - Define success criteria (KPIs)
 
 Return ONLY the JSON object, no markdown code fences, no explanations. The JSON must be valid and parseable."""
+    )
 
     try:
         response = await llm.generate_content(prompt)
@@ -280,7 +283,7 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
             loop_def["loop_id"] = loop_id
         if "name" not in loop_def or not loop_def["name"]:
             loop_def["name"] = loop_name
-        
+
         # Validate loop_id format (must match ^[a-z0-9_]+$)
         if not re.match(r"^[a-z0-9_]+$", loop_def["loop_id"]):
             # If LLM generated invalid format, use our derived one
@@ -317,7 +320,7 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
 
         return loop_def
 
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         # Fallback: Create minimal valid loop definition
         return {
             "loop_id": loop_id,
@@ -472,7 +475,7 @@ def format_growth_loops_summary(loops: list[dict[str, Any]]) -> str:
 
         # Include requirements summary
         requirements = loop.get("requirements", {})
-        
+
         files = requirements.get("files", [])
         if files:
             file_count = len(files)

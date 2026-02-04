@@ -591,14 +591,14 @@ async def _run_analysis(
             # Load existing growth loops from output directory
             progress.update(task, description="Loading existing growth loops...")
             from skene_growth.growth_loops.storage import load_existing_growth_loops
-            
+
             # Determine base directory for loading existing loops
             base_dir = output.parent if output.parent.name == "skene-context" else output.parent
             existing_loops = load_existing_growth_loops(base_dir)
-            
+
             if existing_loops:
                 progress.update(task, description=f"Found {len(existing_loops)} existing growth loop(s)...")
-            
+
             # Create analyzer
             progress.update(task, description="Creating analyzer...")
             if product_docs:
@@ -1236,35 +1236,53 @@ def _extract_technical_execution(plan_content: str) -> dict[str, str] | None:
         "sequence": "",
     }
 
-    # Extract "The Next Build" - handles format like "**The Next Build: The "Zero-Key" Discovery Engine**\nDescription..."
-    next_build_match = re.search(r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    # Extract "The Next Build" - handles format like "**The Next Build: ...**\nDescription..."
+    next_build_pattern = (
+        r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)"
+        r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
+    )
+    next_build_match = re.search(next_build_pattern, section_content, re.IGNORECASE | re.DOTALL)
     if next_build_match:
         title = next_build_match.group(1).strip()
         description = next_build_match.group(2).strip()
         result["next_build"] = f"{title}\n{description}"
     else:
         # Fallback: simpler pattern
-        next_build_match = re.search(r"\*\*The Next Build[:\*]*\*\*\s*[:\-]?\s*(.*?)(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+        fallback_pattern = (
+            r"\*\*The Next Build[:\*]*\*\*\s*[:\-]?\s*(.*?)"
+            r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
+        )
+        next_build_match = re.search(fallback_pattern, section_content, re.IGNORECASE | re.DOTALL)
         if next_build_match:
             result["next_build"] = next_build_match.group(1).strip()
 
     # Extract Confidence Score
-    confidence_match = re.search(r"\*\*Confidence\s+Score[:\*]*\*\*[:\s]*(.*?)(?=\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    confidence_pattern = r"\*\*Confidence\s+Score[:\*]*\*\*[:\s]*(.*?)(?=\*\*|$)"
+    confidence_match = re.search(confidence_pattern, section_content, re.IGNORECASE | re.DOTALL)
     if confidence_match:
         result["confidence"] = confidence_match.group(1).strip()
 
     # Extract Exact Logic
-    logic_match = re.search(r"\*\*Exact\s+Logic.*?\*\*(.*?)(?=\*\*Exact\s+Data|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    logic_pattern = (
+        r"\*\*Exact\s+Logic.*?\*\*(.*?)"
+        r"(?=\*\*Exact\s+Data|\*\*Sequence|\*\*|$)"
+    )
+    logic_match = re.search(logic_pattern, section_content, re.IGNORECASE | re.DOTALL)
     if logic_match:
         result["exact_logic"] = logic_match.group(1).strip()
 
     # Extract Exact Data Triggers
-    triggers_match = re.search(r"\*\*Exact\s+Data\s+Triggers.*?\*\*(.*?)(?=\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    triggers_pattern = (
+        r"\*\*Exact\s+Data\s+Triggers.*?\*\*(.*?)"
+        r"(?=\*\*Sequence|\*\*|$)"
+    )
+    triggers_match = re.search(triggers_pattern, section_content, re.IGNORECASE | re.DOTALL)
     if triggers_match:
         result["data_triggers"] = triggers_match.group(1).strip()
 
     # Extract Sequence
-    sequence_match = re.search(r"\*\*Sequence[:\*]*\*\*(.*?)(?=\n\n###|\n\n##|\Z)", section_content, re.IGNORECASE | re.DOTALL)
+    sequence_pattern = r"\*\*Sequence[:\*]*\*\*(.*?)(?=\n\n###|\n\n##|\Z)"
+    sequence_match = re.search(sequence_pattern, section_content, re.IGNORECASE | re.DOTALL)
     if sequence_match:
         result["sequence"] = sequence_match.group(1).strip()
 
@@ -1288,26 +1306,28 @@ async def _build_prompt_with_llm(
     """
     # Prepare the context for the LLM - include all engineering content
     context_parts = []
-    
+
     if technical_execution.get("next_build"):
         context_parts.append(f"What We're Building: {technical_execution['next_build']}")
-    
+
     if technical_execution.get("confidence"):
         context_parts.append(f"Confidence: {technical_execution['confidence']}")
-    
+
     if technical_execution.get("exact_logic"):
         context_parts.append(f"Exact Logic:\n{technical_execution['exact_logic']}")
-    
+
     if technical_execution.get("data_triggers"):
         context_parts.append(f"Data Triggers:\n{technical_execution['data_triggers']}")
-    
+
     if technical_execution.get("sequence"):
         context_parts.append(f"Sequence:\n{technical_execution['sequence']}")
 
     context = "\n\n".join(context_parts) if context_parts else "No additional context available."
 
     # Prompt the LLM to generate an implementation prompt
-    meta_prompt = f"""You are a prompt engineer. Create a focused, actionable prompt for an AI coding assistant to help implement the engineering work described in the growth plan.
+    meta_prompt = (
+        f"""You are a prompt engineer. Create a focused, actionable prompt """
+        f"""for an AI coding assistant to help implement the engineering work described in the growth plan.
 
 ## Input Information
 
@@ -1327,6 +1347,7 @@ Generate a clear, concise prompt that:
 6. Is formatted clearly with markdown headers
 
 Generate the prompt now (output ONLY the prompt, no explanations):"""
+    )
 
     try:
         generated_prompt = await llm.generate_content(meta_prompt)
@@ -1354,30 +1375,33 @@ def _build_prompt_from_template(plan_path: Path, technical_execution: dict[str, 
     """
     # Build technical context - include all engineering content
     context_parts = []
-    
+
     if technical_execution.get("next_build"):
         context_parts.append(f"**What We're Building:** {technical_execution['next_build']}")
-    
+
     if technical_execution.get("confidence"):
         context_parts.append(f"**Confidence:** {technical_execution['confidence']}")
-    
+
     if technical_execution.get("exact_logic"):
         context_parts.append(f"**Exact Logic:**\n{technical_execution['exact_logic']}")
-    
+
     if technical_execution.get("data_triggers"):
         context_parts.append(f"**Data Triggers:**\n{technical_execution['data_triggers']}")
-    
+
     if technical_execution.get("sequence"):
         context_parts.append(f"**Sequence:**\n{technical_execution['sequence']}")
 
     context = "\n\n".join(context_parts) if context_parts else ""
-    
+
     context_section = f"\n\n## Technical Execution Context\n\n{context}" if context else ""
-    
-    prompt = f"""I need to implement the engineering work described in the growth plan. Reference @{plan_path} for full context.{context_section}
+
+    prompt = (
+        f"""I need to implement the engineering work described in the growth plan. """
+        f"""Reference @{plan_path} for full context.{context_section}
 
 Please help me implement this work. Break it down into concrete, actionable steps with code examples."""
-    
+    )
+
     return prompt
 
 
@@ -1431,8 +1455,8 @@ def _open_claude_terminal(prompt: str) -> None:
         RuntimeError: If opening the terminal fails
     """
     import platform
-    import subprocess
     import shlex
+    import subprocess
 
     system = platform.system()
 
@@ -1715,7 +1739,7 @@ async def _build_async(
     config = load_config()
     api_key = api_key or config.api_key
     provider = provider or config.provider
-    
+
     # Validate LLM configuration
     if not api_key or not provider:
         console.print(
@@ -1795,17 +1819,18 @@ async def _build_async(
     # Create LLM client and generate prompt
     if model is None:
         model = config.get("model") or default_model_for_provider(provider)
-    
+
     try:
         from pydantic import SecretStr
+
         from skene_growth.llm import create_llm_client
-        
+
         llm = create_llm_client(provider, SecretStr(api_key), model)
         console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
-        
+
         # Generate prompt with LLM
         prompt = await _build_prompt_with_llm(plan.resolve(), technical_execution, llm)
-        
+
     except Exception as e:
         console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
         console.print("[dim]Falling back to template...[/dim]\n")
@@ -1813,7 +1838,7 @@ async def _build_async(
 
     # Display the technical execution context
     console.print(f"\n[bold blue]Building prompt from Technical Execution:[/bold blue] {plan}\n")
-    
+
     if technical_execution.get("next_build"):
         console.print(
             Panel(
@@ -1831,12 +1856,12 @@ async def _build_async(
 
     # Always ask where to send the prompt
     console.print("[bold cyan]Where do you want to send this prompt?[/bold cyan]")
-    
+
     # Use questionary for arrow key selection (with fallback)
     target = None
     try:
         import questionary
-        
+
         choices_list = [
             questionary.Choice("Cursor (open via deep link)", value="cursor"),
             questionary.Choice("Claude (open in terminal)", value="claude"),
@@ -1857,7 +1882,7 @@ async def _build_async(
             return
 
         target = selection
-        
+
     except ImportError:
         # Fallback to numbered menu if questionary not installed
         choices = [
@@ -1885,10 +1910,10 @@ async def _build_async(
     # Save growth loop definition (only if not cancelled)
     try:
         from skene_growth.growth_loops.storage import (
-            derive_loop_name,
             derive_loop_id,
-            generate_timestamped_filename,
+            derive_loop_name,
             generate_loop_definition_with_llm,
+            generate_timestamped_filename,
             write_growth_loop_json,
         )
 
@@ -1910,11 +1935,11 @@ async def _build_async(
             plan_path=plan.resolve(),
             codebase_path=Path.cwd(),
         )
-        
+
         # Extract loop_id and name from generated definition (in case LLM changed them)
         loop_id = loop_definition.get("loop_id", loop_id)
         loop_name = loop_definition.get("name", loop_name)
-        
+
         # Generate filename using final loop_id
         timestamped_filename = generate_timestamped_filename(loop_id)
 
@@ -1956,7 +1981,7 @@ async def _build_async(
         except RuntimeError as e:
             console.print(f"\n[red]Error:[/red] {e}\n")
             console.print("[yellow]Manual deep link:[/yellow]")
-            console.print(f"cursor://anysphere.cursor-deeplink/prompt?text=...")
+            console.print("cursor://anysphere.cursor-deeplink/prompt?text=...")
             console.print("\n[dim]You can copy the prompt below and paste it manually:[/dim]\n")
             console.print(Panel(prompt, title="Prompt", border_style="blue"))
             raise typer.Exit(1)

@@ -63,10 +63,10 @@ A "current growth feature" is an existing feature in the codebase that:
 - Supports monetization (payments, subscriptions, upgrades)
 - Enables data-driven decisions (analytics, dashboards, reporting)
 """
-    
+
     if existing_loops_summary:
         base_prompt += f"\n{existing_loops_summary}\n"
-    
+
     base_prompt += """
 For each growth feature you identify, provide:
 1. **feature_name**: A clear name for the feature
@@ -121,10 +121,10 @@ You have been provided with:
 - Revenue leakage analysis (potential revenue issues)
 - Industry classification (market vertical and business model tags)
 """
-    
+
     if existing_loops_summary:
         base_prompt += f"\n{existing_loops_summary}\n"
-    
+
     base_prompt += """
 Your task is to:
 1. Create a cohesive project summary
@@ -133,13 +133,13 @@ Your task is to:
 4. Include the industry classification from the analysis
 5. Identify growth opportunities - missing features that could drive growth
 """
-    
+
     if existing_loops_summary:
         base_prompt += """
 **IMPORTANT:** When identifying growth opportunities, DO NOT duplicate or overlap with the existing growth loops listed above.
 Focus on complementary opportunities that build on or extend the existing loops, or address entirely different growth areas.
-"""
-    
+"""  # noqa: E501
+
     base_prompt += """
 For growth opportunities, consider what's missing:
 - User onboarding flows
@@ -298,10 +298,10 @@ You have been provided with:
 - Features documentation (user-facing feature descriptions)
 - Current growth features analysis (existing features with growth potential)
 """
-    
+
     if existing_loops_summary:
         base_prompt += f"\n{existing_loops_summary}\n"
-    
+
     base_prompt += """
 Your task is to:
 1. Create a cohesive DocsManifest combining all sections
@@ -310,13 +310,13 @@ Your task is to:
 4. Include all provided analysis data including industry classification
 5. Identify growth opportunities - missing features that could drive growth
 """
-    
+
     if existing_loops_summary:
         base_prompt += """
 **IMPORTANT:** When identifying growth opportunities, DO NOT duplicate or overlap with the existing growth loops listed above.
 Focus on complementary opportunities that build on or extend the existing loops, or address entirely different growth areas.
-"""
-    
+"""  # noqa: E501
+
     base_prompt += """
 For growth opportunities, consider what's missing:
 - User onboarding flows
