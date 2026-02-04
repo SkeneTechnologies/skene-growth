@@ -74,5 +74,9 @@ def create_llm_client(
             if not base_url:
                 raise ValueError("base_url is required for the generic provider")
             return GenericClient(api_key=api_key, model_name=model_name, base_url=base_url)
+        case "local" | "llama-cpp" | "gguf":
+            from skene_growth.llm.providers.local import LocalClient
+
+            return LocalClient(api_key=api_key, model_name=model_name)
         case _:
             raise ValueError(f"Unknown provider: {provider}")
