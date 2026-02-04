@@ -56,7 +56,7 @@ uvx skene-growth analyze . --api-key "your-openai-api-key"
 uvx skene-growth validate ./growth-manifest.json
 ```
 
-> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`, Anthropic with `--provider anthropic` or `--provider claude`, local LLMs with `--provider lmstudio` or `--provider ollama` (experimental), or any OpenAI-compatible endpoint with `--provider generic --base-url "https://your-api.com/v1"`.
+> **Note:** The `analyze` command requires an API key. By default, it uses OpenAI (get a key at https://platform.openai.com/api-keys). You can also use Gemini with `--provider gemini`, Anthropic with `--provider anthropic` or `--provider claude`, local LLMs with `--provider local` (see [docs/local-llm.md](docs/local-llm.md)), `--provider lmstudio` or `--provider ollama` (experimental), or any OpenAI-compatible endpoint with `--provider generic --base-url "https://your-api.com/v1"`.
 
 ### Option 2: pip install
 
@@ -107,6 +107,11 @@ uvx skene-growth analyze . --provider lmstudio --model "your-loaded-model"
 
 # Use Ollama (local server) - Experimental
 uvx skene-growth analyze . --provider ollama --model "llama2"
+
+# Use local LLM via llama-cpp-python (no external service needed)
+# First install: pip install skene-growth[local]
+skene-growth models download qwen-2.5-3b
+skene-growth analyze . --provider local --model qwen-2.5-3b
 
 # Use any OpenAI-compatible endpoint (generic provider)
 uvx skene-growth analyze . --provider generic --base-url "https://your-api.com/v1" --api-key "your-key" --model "your-model"
@@ -182,7 +187,7 @@ uvx skene-growth plan --provider gemini --model gemini-2.0-flash
 - `-c, --context`: Directory containing growth-manifest.json and growth-template.json (detected at working directory if not specified)
 - `-o, --output`: Output path for growth plan (markdown format)
 - `--api-key`: API key for LLM provider (or set SKENE_API_KEY env var)
-- `-p, --provider`: LLM provider to use (openai, gemini, anthropic/claude, lmstudio, ollama, generic)
+- `-p, --provider`: LLM provider to use (openai, gemini, anthropic/claude, local, lmstudio, ollama, generic)
 - `-m, --model`: LLM model name
 - `--base-url`: Base URL for OpenAI-compatible API endpoint (required for generic provider)
 - `-v, --verbose`: Enable verbose output
@@ -204,6 +209,26 @@ uvx skene-growth config
 # Create a config file in current directory
 uvx skene-growth config --init
 ```
+
+### `models` - Manage local LLM models
+
+Manage models for the `local` provider. Requires the `local` optional dependency.
+
+```bash
+# Install local LLM support
+poetry install -E local
+
+# List available models and download status
+skene-growth models list
+
+# Download a model from Hugging Face
+skene-growth models download qwen-2.5-3b
+
+# Delete a downloaded model
+skene-growth models delete qwen-2.5-3b
+```
+
+See [docs/local-llm.md](docs/local-llm.md) for detailed documentation on local LLM support.
 
 ## Excluding Folders from Analysis
 
@@ -262,11 +287,11 @@ skene-growth supports configuration files for storing defaults:
 # API key for LLM provider (can also use SKENE_API_KEY env var)
 # api_key = "your-api-key"
 
-# LLM provider to use: "openai" (default), "gemini", "anthropic"/"claude", "lmstudio", "ollama" (experimental), or "generic"
+# LLM provider to use: "openai" (default), "gemini", "anthropic"/"claude", "local", "lmstudio", "ollama" (experimental), or "generic"
 provider = "openai"
 
 # Model to use (provider-specific defaults apply if not set)
-# openai: gpt-4o-mini | gemini: gemini-2.0-flash | anthropic: claude-haiku-4-5-20251001 | ollama: llama2
+# openai: gpt-4o-mini | gemini: gemini-2.0-flash | anthropic: claude-haiku-4-5-20251001 | local: qwen-2.5-3b | ollama: llama2
 # model = "gpt-4o-mini"
 
 # Base URL for OpenAI-compatible endpoints (required for "generic" provider)
@@ -340,9 +365,9 @@ from skene_growth.llm import create_llm_client
 # Initialize
 codebase = CodebaseExplorer("/path/to/repo")
 llm = create_llm_client(
-    provider="openai",  # or "gemini", "anthropic"/"claude", "lmstudio", "ollama" (experimental), or "generic"
+    provider="openai",  # or "gemini", "anthropic"/"claude", "local", "lmstudio", "ollama" (experimental), or "generic"
     api_key=SecretStr("your-api-key"),
-    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-haiku-4-5-20251001" / local model
+    model_name="gpt-4o-mini",  # or "gemini-2.0-flash" / "claude-haiku-4-5-20251001" / "qwen-2.5-3b" / local model
 )
 
 # Run analysis
@@ -465,6 +490,7 @@ When using `--product-docs` flag, the manifest includes additional fields:
   - OpenAI (default): https://platform.openai.com/api-keys
   - Gemini: https://aistudio.google.com/apikey
   - Anthropic: https://platform.claude.com/settings/keys
+  - Local (llama-cpp-python): No API key needed (see [docs/local-llm.md](docs/local-llm.md))
   - LM Studio: No API key needed (runs locally at http://localhost:1234)
   - Ollama (experimental): No API key needed (runs locally at http://localhost:11434)
   - Generic: API key depends on your endpoint (use `--base-url` to specify endpoint)
