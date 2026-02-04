@@ -215,7 +215,7 @@ def analyze(
     else:
         resolved_output = Path(config.output_dir) / "growth-manifest.json"
 
-    # LM Studio, Ollama, and generic providers may not require an API key
+    # LM Studio, Ollama, local, and generic providers may not require an API key
     is_local_provider = resolved_provider.lower() in (
         "lmstudio",
         "lm-studio",
@@ -224,6 +224,9 @@ def analyze(
         "generic",
         "openai-compatible",
         "openai_compatible",
+        "local",
+        "llama-cpp",
+        "gguf",
     )
 
     # Generic provider requires base_url
@@ -674,6 +677,9 @@ def plan(
         "generic",
         "openai-compatible",
         "openai_compatible",
+        "local",
+        "llama-cpp",
+        "gguf",
     )
 
     # Generic provider requires base_url
@@ -1024,6 +1030,181 @@ verbose = false
 
     if not project_cfg and not user_cfg:
         console.print("\n[dim]Tip: Run 'skene-growth config --init' to create a config file[/dim]")
+
+
+# Models subcommand group
+models_app = typer.Typer(
+    name="models",
+    help="Manage local LLM models for the 'local' provider.",
+    no_args_is_help=True,
+)
+app.add_typer(models_app, name="models")
+
+
+def _format_size(size_bytes: int | None) -> str:
+    """Format bytes as human-readable size."""
+    if size_bytes is None:
+        return "-"
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"
+
+
+@models_app.command("list")
+def models_list():
+    """
+    List available models and their download status.
+
+    Shows all models from the registry and whether they are downloaded.
+
+    Example:
+
+        skene-growth models list
+    """
+    try:
+        from skene_growth.llm.local import get_registry, list_models_status
+    except ImportError:
+        console.print(
+            "[red]Error:[/red] Local model support not installed.\n"
+            "Install with: pip install skene-growth[local]"
+        )
+        raise typer.Exit(1)
+
+    statuses = list_models_status()
+    registry = get_registry()
+    default_model = registry.get_default_model_id()
+
+    table = Table(title="Available Local Models")
+    table.add_column("Model ID", style="cyan")
+    table.add_column("Name", style="white")
+    table.add_column("Status", style="green")
+    table.add_column("Size", style="dim")
+
+    for status in statuses:
+        model_id = status.model_id
+        if model_id == default_model:
+            model_id += " [dim](default)[/dim]"
+
+        status_str = "[green]Downloaded[/green]" if status.downloaded else "[dim]Not downloaded[/dim]"
+        size_str = _format_size(status.size_bytes)
+
+        table.add_row(model_id, status.name, status_str, size_str)
+
+    console.print(table)
+    console.print("\n[dim]Download a model: skene-growth models download <model-id>[/dim]")
+
+
+@models_app.command("download")
+def models_download(
+    model: str = typer.Argument(
+        ...,
+        help="Model ID to download (e.g., 'qwen-2.5-3b')",
+    ),
+):
+    """
+    Download a model from Hugging Face.
+
+    Downloads the specified model and stores it locally for use
+    with the 'local' provider.
+
+    Examples:
+
+        skene-growth models download qwen-2.5-3b
+        skene-growth models download llama-3.1-8b
+    """
+    try:
+        from skene_growth.llm.local import download_model, get_registry, is_model_downloaded
+    except ImportError:
+        console.print(
+            "[red]Error:[/red] Local model support not installed.\n"
+            "Install with: pip install skene-growth[local]"
+        )
+        raise typer.Exit(1)
+
+    registry = get_registry()
+    config = registry.get_model(model)
+    if not config:
+        available = [m.id for m in registry.list_models()]
+        console.print(f"[red]Error:[/red] Model '{model}' not found in registry.")
+        console.print(f"Available models: {', '.join(available)}")
+        raise typer.Exit(1)
+
+    if is_model_downloaded(model):
+        console.print(f"[yellow]Model '{model}' is already downloaded.[/yellow]")
+        return
+
+    console.print(f"Downloading [bold]{config.name}[/bold] from {config.huggingface_repo}...")
+    console.print("[dim]This may take a while depending on your connection speed.[/dim]\n")
+
+    try:
+        path = download_model(model, show_progress=True)
+        console.print(f"\n[green]Success![/green] Model downloaded to: {path}")
+    except Exception as e:
+        console.print(f"[red]Error downloading model:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@models_app.command("delete")
+def models_delete(
+    model: str = typer.Argument(
+        ...,
+        help="Model ID to delete",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Skip confirmation prompt",
+    ),
+):
+    """
+    Delete a downloaded model.
+
+    Removes the model file from local storage.
+
+    Examples:
+
+        skene-growth models delete qwen-2.5-3b
+        skene-growth models delete qwen-2.5-3b --force
+    """
+    try:
+        from skene_growth.llm.local import delete_model, get_registry, is_model_downloaded
+    except ImportError:
+        console.print(
+            "[red]Error:[/red] Local model support not installed.\n"
+            "Install with: pip install skene-growth[local]"
+        )
+        raise typer.Exit(1)
+
+    registry = get_registry()
+    config = registry.get_model(model)
+    if not config:
+        available = [m.id for m in registry.list_models()]
+        console.print(f"[red]Error:[/red] Model '{model}' not found in registry.")
+        console.print(f"Available models: {', '.join(available)}")
+        raise typer.Exit(1)
+
+    if not is_model_downloaded(model):
+        console.print(f"[yellow]Model '{model}' is not downloaded.[/yellow]")
+        return
+
+    if not force:
+        confirm = typer.confirm(f"Delete model '{config.name}'?")
+        if not confirm:
+            console.print("Cancelled.")
+            raise typer.Exit(0)
+
+    try:
+        deleted = delete_model(model)
+        if deleted:
+            console.print(f"[green]Deleted model:[/green] {config.name}")
+        else:
+            console.print(f"[yellow]Model '{model}' was not found.[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error deleting model:[/red] {e}")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
