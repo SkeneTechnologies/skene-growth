@@ -59,6 +59,7 @@ class DocsAnalyzer(MultiStepStrategy):
 
         # Format existing loops for prompt inclusion
         from skene_growth.growth_loops.storage import format_growth_loops_summary
+
         loops_summary = format_growth_loops_summary(self.existing_growth_loops)
 
         # Build prompts with existing loops context

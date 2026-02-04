@@ -50,6 +50,7 @@ Be conservative - only include values you're confident about. Use null for uncer
 Return an empty array for services if none are detected.
 """
 
+
 # Current Growth Features Detection Prompt
 def build_growth_features_prompt(existing_loops_summary: str = "") -> str:
     """Build growth features prompt with optional existing loops context."""
@@ -81,6 +82,7 @@ Focus on quality over quantity - identify the most impactful features.
 """
     return base_prompt
 
+
 # Backward compatibility - default prompt without existing loops
 GROWTH_FEATURES_PROMPT = build_growth_features_prompt()
 
@@ -108,6 +110,7 @@ For each revenue leakage issue you identify, provide:
 Return your analysis as a JSON array of revenue leakage issues.
 Focus on actionable issues that could realistically impact revenue.
 """
+
 
 # Manifest Generation Prompt
 def build_manifest_prompt(existing_loops_summary: str = "") -> str:
@@ -159,6 +162,7 @@ Return a complete growth manifest as JSON with:
 - growth_opportunities: Your identified opportunities with priority (high/medium/low)
 """
     return base_prompt
+
 
 # Backward compatibility - default prompt without existing loops
 MANIFEST_PROMPT = build_manifest_prompt()
@@ -285,6 +289,7 @@ Return as a JSON array of features:
 Prioritize the most important 5-10 features. Quality over quantity.
 """
 
+
 # Documentation Manifest Generation Prompt
 def build_docs_manifest_prompt(existing_loops_summary: str = "") -> str:
     """Build documentation manifest prompt with optional existing loops context."""
@@ -337,6 +342,7 @@ Return a complete manifest as JSON with:
 - growth_opportunities: Your identified opportunities with priority (high/medium/low)
 """
     return base_prompt
+
 
 # Backward compatibility - default prompt without existing loops
 DOCS_MANIFEST_PROMPT = build_docs_manifest_prompt()

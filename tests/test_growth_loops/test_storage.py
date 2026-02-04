@@ -22,9 +22,7 @@ class TestDeriveLoopName:
 
     def test_extracts_first_line(self):
         """Should extract the first non-empty line from next_build."""
-        technical_execution = {
-            "next_build": "Discovery Engine\nA powerful search feature\nWith advanced filtering"
-        }
+        technical_execution = {"next_build": "Discovery Engine\nA powerful search feature\nWith advanced filtering"}
         result = derive_loop_name(technical_execution)
         assert result == "Discovery Engine"
 

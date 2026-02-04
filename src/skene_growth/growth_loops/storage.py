@@ -413,19 +413,13 @@ def load_existing_growth_loops(base_dir: Path) -> list[dict[str, Any]]:
             if timestamp_match:
                 timestamp_str = timestamp_match.group(1)
                 try:
-                    loop_data["_file_timestamp"] = datetime.strptime(
-                        timestamp_str, "%Y%m%d_%H%M%S"
-                    )
+                    loop_data["_file_timestamp"] = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
                 except ValueError:
                     # If parsing fails, use file modification time
-                    loop_data["_file_timestamp"] = datetime.fromtimestamp(
-                        json_file.stat().st_mtime
-                    )
+                    loop_data["_file_timestamp"] = datetime.fromtimestamp(json_file.stat().st_mtime)
             else:
                 # Use file modification time if no timestamp in filename
-                loop_data["_file_timestamp"] = datetime.fromtimestamp(
-                    json_file.stat().st_mtime
-                )
+                loop_data["_file_timestamp"] = datetime.fromtimestamp(json_file.stat().st_mtime)
 
             loop_data["_source_file"] = str(json_file)
             growth_loops.append(loop_data)

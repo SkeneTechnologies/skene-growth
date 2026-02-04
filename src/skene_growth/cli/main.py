@@ -533,7 +533,6 @@ def analyze(
     if not resolved_api_key:
         if is_local_provider:
             resolved_api_key = resolved_provider  # Dummy key for local server
-  
 
     # If product docs are requested, use docs mode to collect features
     mode_str = "docs" if product_docs else "growth"
@@ -1188,9 +1187,11 @@ def _extract_ceo_next_action(memo_content: str) -> str | None:
 
     # Look for the CEO's Next Action section (flexible patterns)
     # Pattern 1: Match section heading followed by any bold text
-    # Now section 1 (after Executive Summary), but also match old formats for backwards compatibility
+    # Now section 1 (after Executive Summary), but also match old formats
+    # for backwards compatibility
     pattern = (
-        r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?(?:CEO'?s?\s+)?Next\s+Action.*?\n\n\*\*(.*?):\*\*\s*(.*?)(?=\n\n###|\n\n##|\Z)"
+        r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?(?:CEO'?s?\s+)?Next\s+Action.*?\n\n"
+        r"\*\*(.*?):\*\*\s*(.*?)(?=\n\n###|\n\n##|\Z)"
     )
     match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
 
@@ -1251,35 +1252,54 @@ def _extract_technical_execution(plan_content: str) -> dict[str, str] | None:
         "sequence": "",
     }
 
-    # Extract "The Next Build" - handles format like "**The Next Build: The "Zero-Key" Discovery Engine**\nDescription..."
-    next_build_match = re.search(r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    # Extract "The Next Build" - handles format like
+    # "**The Next Build: The "Zero-Key" Discovery Engine**\nDescription..."
+    pattern = (
+        r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)"
+        r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
+    )
+    next_build_match = re.search(pattern, section_content, re.IGNORECASE | re.DOTALL)
     if next_build_match:
         title = next_build_match.group(1).strip()
         description = next_build_match.group(2).strip()
         result["next_build"] = f"{title}\n{description}"
     else:
         # Fallback: simpler pattern
-        next_build_match = re.search(r"\*\*The Next Build[:\*]*\*\*\s*[:\-]?\s*(.*?)(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+        fallback_pattern = (
+            r"\*\*The Next Build[:\*]*\*\*\s*[:\-]?\s*(.*?)"
+            r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
+        )
+        next_build_match = re.search(fallback_pattern, section_content, re.IGNORECASE | re.DOTALL)
         if next_build_match:
             result["next_build"] = next_build_match.group(1).strip()
 
     # Extract Confidence Score
-    confidence_match = re.search(r"\*\*Confidence\s+Score[:\*]*\*\*[:\s]*(.*?)(?=\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    confidence_pattern = r"\*\*Confidence\s+Score[:\*]*\*\*[:\s]*(.*?)(?=\*\*|$)"
+    confidence_match = re.search(confidence_pattern, section_content, re.IGNORECASE | re.DOTALL)
     if confidence_match:
         result["confidence"] = confidence_match.group(1).strip()
 
     # Extract Exact Logic
-    logic_match = re.search(r"\*\*Exact\s+Logic.*?\*\*(.*?)(?=\*\*Exact\s+Data|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    logic_pattern = (
+        r"\*\*Exact\s+Logic.*?\*\*(.*?)"
+        r"(?=\*\*Exact\s+Data|\*\*Sequence|\*\*|$)"
+    )
+    logic_match = re.search(logic_pattern, section_content, re.IGNORECASE | re.DOTALL)
     if logic_match:
         result["exact_logic"] = logic_match.group(1).strip()
 
     # Extract Exact Data Triggers
-    triggers_match = re.search(r"\*\*Exact\s+Data\s+Triggers.*?\*\*(.*?)(?=\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
+    triggers_pattern = (
+        r"\*\*Exact\s+Data\s+Triggers.*?\*\*(.*?)"
+        r"(?=\*\*Sequence|\*\*|$)"
+    )
+    triggers_match = re.search(triggers_pattern, section_content, re.IGNORECASE | re.DOTALL)
     if triggers_match:
         result["data_triggers"] = triggers_match.group(1).strip()
 
     # Extract Sequence
-    sequence_match = re.search(r"\*\*Sequence[:\*]*\*\*(.*?)(?=\n\n###|\n\n##|\Z)", section_content, re.IGNORECASE | re.DOTALL)
+    sequence_pattern = r"\*\*Sequence[:\*]*\*\*(.*?)(?=\n\n###|\n\n##|\Z)"
+    sequence_match = re.search(sequence_pattern, section_content, re.IGNORECASE | re.DOTALL)
     if sequence_match:
         result["sequence"] = sequence_match.group(1).strip()
 
@@ -1322,26 +1342,27 @@ async def _build_prompt_with_llm(
     context = "\n\n".join(context_parts) if context_parts else "No additional context available."
 
     # Prompt the LLM to generate an implementation prompt
-    meta_prompt = f"""You are a prompt engineer. Create a focused, actionable prompt for an AI coding assistant to help implement the engineering work described in the growth plan.
-
-## Input Information
-
-**Growth Plan Reference:** @{plan_path}
-
-**Technical Execution Context:**
-{context}
-
-## Your Task
-
-Generate a clear, concise prompt that:
-1. States the engineering work to be completed based on the Technical Execution context
-2. Includes all relevant technical context (What We're Building, Confidence, Logic, Data Triggers, Sequence)
-3. References the growth plan file for additional context using @{plan_path}
-4. Asks for step-by-step implementation with code examples
-5. Is direct and actionable (no fluff)
-6. Is formatted clearly with markdown headers
-
-Generate the prompt now (output ONLY the prompt, no explanations):"""
+    meta_prompt = (
+        f"You are a prompt engineer. Create a focused, actionable prompt "
+        f"for an AI coding assistant to help implement the engineering work "
+        f"described in the growth plan.\n\n"
+        f"## Input Information\n\n"
+        f"**Growth Plan Reference:** @{plan_path}\n\n"
+        f"**Technical Execution Context:**\n"
+        f"{context}\n\n"
+        f"## Your Task\n\n"
+        f"Generate a clear, concise prompt that:\n"
+        f"1. States the engineering work to be completed based on the "
+        f"Technical Execution context\n"
+        f"2. Includes all relevant technical context (What We're Building, "
+        f"Confidence, Logic, Data Triggers, Sequence)\n"
+        f"3. References the growth plan file for additional context using "
+        f"@{plan_path}\n"
+        f"4. Asks for step-by-step implementation with code examples\n"
+        f"5. Is direct and actionable (no fluff)\n"
+        f"6. Is formatted clearly with markdown headers\n\n"
+        f"Generate the prompt now (output ONLY the prompt, no explanations):"
+    )
 
     try:
         generated_prompt = await llm.generate_content(meta_prompt)
@@ -1389,9 +1410,12 @@ def _build_prompt_from_template(plan_path: Path, technical_execution: dict[str, 
 
     context_section = f"\n\n## Technical Execution Context\n\n{context}" if context else ""
 
-    prompt = f"""I need to implement the engineering work described in the growth plan. Reference @{plan_path} for full context.{context_section}
-
-Please help me implement this work. Break it down into concrete, actionable steps with code examples."""
+    prompt = (
+        f"I need to implement the engineering work described in the growth plan. "
+        f"Reference @{plan_path} for full context.{context_section}\n\n"
+        "Please help me implement this work. Break it down into concrete, "
+        "actionable steps with code examples."
+    )
 
     return prompt
 
@@ -1458,12 +1482,12 @@ def _open_claude_terminal(prompt: str) -> None:
     try:
         if system == "Darwin":  # macOS
             # Use osascript to open Terminal with claude command
-            applescript = f'''
+            applescript = f"""
 tell application "Terminal"
     activate
     do script "claude {escaped_prompt}"
 end tell
-'''
+"""
             subprocess.run(["osascript", "-e", applescript], check=True)
 
         elif system == "Linux":
@@ -1481,10 +1505,7 @@ end tell
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     continue
 
-            raise RuntimeError(
-                "Could not find a terminal emulator. "
-                "Please install gnome-terminal, konsole, or xterm."
-            )
+            raise RuntimeError("Could not find a terminal emulator. Please install gnome-terminal, konsole, or xterm.")
 
         elif system == "Windows":
             # Use cmd.exe to open a new window with claude
@@ -1741,8 +1762,8 @@ async def _build_async(
             "  3. Command options: --api-key and --provider\n"
             "  4. Environment: SKENE_API_KEY\n\n"
             "Example config:\n"
-            "  api_key = \"your-api-key\"\n"
-            "  provider = \"gemini\"  # or anthropic, openai, ollama\n"
+            '  api_key = "your-api-key"\n'
+            '  provider = "gemini"  # or anthropic, openai, ollama\n'
         )
         raise typer.Exit(1)
     # Auto-detect plan file
@@ -1956,6 +1977,7 @@ async def _build_async(
         console.print(f"[yellow]Warning:[/yellow] Failed to save growth loop: {e}")
         if config.verbose:
             import traceback
+
             console.print(traceback.format_exc())
 
     # Execute based on target
@@ -1982,11 +2004,13 @@ async def _build_async(
         try:
             _open_claude_terminal(prompt)
             console.print("[green]Success![/green] A new terminal window should open with Claude.\n")
-            console.print("[dim]Note: Requires Claude CLI to be installed. See: https://docs.anthropic.com/claude-code[/dim]")
+            console.print(
+                "[dim]Note: Requires Claude CLI to be installed. See: https://docs.anthropic.com/claude-code[/dim]"
+            )
         except RuntimeError as e:
             console.print(f"\n[red]Error:[/red] {e}\n")
             console.print("[yellow]Manual command:[/yellow]")
-            console.print(f"claude \"{prompt[:100]}...\"")
+            console.print(f'claude "{prompt[:100]}..."')
             console.print("\n[dim]You can copy the full prompt below and run it with Claude manually:[/dim]\n")
             console.print(Panel(prompt, title="Prompt", border_style="blue"))
             raise typer.Exit(1)
