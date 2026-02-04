@@ -146,6 +146,11 @@ def analyze(
             "Example: --exclude tests --exclude vendor"
         ),
     ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        help="Base URL for OpenAI-compatible API endpoint (required for 'generic' provider)",
+    ),
 ):
     """
     Analyze a codebase and generate growth-manifest.json.
@@ -183,6 +188,7 @@ def analyze(
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
+    resolved_base_url = base_url or config.base_url
     if model:
         resolved_model = model
     else:
@@ -209,13 +215,22 @@ def analyze(
     else:
         resolved_output = Path(config.output_dir) / "growth-manifest.json"
 
-    # LM Studio and Ollama don't require an API key (local servers)
+    # LM Studio, Ollama, and generic providers may not require an API key
     is_local_provider = resolved_provider.lower() in (
         "lmstudio",
         "lm-studio",
         "lm_studio",
         "ollama",
+        "generic",
+        "openai-compatible",
+        "openai_compatible",
     )
+
+    # Generic provider requires base_url
+    if resolved_provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
+        if not resolved_base_url:
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            raise typer.Exit(1)
 
     if not resolved_api_key:
         if is_local_provider:
@@ -259,6 +274,7 @@ def analyze(
             product_docs,
             business_type,
             exclude_folders=exclude_folders if exclude_folders else None,
+            base_url=resolved_base_url,
         )
     )
 
@@ -273,6 +289,7 @@ async def _run_analysis(
     product_docs: Optional[bool] = False,
     business_type: Optional[str] = None,
     exclude_folders: Optional[list[str]] = None,
+    base_url: Optional[str] = None,
 ):
     """Run the async analysis."""
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
@@ -292,7 +309,7 @@ async def _run_analysis(
             codebase = CodebaseExplorer(path, exclude_folders=exclude_folders)
 
             progress.update(task, description="Connecting to LLM provider...")
-            llm = create_llm_client(provider, SecretStr(api_key), model)
+            llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url)
 
             # Create analyzer
             progress.update(task, description="Creating analyzer...")
@@ -561,6 +578,11 @@ def plan(
         "--verbose",
         help="Enable verbose output",
     ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        help="Base URL for OpenAI-compatible API endpoint (required for 'generic' provider)",
+    ),
 ):
     """
     Generate a growth plan using Council of Growth Engineers.
@@ -586,6 +608,7 @@ def plan(
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
+    resolved_base_url = base_url or config.base_url
     if model:
         resolved_model = model
     else:
@@ -648,7 +671,16 @@ def plan(
         "lm-studio",
         "lm_studio",
         "ollama",
+        "generic",
+        "openai-compatible",
+        "openai_compatible",
     )
+
+    # Generic provider requires base_url
+    if resolved_provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
+        if not resolved_base_url:
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            raise typer.Exit(1)
 
     if not resolved_api_key:
         if is_local_provider:
@@ -700,6 +732,7 @@ def plan(
             provider=resolved_provider,
             model=resolved_model,
             verbose=verbose,
+            base_url=resolved_base_url,
         )
     )
 
@@ -755,6 +788,7 @@ async def _run_cycle(
     provider: str,
     model: str,
     verbose: bool,
+    base_url: Optional[str] = None,
 ):
     """Run cycle generation using Council of Growth Engineers."""
     from pydantic import SecretStr
@@ -787,7 +821,7 @@ async def _run_cycle(
 
             # Connect to LLM
             progress.update(task, description="Connecting to LLM provider...")
-            llm = create_llm_client(provider, SecretStr(api_key), model)
+            llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url)
 
             # Generate Council memo
             progress.update(task, description="Generating Council memo...")
