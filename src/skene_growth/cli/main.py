@@ -1139,7 +1139,7 @@ def models_download(
     console.print("[dim]This may take a while depending on your connection speed.[/dim]\n")
 
     try:
-        path = download_model(model, show_progress=True)
+        path = download_model(model)
         console.print(f"\n[green]Success![/green] Model downloaded to: {path}")
     except Exception as e:
         console.print(f"[red]Error downloading model:[/red] {e}")

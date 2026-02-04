@@ -92,13 +92,12 @@ def list_models_status() -> list[ModelStatus]:
     return statuses
 
 
-def download_model(model_id: str, show_progress: bool = True) -> Path:
+def download_model(model_id: str) -> Path:
     """
     Download a model from Hugging Face.
 
     Args:
         model_id: Model identifier from the registry
-        show_progress: Whether to show download progress
 
     Returns:
         Path to the downloaded model file
