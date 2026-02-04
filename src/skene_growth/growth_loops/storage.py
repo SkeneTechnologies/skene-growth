@@ -106,17 +106,32 @@ def sanitize_filename(name: str, max_length: int = 80) -> str:
     # Collapse whitespace to single underscores
     result = re.sub(r"\s+", "_", result)
 
-    # Collapse multiple underscores
+    # Preserve trailing underscores before collapsing
+    # Count trailing underscores (from consecutive illegal chars)
+    trailing_underscore_count = 0
+    if result.endswith("_"):
+        trailing_underscore_count = len(result) - len(result.rstrip("_"))
+        result = result.rstrip("_")
+
+    # Collapse multiple underscores in the main part
     result = re.sub(r"_+", "_", result)
 
-    # Strip leading/trailing underscores and whitespace
-    result = result.strip("_ ")
+    # Strip leading underscores and whitespace
+    result = result.lstrip("_ ")
+
+    # If result is empty after processing, return fallback (don't restore trailing underscores)
+    if not result:
+        return "growth_loop"
+
+    # Restore trailing underscores (preserve count from consecutive illegal chars)
+    if trailing_underscore_count > 0:
+        result = result + "_" * trailing_underscore_count
 
     # Enforce max length
     if len(result) > max_length:
         result = result[:max_length].rstrip("_")
 
-    # Ensure non-empty
+    # Ensure non-empty (final check)
     if not result:
         return "growth_loop"
 
