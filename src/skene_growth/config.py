@@ -24,6 +24,7 @@ DEFAULT_MODEL_BY_PROVIDER = {
     "anthropic": "claude-haiku-4-5-20251001",
     "claude": "claude-haiku-4-5-20251001",
     "ollama": "llama2",
+    "local": "qwen-2.5-3b",
 }
 
 
