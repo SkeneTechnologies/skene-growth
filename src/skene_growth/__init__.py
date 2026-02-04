@@ -25,7 +25,6 @@ from skene_growth.manifest import (
     TechStack,
 )
 from skene_growth.planner import (
-    GrowthLoop,
     Planner,
 )
 from skene_growth.strategies import (
@@ -81,6 +80,5 @@ __all__ = [
     "DocsGenerator",
     "PSEOBuilder",
     # Planner
-    "GrowthLoop",
     "Planner",
 ]

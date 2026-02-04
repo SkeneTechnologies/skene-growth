@@ -1271,82 +1271,9 @@ def _extract_technical_execution(plan_content: str) -> dict[str, str] | None:
     return result if any(result.values()) else None
 
 
-def _extract_now_sequence_item(sequence_text: str) -> str | None:
-    """Extract the 'NOW' (L+24h) item from the Sequence section.
-
-    Args:
-        sequence_text: The Sequence section content
-
-    Returns:
-        The NOW/L+24h item text or None if not found
-    """
-    import re
-
-    # Patterns to stop at (these indicate the end of the NOW item)
-    stop_patterns = [
-        r"\n\s*[-*]?\s*\*\*L\+",           # **L+7d etc
-        r"\n\s*[-*]?\s*L\+",               # L+7d etc
-        r"\n\s*\d+\.\s*Next:",             # 2. Next:
-        r"\n\s*\d+\.\s*Later:",            # 3. Later:
-        r"\n\s*[-*]\s*\*\*Next",           # - **Next
-        r"\n\s*[-*]\s*\*\*Later",          # - **Later
-        r"\n\s*[-*]\s*Next:",              # - Next:
-        r"\n\s*[-*]\s*Later:",             # - Later:
-        r"\n\s*\*\*Next",                  # **Next
-        r"\n\s*\*\*Later",                 # **Later
-        r"\n\n",                           # Double newline
-    ]
-    
-    def clean_now_item(item: str) -> str:
-        """Clean the NOW item by removing any trailing Next/Later content."""
-        # Stop at any of the stop patterns
-        for pattern in stop_patterns:
-            parts = re.split(pattern, item, maxsplit=1, flags=re.IGNORECASE)
-            item = parts[0]
-        # Clean up markdown formatting
-        item = re.sub(r"\*\*", "", item)
-        item = re.sub(r"\[.*?\]", "", item)
-        return item.strip()
-
-    # Look for L+24h, NOW, or similar patterns
-    patterns = [
-        r"\*\*L\+24h[:\*]*\*\*\s*[:\-]?\s*(.*)",
-        r"\*\*NOW[:\*]*\*\*\s*[:\-]?\s*(.*)",
-        r"L\+24h[:\s]+(.*)",
-        r"NOW[:\s]+(.*)",
-        r"1\.\s*(?:Now|NOW)[:\s]*(.*)",    # 1. Now:
-        r"[-*]\s*\*\*(?:Now|NOW)[:\*]*\*\*\s*(.*)",  # - **Now**
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, sequence_text, re.IGNORECASE | re.DOTALL)
-        if match:
-            item = clean_now_item(match.group(1))
-            if item:
-                return item
-
-    # Fallback: get first item (numbered or bullet)
-    # Try numbered list first
-    first_numbered = re.search(r"^\s*1\.\s*(.*?)(?=\n\s*2\.|\n\n|\Z)", sequence_text, re.MULTILINE | re.DOTALL)
-    if first_numbered:
-        item = clean_now_item(first_numbered.group(1))
-        if item:
-            return item
-
-    # Try bullet point
-    first_bullet = re.search(r"^\s*[-*]\s*(.*?)(?=\n\s*[-*]|\n\n|\Z)", sequence_text, re.MULTILINE | re.DOTALL)
-    if first_bullet:
-        item = clean_now_item(first_bullet.group(1))
-        if item:
-            return item
-
-    return None
-
-
 async def _build_prompt_with_llm(
     plan_path: Path,
     technical_execution: dict[str, str],
-    now_task: str,
     llm,
 ) -> str:
     """Use LLM to build an intelligent prompt from the growth plan.
@@ -1354,13 +1281,12 @@ async def _build_prompt_with_llm(
     Args:
         plan_path: Path to the growth plan file
         technical_execution: Extracted technical execution section
-        now_task: The NOW/L+24h task to complete
         llm: LLM client instance
 
     Returns:
         LLM-generated prompt for Cursor AI
     """
-    # Prepare the context for the LLM
+    # Prepare the context for the LLM - include all engineering content
     context_parts = []
     
     if technical_execution.get("next_build"):
@@ -1374,11 +1300,14 @@ async def _build_prompt_with_llm(
     
     if technical_execution.get("data_triggers"):
         context_parts.append(f"Data Triggers:\n{technical_execution['data_triggers']}")
+    
+    if technical_execution.get("sequence"):
+        context_parts.append(f"Sequence:\n{technical_execution['sequence']}")
 
     context = "\n\n".join(context_parts) if context_parts else "No additional context available."
 
     # Prompt the LLM to generate an implementation prompt
-    meta_prompt = f"""You are a prompt engineer. Create a focused, actionable prompt for an AI coding assistant to help implement a specific task.
+    meta_prompt = f"""You are a prompt engineer. Create a focused, actionable prompt for an AI coding assistant to help implement the engineering work described in the growth plan.
 
 ## Input Information
 
@@ -1387,19 +1316,15 @@ async def _build_prompt_with_llm(
 **Technical Execution Context:**
 {context}
 
-**Task to Complete NOW (L+24h):**
-{now_task}
-
 ## Your Task
 
 Generate a clear, concise prompt that:
-1. States the immediate task to be completed
-2. Includes relevant technical context (What We're Building, Confidence, Logic, Data Triggers)
+1. States the engineering work to be completed based on the Technical Execution context
+2. Includes all relevant technical context (What We're Building, Confidence, Logic, Data Triggers, Sequence)
 3. References the growth plan file for additional context using @{plan_path}
 4. Asks for step-by-step implementation with code examples
-5. Focuses ONLY on the NOW task - DO NOT mention Next, Later, L+7d, L+30d, or future steps
-6. Is direct and actionable (no fluff)
-7. Is formatted clearly with markdown headers
+5. Is direct and actionable (no fluff)
+6. Is formatted clearly with markdown headers
 
 Generate the prompt now (output ONLY the prompt, no explanations):"""
 
@@ -1414,21 +1339,20 @@ Generate the prompt now (output ONLY the prompt, no explanations):"""
     except Exception as e:
         console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
         console.print("[dim]Falling back to template...[/dim]")
-        return _build_prompt_from_template(plan_path, technical_execution, now_task)
+        return _build_prompt_from_template(plan_path, technical_execution)
 
 
-def _build_prompt_from_template(plan_path: Path, technical_execution: dict[str, str], now_task: str) -> str:
+def _build_prompt_from_template(plan_path: Path, technical_execution: dict[str, str]) -> str:
     """Build a prompt from static template (fallback).
 
     Args:
         plan_path: Path to the growth plan file
         technical_execution: Extracted technical execution section
-        now_task: The NOW/L+24h task to complete
 
     Returns:
         Template-generated prompt for Cursor AI
     """
-    # Build technical context (excluding sequence - we only want NOW)
+    # Build technical context - include all engineering content
     context_parts = []
     
     if technical_execution.get("next_build"):
@@ -1442,18 +1366,17 @@ def _build_prompt_from_template(plan_path: Path, technical_execution: dict[str, 
     
     if technical_execution.get("data_triggers"):
         context_parts.append(f"**Data Triggers:**\n{technical_execution['data_triggers']}")
+    
+    if technical_execution.get("sequence"):
+        context_parts.append(f"**Sequence:**\n{technical_execution['sequence']}")
 
     context = "\n\n".join(context_parts) if context_parts else ""
     
     context_section = f"\n\n## Technical Execution Context\n\n{context}" if context else ""
     
-    prompt = f"""I need to implement this task immediately. Reference @{plan_path} for full context.
+    prompt = f"""I need to implement the engineering work described in the growth plan. Reference @{plan_path} for full context.{context_section}
 
-## Task to Complete NOW
-
-{now_task}{context_section}
-
-Please help me implement this specific task. Break it down into concrete, actionable steps with code examples. Focus only on completing this immediate task."""
+Please help me implement this work. Break it down into concrete, actionable steps with code examples."""
     
     return prompt
 
@@ -1864,31 +1787,10 @@ async def _build_async(
             "  - Confidence Score\n"
             "  - Exact Logic\n"
             "  - Data Triggers\n"
-            "  - Sequence (with NOW/L+24h task)\n\n"
+            "  - Sequence\n\n"
             "Generate a proper plan with: [cyan]skene plan[/cyan]\n"
         )
         raise typer.Exit(1)
-    
-    # Extract NOW task from sequence
-    sequence_text = technical_execution.get("sequence", "")
-    now_task = _extract_now_sequence_item(sequence_text)
-
-    if not now_task:
-        console.print(
-            "[yellow]Warning:[/yellow] Could not extract NOW (L+24h) task from Sequence.\n"
-            "Using first sequence item or falling back...\n"
-        )
-        # Try to get any sequence item
-        if sequence_text:
-            # Get first bullet point
-            import re
-            first_match = re.search(r"[-*]\s*\*\*.*?\*\*\s*(.*?)(?=\n|$)", sequence_text, re.MULTILINE)
-            if first_match:
-                now_task = first_match.group(1).strip()
-            else:
-                now_task = sequence_text.split("\n")[0].strip()
-        else:
-            now_task = "Review the growth plan Technical Execution section and implement the immediate task."
 
     # Create LLM client and generate prompt
     if model is None:
@@ -1902,14 +1804,14 @@ async def _build_async(
         console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
         
         # Generate prompt with LLM
-        prompt = await _build_prompt_with_llm(plan.resolve(), technical_execution, now_task, llm)
+        prompt = await _build_prompt_with_llm(plan.resolve(), technical_execution, llm)
         
     except Exception as e:
         console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
         console.print("[dim]Falling back to template...[/dim]\n")
-        prompt = _build_prompt_from_template(plan.resolve(), technical_execution, now_task)
+        prompt = _build_prompt_from_template(plan.resolve(), technical_execution)
 
-    # Display the NOW task
+    # Display the technical execution context
     console.print(f"\n[bold blue]Building prompt from Technical Execution:[/bold blue] {plan}\n")
     
     if technical_execution.get("next_build"):
@@ -1921,15 +1823,6 @@ async def _build_async(
                 padding=(1, 2),
             )
         )
-    
-    console.print(
-        Panel(
-            now_task,
-            title="[bold yellow]Task to Complete NOW (L+24h)[/bold yellow]",
-            border_style="yellow",
-            padding=(1, 2),
-        )
-    )
 
     # Show the prompt preview
     console.print("\n[bold]Generated Prompt Preview:[/bold]")
@@ -2010,7 +1903,7 @@ async def _build_async(
             base_output_dir = Path(config.output_dir)
 
         # Generate loop definition with LLM
-        console.print("\n[dim]Generating growth loop definition...[/dim]")
+        console.print("\n[dim]Please wait...Finalising the prompt and generating growth loop definition...[/dim]")
         loop_definition = await generate_loop_definition_with_llm(
             llm=llm,
             technical_execution=technical_execution,
