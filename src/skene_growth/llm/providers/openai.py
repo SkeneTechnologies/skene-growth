@@ -7,13 +7,13 @@ from typing import AsyncGenerator, Optional
 from loguru import logger
 from pydantic import SecretStr
 
-from skene_growth.llm.base import LLMClient
+from skene_growth.llm.providers.openai_compat import OpenAICompatibleClient
 
 # Default fallback model for rate limiting (429 errors)
 DEFAULT_FALLBACK_MODEL = "gpt-4o-mini"
 
 
-class OpenAIClient(LLMClient):
+class OpenAIClient(OpenAICompatibleClient):
     """
     OpenAI LLM client.
 
@@ -42,14 +42,8 @@ class OpenAIClient(LLMClient):
             model_name: Primary model to use (e.g., "gpt-4o", "gpt-4o-mini")
             fallback_model: Model to use when rate limited (default: gpt-4o-mini)
         """
-        try:
-            from openai import AsyncOpenAI
-        except ImportError:
-            raise ImportError("openai is required for OpenAI support. Install with: pip install skene-growth[openai]")
-
-        self.model_name = model_name
+        super().__init__(api_key=api_key, model_name=model_name)
         self.fallback_model = fallback_model or DEFAULT_FALLBACK_MODEL
-        self.client = AsyncOpenAI(api_key=api_key.get_secret_value())
 
     async def generate_content(
         self,
@@ -153,10 +147,6 @@ class OpenAIClient(LLMClient):
                 raise RuntimeError(f"Rate limit error in streaming generation: {model_to_use}")
         except Exception as e:
             raise RuntimeError(f"Error in streaming generation: {e}")
-
-    def get_model_name(self) -> str:
-        """Return the primary model name."""
-        return self.model_name
 
     def get_provider_name(self) -> str:
         """Return the provider name."""

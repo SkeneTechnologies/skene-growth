@@ -93,6 +93,11 @@ class Config:
                 return [exclude]
         return []
 
+    @property
+    def base_url(self) -> str | None:
+        """Get base URL for OpenAI-compatible providers."""
+        return self.get("base_url")
+
 
 def find_project_config() -> Path | None:
     """Find project-level config file (.skene-growth.config)."""
@@ -166,5 +171,7 @@ def load_config() -> Config:
         config.set("api_key", api_key)
     if provider := os.environ.get("SKENE_PROVIDER"):
         config.set("provider", provider)
+    if base_url := os.environ.get("SKENE_BASE_URL"):
+        config.set("base_url", base_url)
 
     return config

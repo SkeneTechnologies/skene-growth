@@ -398,13 +398,19 @@ def analyze(
         None,
         "--provider",
         "-p",
-        help="LLM provider to use (openai, gemini, anthropic/claude, ollama)",
+        help="LLM provider to use (openai, gemini, anthropic/claude, lmstudio, ollama, generic)",
     ),
     model: Optional[str] = typer.Option(
         None,
         "--model",
         "-m",
         help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
+    ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        envvar="SKENE_BASE_URL",
+        help="Base URL for OpenAI-compatible API endpoint (required for generic provider)",
     ),
     verbose: bool = typer.Option(
         False,
@@ -471,6 +477,7 @@ def analyze(
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
+    resolved_base_url = base_url or config.base_url
     if model:
         resolved_model = model
     else:
@@ -503,7 +510,16 @@ def analyze(
         "lm-studio",
         "lm_studio",
         "ollama",
+        "generic",
+        "openai-compatible",
+        "openai_compatible",
     )
+
+    # Generic provider requires base_url
+    if resolved_provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
+        if not resolved_base_url:
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            raise typer.Exit(1)
 
     # If no API key and not using local provider, show sample report
     if not resolved_api_key and not is_local_provider:
@@ -514,13 +530,10 @@ def analyze(
         _show_sample_report(path, output, exclude_folders=exclude if exclude else None)
         return
 
-    if not resolved_api_key and not is_local_provider:
-        console.print(
-            "[yellow]Warning:[/yellow] No API key provided. "
-            "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
-        )
-        console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
-        raise typer.Exit(1)
+    if not resolved_api_key:
+        if is_local_provider:
+            resolved_api_key = resolved_provider  # Dummy key for local server
+  
 
     # If product docs are requested, use docs mode to collect features
     mode_str = "docs" if product_docs else "growth"
@@ -553,6 +566,7 @@ def analyze(
             product_docs,
             business_type,
             exclude_folders=exclude_folders if exclude_folders else None,
+            base_url=resolved_base_url,
         )
     )
 
@@ -567,6 +581,7 @@ async def _run_analysis(
     product_docs: Optional[bool] = False,
     business_type: Optional[str] = None,
     exclude_folders: Optional[list[str]] = None,
+    base_url: Optional[str] = None,
 ):
     """Run the async analysis."""
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
@@ -1236,53 +1251,35 @@ def _extract_technical_execution(plan_content: str) -> dict[str, str] | None:
         "sequence": "",
     }
 
-    # Extract "The Next Build" - handles format like "**The Next Build: ...**\nDescription..."
-    next_build_pattern = (
-        r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)"
-        r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
-    )
-    next_build_match = re.search(next_build_pattern, section_content, re.IGNORECASE | re.DOTALL)
+    # Extract "The Next Build" - handles format like "**The Next Build: The "Zero-Key" Discovery Engine**\nDescription..."
+    next_build_match = re.search(r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
     if next_build_match:
         title = next_build_match.group(1).strip()
         description = next_build_match.group(2).strip()
         result["next_build"] = f"{title}\n{description}"
     else:
         # Fallback: simpler pattern
-        fallback_pattern = (
-            r"\*\*The Next Build[:\*]*\*\*\s*[:\-]?\s*(.*?)"
-            r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
-        )
-        next_build_match = re.search(fallback_pattern, section_content, re.IGNORECASE | re.DOTALL)
+        next_build_match = re.search(r"\*\*The Next Build[:\*]*\*\*\s*[:\-]?\s*(.*?)(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
         if next_build_match:
             result["next_build"] = next_build_match.group(1).strip()
 
     # Extract Confidence Score
-    confidence_pattern = r"\*\*Confidence\s+Score[:\*]*\*\*[:\s]*(.*?)(?=\*\*|$)"
-    confidence_match = re.search(confidence_pattern, section_content, re.IGNORECASE | re.DOTALL)
+    confidence_match = re.search(r"\*\*Confidence\s+Score[:\*]*\*\*[:\s]*(.*?)(?=\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
     if confidence_match:
         result["confidence"] = confidence_match.group(1).strip()
 
     # Extract Exact Logic
-    logic_pattern = (
-        r"\*\*Exact\s+Logic.*?\*\*(.*?)"
-        r"(?=\*\*Exact\s+Data|\*\*Sequence|\*\*|$)"
-    )
-    logic_match = re.search(logic_pattern, section_content, re.IGNORECASE | re.DOTALL)
+    logic_match = re.search(r"\*\*Exact\s+Logic.*?\*\*(.*?)(?=\*\*Exact\s+Data|\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
     if logic_match:
         result["exact_logic"] = logic_match.group(1).strip()
 
     # Extract Exact Data Triggers
-    triggers_pattern = (
-        r"\*\*Exact\s+Data\s+Triggers.*?\*\*(.*?)"
-        r"(?=\*\*Sequence|\*\*|$)"
-    )
-    triggers_match = re.search(triggers_pattern, section_content, re.IGNORECASE | re.DOTALL)
+    triggers_match = re.search(r"\*\*Exact\s+Data\s+Triggers.*?\*\*(.*?)(?=\*\*Sequence|\*\*|$)", section_content, re.IGNORECASE | re.DOTALL)
     if triggers_match:
         result["data_triggers"] = triggers_match.group(1).strip()
 
     # Extract Sequence
-    sequence_pattern = r"\*\*Sequence[:\*]*\*\*(.*?)(?=\n\n###|\n\n##|\Z)"
-    sequence_match = re.search(sequence_pattern, section_content, re.IGNORECASE | re.DOTALL)
+    sequence_match = re.search(r"\*\*Sequence[:\*]*\*\*(.*?)(?=\n\n###|\n\n##|\Z)", section_content, re.IGNORECASE | re.DOTALL)
     if sequence_match:
         result["sequence"] = sequence_match.group(1).strip()
 
@@ -1325,9 +1322,7 @@ async def _build_prompt_with_llm(
     context = "\n\n".join(context_parts) if context_parts else "No additional context available."
 
     # Prompt the LLM to generate an implementation prompt
-    meta_prompt = (
-        f"""You are a prompt engineer. Create a focused, actionable prompt """
-        f"""for an AI coding assistant to help implement the engineering work described in the growth plan.
+    meta_prompt = f"""You are a prompt engineer. Create a focused, actionable prompt for an AI coding assistant to help implement the engineering work described in the growth plan.
 
 ## Input Information
 
@@ -1347,7 +1342,6 @@ Generate a clear, concise prompt that:
 6. Is formatted clearly with markdown headers
 
 Generate the prompt now (output ONLY the prompt, no explanations):"""
-    )
 
     try:
         generated_prompt = await llm.generate_content(meta_prompt)
@@ -1395,12 +1389,9 @@ def _build_prompt_from_template(plan_path: Path, technical_execution: dict[str, 
 
     context_section = f"\n\n## Technical Execution Context\n\n{context}" if context else ""
 
-    prompt = (
-        f"""I need to implement the engineering work described in the growth plan. """
-        f"""Reference @{plan_path} for full context.{context_section}
+    prompt = f"""I need to implement the engineering work described in the growth plan. Reference @{plan_path} for full context.{context_section}
 
 Please help me implement this work. Break it down into concrete, actionable steps with code examples."""
-    )
 
     return prompt
 
