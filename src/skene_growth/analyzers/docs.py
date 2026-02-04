@@ -5,13 +5,15 @@ Extends growth manifest analysis to include real product documentation
 fields like product_overview and features.
 """
 
+from typing import Any
+
 from skene_growth.analyzers.prompts import (
-    DOCS_MANIFEST_PROMPT,
     FEATURES_PROMPT,
-    GROWTH_FEATURES_PROMPT,
     INDUSTRY_PROMPT,
     PRODUCT_OVERVIEW_PROMPT,
     TECH_STACK_PROMPT,
+    build_docs_manifest_prompt,
+    build_growth_features_prompt,
 )
 from skene_growth.manifest import (
     DocsManifest,
@@ -51,8 +53,18 @@ class DocsAnalyzer(MultiStepStrategy):
         manifest = DocsManifest.model_validate(result.data.get("output"))
     """
 
-    def __init__(self):
+    def __init__(self, existing_growth_loops: list[dict[str, Any]] | None = None):
         """Initialize the docs analyzer with all analysis steps."""
+        self.existing_growth_loops = existing_growth_loops or []
+        
+        # Format existing loops for prompt inclusion
+        from skene_growth.growth_loops.storage import format_growth_loops_summary
+        loops_summary = format_growth_loops_summary(self.existing_growth_loops)
+        
+        # Build prompts with existing loops context
+        growth_features_prompt = build_growth_features_prompt(loops_summary)
+        docs_manifest_prompt = build_docs_manifest_prompt(loops_summary)
+        
         super().__init__(
             steps=[
                 # Phase 1: Tech Stack Detection
@@ -145,13 +157,13 @@ class DocsAnalyzer(MultiStepStrategy):
                     source_key="source_contents",
                 ),
                 AnalyzeStep(
-                    prompt=GROWTH_FEATURES_PROMPT,
+                    prompt=growth_features_prompt,
                     output_key="current_growth_features",
                     source_key="source_contents",
                 ),
                 # Phase 5: Final Manifest Generation
                 GenerateStep(
-                    prompt=DOCS_MANIFEST_PROMPT,
+                    prompt=docs_manifest_prompt,
                     output_schema=DocsManifest,
                     include_context_keys=[
                         "tech_stack",

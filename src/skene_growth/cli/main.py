@@ -588,13 +588,24 @@ async def _run_analysis(
             progress.update(task, description="Connecting to LLM provider...")
             llm = create_llm_client(provider, SecretStr(api_key), model)
 
+            # Load existing growth loops from output directory
+            progress.update(task, description="Loading existing growth loops...")
+            from skene_growth.growth_loops.storage import load_existing_growth_loops
+            
+            # Determine base directory for loading existing loops
+            base_dir = output.parent if output.parent.name == "skene-context" else output.parent
+            existing_loops = load_existing_growth_loops(base_dir)
+            
+            if existing_loops:
+                progress.update(task, description=f"Found {len(existing_loops)} existing growth loop(s)...")
+            
             # Create analyzer
             progress.update(task, description="Creating analyzer...")
             if product_docs:
-                analyzer = DocsAnalyzer()
+                analyzer = DocsAnalyzer(existing_growth_loops=existing_loops)
                 request_msg = "Generate documentation for this project"
             else:
-                analyzer = ManifestAnalyzer()
+                analyzer = ManifestAnalyzer(existing_growth_loops=existing_loops)
                 request_msg = "Analyze this codebase for growth opportunities"
 
             # Define progress callback
@@ -1977,6 +1988,66 @@ async def _build_async(
         elif selection == "4":
             console.print("[dim]Cancelled.[/dim]")
             return
+
+    # Save growth loop definition (only if not cancelled)
+    try:
+        from skene_growth.growth_loops.storage import (
+            derive_loop_name,
+            derive_loop_id,
+            generate_timestamped_filename,
+            generate_loop_definition_with_llm,
+            write_growth_loop_json,
+        )
+
+        # Derive initial loop metadata (will be refined after LLM generation)
+        loop_name = derive_loop_name(technical_execution)
+        loop_id = derive_loop_id(loop_name)
+
+        # Determine base output directory
+        if context and context.exists():
+            base_output_dir = context
+        else:
+            base_output_dir = Path(config.output_dir)
+
+        # Generate loop definition with LLM
+        console.print("\n[dim]Generating growth loop definition...[/dim]")
+        loop_definition = await generate_loop_definition_with_llm(
+            llm=llm,
+            technical_execution=technical_execution,
+            plan_path=plan.resolve(),
+            codebase_path=Path.cwd(),
+        )
+        
+        # Extract loop_id and name from generated definition (in case LLM changed them)
+        loop_id = loop_definition.get("loop_id", loop_id)
+        loop_name = loop_definition.get("name", loop_name)
+        
+        # Generate filename using final loop_id
+        timestamped_filename = generate_timestamped_filename(loop_id)
+
+        # Add metadata for tracking
+        loop_definition["_metadata"] = {
+            "source_plan_path": str(plan.resolve()),
+            "saved_at": datetime.now().isoformat(),
+            "target": target,
+            "prompt": prompt,
+        }
+
+        # Write to file
+        saved_path = write_growth_loop_json(
+            base_dir=base_output_dir,
+            filename=timestamped_filename,
+            payload=loop_definition,
+        )
+
+        console.print(f"[dim]Saved growth loop to: {saved_path}[/dim]\n")
+
+    except Exception as e:
+        # Don't fail the whole build if storage fails
+        console.print(f"[yellow]Warning:[/yellow] Failed to save growth loop: {e}")
+        if config.verbose:
+            import traceback
+            console.print(traceback.format_exc())
 
     # Execute based on target
     if target == "show":
