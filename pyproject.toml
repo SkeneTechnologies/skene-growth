@@ -42,6 +42,11 @@ mcp = [
     "mcp>=1.0.0",
     "xxhash>=3.0",
 ]
+local = [
+    "llama-cpp-python>=0.2.0",
+    "huggingface_hub>=0.20.0",
+    "pyyaml>=6.0",
+]
 
 [project.scripts]
 skene-growth = "skene_growth.cli.main:app"
