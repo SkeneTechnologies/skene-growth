@@ -84,7 +84,9 @@ def extract_technical_execution(plan_content: str) -> dict[str, str] | None:
     }
 
     # Extract "The Next Build"
-    pattern = r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)" r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
+    pattern = (
+        r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)" r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
+    )
     next_build_match = re.search(pattern, section_content, re.IGNORECASE | re.DOTALL)
     if next_build_match:
         title = next_build_match.group(1).strip()

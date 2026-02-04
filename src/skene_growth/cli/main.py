@@ -19,26 +19,23 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import typer
 from pydantic import SecretStr
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from skene_growth import __version__
 from skene_growth.cli.analysis_helpers import (
-    json_serializer,
     run_analysis,
     run_cycle,
     show_analysis_summary,
 )
 from skene_growth.cli.config_manager import (
     create_sample_config,
-    get_provider_models,
     interactive_config_setup,
     save_config,
     show_config_status,
@@ -47,7 +44,6 @@ from skene_growth.cli.output_writers import write_growth_template, write_product
 from skene_growth.cli.prompt_builder import (
     build_prompt_from_template,
     build_prompt_with_llm,
-    extract_ceo_next_action,
     extract_technical_execution,
     open_claude_terminal,
     open_cursor_deeplink,
@@ -322,13 +318,9 @@ def analyze(
         if result.data:
             show_analysis_summary(result.data, template_data)
 
-    from pydantic import SecretStr
-
     from skene_growth.llm import create_llm_client
 
     asyncio.run(execute_analysis())
-
-
 
 
 @app.command()
@@ -724,8 +716,6 @@ def chat(
     )
 
 
-
-
 @app.command()
 def validate(
     manifest: Path = typer.Argument(
@@ -1115,8 +1105,6 @@ async def _build_async(
             console.print("\n[dim]You can copy the full prompt below and run it with Claude manually:[/dim]\n")
             console.print(Panel(prompt, title="Prompt", border_style="blue"))
             raise typer.Exit(1)
-
-
 
 
 @app.command()

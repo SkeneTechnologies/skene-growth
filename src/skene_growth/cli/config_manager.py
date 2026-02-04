@@ -5,7 +5,7 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Prompt
 from rich.table import Table
 
 console = Console()
@@ -171,7 +171,9 @@ def interactive_config_setup() -> tuple[Path, str, str, str]:
                 selected_provider = providers[idx]
                 break
             else:
-                console.print("[red]Invalid choice. Please enter a number between 1 and {}[/red]".format(len(providers)))
+                console.print(
+                    "[red]Invalid choice. Please enter a number between 1 and {}[/red]".format(len(providers))
+                )
         except ValueError:
             console.print("[red]Please enter a valid number[/red]")
 
