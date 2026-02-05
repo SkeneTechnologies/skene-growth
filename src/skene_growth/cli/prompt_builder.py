@@ -1,5 +1,7 @@
 """Prompt building and deep link utilities for build command."""
 
+import asyncio
+import os
 import platform
 import re
 import shlex
@@ -128,6 +130,23 @@ def extract_technical_execution(plan_content: str) -> dict[str, str] | None:
     return result if any(result.values()) else None
 
 
+async def _show_progress_indicator(stop_event: asyncio.Event) -> None:
+    """Show progress indicator with filled boxes every second."""
+    count = 0
+    while not stop_event.is_set():
+        count += 1
+        # Print filled box (█) every second
+        console.print("[cyan]█[/cyan]", end="")
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=1.0)
+            break
+        except asyncio.TimeoutError:
+            continue
+    # Print newline when done
+    if count > 0:
+        console.print()
+
+
 async def build_prompt_with_llm(
     plan_path: Path,
     technical_execution: dict[str, str],
@@ -186,8 +205,14 @@ async def build_prompt_with_llm(
         f"Generate the prompt now (output ONLY the prompt, no explanations):"
     )
 
+    # Start progress indicator
+    stop_event = asyncio.Event()
+    progress_task = None
+    
     try:
+        progress_task = asyncio.create_task(_show_progress_indicator(stop_event))
         generated_prompt = await llm.generate_content(meta_prompt)
+        
         # Clean up any markdown code fences if present
         generated_prompt = generated_prompt.strip()
         if generated_prompt.startswith("```"):
@@ -198,6 +223,14 @@ async def build_prompt_with_llm(
         console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
         console.print("[dim]Falling back to template...[/dim]")
         return build_prompt_from_template(plan_path, technical_execution)
+    finally:
+        # Stop progress indicator
+        if progress_task is not None:
+            stop_event.set()
+            try:
+                await progress_task
+            except Exception:
+                pass
 
 
 def build_prompt_from_template(plan_path: Path, technical_execution: dict[str, str]) -> str:
@@ -288,27 +321,39 @@ def open_claude_terminal(prompt: str) -> None:
         RuntimeError: If opening the terminal fails
     """
     system = platform.system()
+    
+    # Get the current working directory
+    cwd = os.getcwd()
+    cwd_escaped = shlex.quote(cwd)
 
-    # Escape the prompt for shell execution
-    escaped_prompt = shlex.quote(prompt)
+    # Escape the prompt for shell execution (used for Linux and Windows)
+    shell_escaped_prompt = shlex.quote(prompt)
 
     try:
         if system == "Darwin":  # macOS
+            # Build command to change directory and run claude
+            # The shell command is: cd {cwd} && claude {shell_escaped_prompt}
+            shell_command = f"cd {cwd_escaped} && claude {shell_escaped_prompt}"
+            # Escape this string for AppleScript (escape " and \)
+            applescript_escaped_command = shell_command.replace("\\", "\\\\").replace('"', '\\"')
+            
             # Use osascript to open Terminal with claude command
             applescript = f"""
 tell application "Terminal"
     activate
-    do script "claude {escaped_prompt}"
+    do script "{applescript_escaped_command}"
 end tell
 """
             subprocess.run(["osascript", "-e", applescript], check=True)
 
         elif system == "Linux":
             # Try common terminal emulators in order of preference
+            # Change to the current directory before running claude
+            command = f"cd {cwd_escaped} && claude {shell_escaped_prompt}; exec bash"
             terminals = [
-                ["gnome-terminal", "--", "bash", "-c", f"claude {escaped_prompt}; exec bash"],
-                ["konsole", "-e", "bash", "-c", f"claude {escaped_prompt}; exec bash"],
-                ["xterm", "-e", "bash", "-c", f"claude {escaped_prompt}; exec bash"],
+                ["gnome-terminal", "--", "bash", "-c", command],
+                ["konsole", "-e", "bash", "-c", command],
+                ["xterm", "-e", "bash", "-c", command],
             ]
 
             for terminal_cmd in terminals:
@@ -322,7 +367,8 @@ end tell
 
         elif system == "Windows":
             # Use cmd.exe to open a new window with claude
-            cmd = f'start cmd /k "claude {escaped_prompt}"'
+            # Change to the current directory before running claude
+            cmd = f'start cmd /k "cd /d {cwd_escaped} && claude {shell_escaped_prompt}"'
             subprocess.run(cmd, shell=True, check=True)
 
         else:

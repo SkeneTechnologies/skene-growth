@@ -1,5 +1,6 @@
 """Analysis execution and summary utilities."""
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any, Optional
@@ -9,6 +10,23 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 console = Console()
+
+
+async def _show_progress_indicator(stop_event: asyncio.Event) -> None:
+    """Show progress indicator with filled boxes every second."""
+    count = 0
+    while not stop_event.is_set():
+        count += 1
+        # Print filled box (█) every second
+        console.print("[cyan]█[/cyan]", end="")
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=1.0)
+            break
+        except asyncio.TimeoutError:
+            continue
+    # Print newline when done
+    if count > 0:
+        console.print()
 
 
 def json_serializer(obj: Any) -> str:
@@ -232,18 +250,34 @@ async def run_cycle(
             from skene_growth.planner import Planner
 
             planner = Planner()
-            if onboarding:
-                memo_content = await planner.generate_onboarding_memo(
-                    llm=llm,
-                    manifest_data=manifest_data,
-                    template_data=template_data,
-                )
-            else:
-                memo_content = await planner.generate_council_memo(
-                    llm=llm,
-                    manifest_data=manifest_data,
-                    template_data=template_data,
-                )
+            
+            # Start progress indicator for generation
+            stop_event = asyncio.Event()
+            progress_task = None
+            
+            try:
+                progress_task = asyncio.create_task(_show_progress_indicator(stop_event))
+                
+                if onboarding:
+                    memo_content = await planner.generate_onboarding_memo(
+                        llm=llm,
+                        manifest_data=manifest_data,
+                        template_data=template_data,
+                    )
+                else:
+                    memo_content = await planner.generate_council_memo(
+                        llm=llm,
+                        manifest_data=manifest_data,
+                        template_data=template_data,
+                    )
+            finally:
+                # Stop progress indicator
+                if progress_task is not None:
+                    stop_event.set()
+                    try:
+                        await progress_task
+                    except Exception:
+                        pass
 
             # Write output
             progress.update(task, description="Writing output...")
