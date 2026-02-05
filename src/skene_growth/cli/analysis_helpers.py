@@ -250,14 +250,14 @@ async def run_cycle(
             from skene_growth.planner import Planner
 
             planner = Planner()
-            
+
             # Start progress indicator for generation
             stop_event = asyncio.Event()
             progress_task = None
-            
+
             try:
                 progress_task = asyncio.create_task(_show_progress_indicator(stop_event))
-                
+
                 if onboarding:
                     memo_content = await planner.generate_onboarding_memo(
                         llm=llm,

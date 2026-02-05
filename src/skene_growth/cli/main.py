@@ -929,7 +929,7 @@ async def _build_async(
         from skene_growth.llm import create_llm_client
 
         llm = create_llm_client(provider, SecretStr(api_key), model)
-        console.print(f"")
+        console.print("")
         console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
 
         # Generate prompt with LLM
@@ -1033,7 +1033,7 @@ async def _build_async(
 
         # Generate loop definition with LLM
         console.print("\n[dim]Please wait...Finalising the prompt and generating growth loop definition...[/dim]")
-        console.print(f"")
+        console.print("")
         loop_definition = await generate_loop_definition_with_llm(
             llm=llm,
             technical_execution=technical_execution,

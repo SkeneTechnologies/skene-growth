@@ -296,11 +296,11 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
     # Start progress indicator for generation
     stop_event = asyncio.Event()
     progress_task = None
-    
+
     try:
         progress_task = asyncio.create_task(_show_progress_indicator(stop_event))
         response = await llm.generate_content(prompt)
-        
+
         # Clean up response - remove markdown code fences if present
         response = response.strip()
         if response.startswith("```"):

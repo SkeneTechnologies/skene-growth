@@ -208,11 +208,11 @@ async def build_prompt_with_llm(
     # Start progress indicator
     stop_event = asyncio.Event()
     progress_task = None
-    
+
     try:
         progress_task = asyncio.create_task(_show_progress_indicator(stop_event))
         generated_prompt = await llm.generate_content(meta_prompt)
-        
+
         # Clean up any markdown code fences if present
         generated_prompt = generated_prompt.strip()
         if generated_prompt.startswith("```"):
@@ -321,7 +321,7 @@ def open_claude_terminal(prompt: str) -> None:
         RuntimeError: If opening the terminal fails
     """
     system = platform.system()
-    
+
     # Get the current working directory
     cwd = os.getcwd()
     cwd_escaped = shlex.quote(cwd)
@@ -336,7 +336,7 @@ def open_claude_terminal(prompt: str) -> None:
             shell_command = f"cd {cwd_escaped} && claude {shell_escaped_prompt}"
             # Escape this string for AppleScript (escape " and \)
             applescript_escaped_command = shell_command.replace("\\", "\\\\").replace('"', '\\"')
-            
+
             # Use osascript to open Terminal with claude command
             applescript = f"""
 tell application "Terminal"
