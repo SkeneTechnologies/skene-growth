@@ -102,11 +102,14 @@ The default model registry includes:
 
 | Model ID | Name | Size | Context Length | Best For |
 |----------|------|------|----------------|----------|
-| `qwen-2.5-3b` | Qwen 2.5 3B | ~2 GB | 32K | Fast analysis, lower memory |
+| `qwen-2.5-3b` | Qwen 2.5 3B | ~2 GB | 128K | Fast analysis, lower memory |
 | `llama-3.1-8b` | Llama 3.1 8B | ~5 GB | 128K | Balanced performance |
-| `qwen-2.5-14b` | Qwen 2.5 14B | ~9 GB | 32K | Higher quality output |
 
 All models use Q4_K_M quantization for a good balance of quality and performance.
+
+Models are sourced from:
+- Qwen models: [Qwen](https://huggingface.co/Qwen)
+- Llama models: [bartowski](https://huggingface.co/bartowski)
 
 ## Usage
 

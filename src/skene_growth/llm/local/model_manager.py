@@ -128,7 +128,6 @@ def download_model(model_id: str) -> Path:
             repo_id=config.huggingface_repo,
             filename=config.filename,
             local_dir=models_dir,
-            local_dir_use_symlinks=False,
         )
         logger.info(f"Downloaded {config.name} to {downloaded_path}")
         return Path(downloaded_path)
