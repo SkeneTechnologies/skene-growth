@@ -4,8 +4,8 @@ import asyncio
 import os
 import platform
 import re
-import shlex
 import subprocess
+import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
@@ -275,26 +275,68 @@ def build_prompt_from_template(plan_path: Path, technical_execution: dict[str, s
     return prompt
 
 
-def open_cursor_deeplink(prompt: str) -> None:
-    """Open Cursor with a deep link containing the prompt.
+def save_prompt_to_file(prompt: str, output_dir: Path | None = None) -> Path:
+    """Save prompt content to a markdown file.
+
+    Writes the prompt to a file in the specified directory, or to a
+    system temp file if no directory is provided. This avoids shell
+    escaping issues and works reliably across all platforms.
 
     Args:
-        prompt: The prompt text to send to Cursor
+        prompt: The prompt content to save
+        output_dir: Directory to save in (creates .skene-build-prompt.md).
+                    Falls back to system temp directory if not provided.
+
+    Returns:
+        Absolute path to the saved prompt file
+    """
+    if output_dir is not None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        prompt_file = output_dir / ".skene-build-prompt.md"
+        prompt_file.write_text(prompt, encoding="utf-8")
+        return prompt_file.resolve()
+
+    fd, path = tempfile.mkstemp(suffix=".md", prefix="skene-prompt-")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(prompt)
+    return Path(path)
+
+
+def open_cursor_deeplink(prompt_file: Path, project_root: Path | None = None) -> None:
+    """Open Cursor with a deep link referencing the saved prompt file.
+
+    Creates a short deep link that points Cursor to the prompt file,
+    avoiding URL length limitations from embedding the full prompt.
+
+    Args:
+        prompt_file: Path to the saved prompt markdown file
+        project_root: Project root for computing relative @-references
 
     Raises:
         RuntimeError: If opening the deep link fails
     """
-    # URL encode the prompt
-    encoded_prompt = quote(prompt, safe="")
+    # Build a relative path for Cursor's @-reference when possible
+    if project_root:
+        try:
+            relative_path = prompt_file.relative_to(project_root)
+            file_reference = f"@{relative_path}"
+        except ValueError:
+            file_reference = f"@{prompt_file}"
+    else:
+        file_reference = f"@{prompt_file}"
 
-    # Construct the deep link
+    prompt_content = prompt_file.read_text(encoding="utf-8")
+    short_prompt = (
+        f"The full task is saved in {file_reference}. "
+        f"Read and implement the instructions in that file."
+        f"\n\n{prompt_content}"
+    )
+    encoded_prompt = quote(short_prompt, safe="")
     deep_link = f"cursor://anysphere.cursor-deeplink/prompt?text={encoded_prompt}"
 
-    # Determine the command based on platform
     system = platform.system()
-
     try:
-        if system == "Darwin":  # macOS
+        if system == "Darwin":
             subprocess.run(["open", deep_link], check=True)
         elif system == "Linux":
             subprocess.run(["xdg-open", deep_link], check=True)
@@ -311,73 +353,32 @@ def open_cursor_deeplink(prompt: str) -> None:
         )
 
 
-def open_claude_terminal(prompt: str) -> None:
-    """Open a new terminal window with Claude CLI and the prompt.
+def run_claude(prompt_file: Path) -> None:
+    """Run Claude CLI in the current terminal with prompt read from file.
+
+    Reads the prompt content from the saved file and passes it directly
+    to the Claude CLI process. Runs in the current terminal session -
+    no new windows or platform-specific terminal launching needed.
+
+    Works on macOS, Linux, and Windows.
 
     Args:
-        prompt: The prompt text to send to Claude
+        prompt_file: Path to the saved prompt markdown file
 
     Raises:
-        RuntimeError: If opening the terminal fails
+        RuntimeError: If launching Claude fails
     """
-    system = platform.system()
-
-    # Get the current working directory
-    cwd = os.getcwd()
-    cwd_escaped = shlex.quote(cwd)
-
-    # Escape the prompt for shell execution (used for Linux and Windows)
-    shell_escaped_prompt = shlex.quote(prompt)
+    prompt_with_ref = (
+        f"The full task is saved in {prompt_file}. "
+        f"Refer to that file for the complete instructions.\n\n"
+    )
 
     try:
-        if system == "Darwin":  # macOS
-            # Build command to change directory and run claude
-            # The shell command is: cd {cwd} && claude {shell_escaped_prompt}
-            shell_command = f"cd {cwd_escaped} && claude {shell_escaped_prompt}"
-            # Escape this string for AppleScript (escape " and \)
-            applescript_escaped_command = shell_command.replace("\\", "\\\\").replace('"', '\\"')
-
-            # Use osascript to open Terminal with claude command
-            applescript = f"""
-tell application "Terminal"
-    activate
-    do script "{applescript_escaped_command}"
-end tell
-"""
-            subprocess.run(["osascript", "-e", applescript], check=True)
-
-        elif system == "Linux":
-            # Try common terminal emulators in order of preference
-            # Change to the current directory before running claude
-            command = f"cd {cwd_escaped} && claude {shell_escaped_prompt}; exec bash"
-            terminals = [
-                ["gnome-terminal", "--", "bash", "-c", command],
-                ["konsole", "-e", "bash", "-c", command],
-                ["xterm", "-e", "bash", "-c", command],
-            ]
-
-            for terminal_cmd in terminals:
-                try:
-                    subprocess.run(terminal_cmd, check=True)
-                    return
-                except (subprocess.CalledProcessError, FileNotFoundError):
-                    continue
-
-            raise RuntimeError("Could not find a terminal emulator. Please install gnome-terminal, konsole, or xterm.")
-
-        elif system == "Windows":
-            # Use cmd.exe to open a new window with claude
-            # Change to the current directory before running claude
-            cmd = f'start cmd /k "cd /d {cwd_escaped} && claude {shell_escaped_prompt}"'
-            subprocess.run(cmd, shell=True, check=True)
-
-        else:
-            raise RuntimeError(f"Unsupported platform: {system}")
-
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Failed to open terminal with Claude: {e}")
+        subprocess.run(["claude", prompt_with_ref], check=False)
     except FileNotFoundError:
         raise RuntimeError(
-            f"Could not find required command on {system}. "
-            "Please ensure Claude CLI is installed (https://docs.anthropic.com/claude-code)"
+            "Claude CLI not found. "
+            "Please install it: https://docs.anthropic.com/claude-code"
         )
+    except KeyboardInterrupt:
+        pass

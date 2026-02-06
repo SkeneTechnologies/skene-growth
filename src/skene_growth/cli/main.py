@@ -45,8 +45,9 @@ from skene_growth.cli.prompt_builder import (
     build_prompt_from_template,
     build_prompt_with_llm,
     extract_technical_execution,
-    open_claude_terminal,
     open_cursor_deeplink,
+    run_claude,
+    save_prompt_to_file,
 )
 from skene_growth.cli.sample_report import show_sample_report
 from skene_growth.config import default_model_for_provider, load_config
@@ -283,7 +284,18 @@ def analyze(
         exclude_folders = list(set(exclude_folders + exclude))
 
     # Run async analysis - execute and handle output
+
+    from skene_growth.llm import create_llm_client
+
     async def execute_analysis():
+        # Create LLM client once and reuse it
+        llm = create_llm_client(
+            resolved_provider,
+            SecretStr(resolved_api_key),
+            resolved_model,
+            base_url=resolved_base_url,
+        )
+
         result, manifest_data = await run_analysis(
             path,
             resolved_output,
@@ -295,6 +307,7 @@ def analyze(
             business_type,
             exclude_folders=exclude_folders if exclude_folders else None,
             base_url=resolved_base_url,
+            llm=llm,
         )
 
         if result is None:
@@ -305,7 +318,7 @@ def analyze(
             write_product_docs(manifest_data, resolved_output)
 
         template_data = await write_growth_template(
-            create_llm_client(resolved_provider, SecretStr(resolved_api_key), resolved_model),
+            llm,
             manifest_data,
             business_type,
             resolved_output,
@@ -317,8 +330,6 @@ def analyze(
         # Show quick stats if available
         if result.data:
             show_analysis_summary(result.data, template_data)
-
-    from skene_growth.llm import create_llm_client
 
     asyncio.run(execute_analysis())
 
@@ -1120,39 +1131,38 @@ async def _build_async(
 
             console.print(traceback.format_exc())
 
+    # Save prompt to a file for cross-platform consumption
+    prompt_output_dir = plan.parent if plan else Path(config.output_dir)
+    prompt_file = save_prompt_to_file(prompt, prompt_output_dir)
+    console.print(f"[dim]Prompt saved to: {prompt_file}[/dim]")
+
     # Execute based on target
     if target == "show":
         console.print("\n")
         console.print(Panel(prompt, title="[bold]Full Prompt[/bold]", border_style="blue", padding=(1, 2)))
-        console.print("\n[green]✓[/green] Prompt displayed above. Copy and use as needed.\n")
+        console.print(f"\n[green]✓[/green] Prompt saved to: {prompt_file}")
+        console.print("[dim]Copy and use as needed.[/dim]\n")
 
     elif target == "cursor":
         console.print("\n[dim]Opening Cursor with deep link...[/dim]")
         try:
-            open_cursor_deeplink(prompt)
-            console.print("[green]Success![/green] Cursor should now open with your prompt.\n")
+            open_cursor_deeplink(prompt_file, project_root=Path.cwd())
+            console.print("[green]Success![/green] Cursor should now open with your prompt.")
+            console.print(f"[dim]Prompt file: {prompt_file}[/dim]\n")
         except RuntimeError as e:
             console.print(f"\n[red]Error:[/red] {e}\n")
-            console.print("[yellow]Manual deep link:[/yellow]")
-            console.print("cursor://anysphere.cursor-deeplink/prompt?text=...")
-            console.print("\n[dim]You can copy the prompt below and paste it manually:[/dim]\n")
-            console.print(Panel(prompt, title="Prompt", border_style="blue"))
+            console.print(f"[yellow]Prompt saved to:[/yellow] {prompt_file}")
+            console.print("[dim]You can open this file in Cursor manually.[/dim]\n")
             raise typer.Exit(1)
 
     elif target == "claude":
-        console.print("\n[dim]Opening new terminal with Claude...[/dim]")
+        console.print("\n[dim]Launching Claude...[/dim]\n")
         try:
-            open_claude_terminal(prompt)
-            console.print("[green]Success![/green] A new terminal window should open with Claude.\n")
-            console.print(
-                "[dim]Note: Requires Claude CLI to be installed. See: https://docs.anthropic.com/claude-code[/dim]"
-            )
+            run_claude(prompt_file)
         except RuntimeError as e:
             console.print(f"\n[red]Error:[/red] {e}\n")
-            console.print("[yellow]Manual command:[/yellow]")
-            console.print(f'claude "{prompt[:100]}..."')
-            console.print("\n[dim]You can copy the full prompt below and run it with Claude manually:[/dim]\n")
-            console.print(Panel(prompt, title="Prompt", border_style="blue"))
+            console.print(f"[yellow]Prompt saved to:[/yellow] {prompt_file}")
+            console.print("[dim]You can run Claude manually with the saved prompt file.[/dim]\n")
             raise typer.Exit(1)
 
 

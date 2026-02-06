@@ -1,6 +1,7 @@
 """Configuration management utilities for CLI."""
 
 import os
+import sys
 from pathlib import Path
 
 from rich.console import Console
@@ -9,6 +10,19 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 console = Console()
+
+
+def _set_config_permissions(config_path: Path) -> None:
+    """Set restrictive permissions on config file (owner read/write only).
+
+    On Unix-like systems, sets permissions to 0o600.
+    On Windows, this is a no-op as Windows handles file permissions differently.
+    """
+    if sys.platform != "win32":
+        try:
+            config_path.chmod(0o600)
+        except (OSError, PermissionError):
+            pass
 
 
 def get_provider_models(provider: str) -> list[str]:
@@ -122,7 +136,7 @@ def save_config(config_path: Path, provider: str, model: str, api_key: str) -> N
         lines.append("verbose = false")
 
     config_path.write_text("\n".join(lines))
-
+    _set_config_permissions(config_path)
 
 def interactive_config_setup() -> tuple[Path, str, str, str]:
     """
@@ -300,3 +314,4 @@ output_dir = "./skene-context"
 verbose = false
 """
     config_path.write_text(sample_config)
+    _set_config_permissions(config_path)

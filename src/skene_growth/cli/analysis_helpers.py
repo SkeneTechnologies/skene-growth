@@ -9,6 +9,8 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from skene_growth.llm import LLMClient
+
 console = Console()
 
 
@@ -49,8 +51,13 @@ async def run_analysis(
     business_type: Optional[str] = None,
     exclude_folders: Optional[list[str]] = None,
     base_url: Optional[str] = None,
+    llm: Optional[LLMClient] = None,
 ):
-    """Run the async analysis."""
+    """Run the async analysis.
+
+    Args:
+        llm: Optional LLM client to reuse. If not provided, one will be created.
+    """
     from pydantic import SecretStr
 
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
@@ -69,8 +76,10 @@ async def run_analysis(
             progress.update(task, description="Setting up codebase explorer...")
             codebase = CodebaseExplorer(path, exclude_folders=exclude_folders)
 
-            progress.update(task, description="Connecting to LLM provider...")
-            llm = create_llm_client(provider, SecretStr(api_key), model)
+            # Create LLM client if not provided
+            if llm is None:
+                progress.update(task, description="Connecting to LLM provider...")
+                llm = create_llm_client(provider, SecretStr(api_key), model)
 
             # Load existing growth loops from output directory
             progress.update(task, description="Loading existing growth loops...")
