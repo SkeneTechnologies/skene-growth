@@ -199,6 +199,127 @@ def show_analysis_summary(data: dict, template_data: dict | None = None):
     console.print(table)
 
 
+async def generate_todo_list(
+    llm,
+    memo_content: str,
+    manifest_data: dict[str, Any],
+    template_data: dict[str, Any] | None = None,
+) -> tuple[str | None, list[dict[str, str]] | None]:
+    """Generate an implementation todo list using the structured plan context.
+
+    Extracts the Technical Execution section from the memo and combines it
+    with the project manifest (tech stack, features) to produce specific,
+    actionable engineering tasks.
+
+    Args:
+        llm: LLM client for generation
+        memo_content: Full memo markdown content
+        manifest_data: Project manifest with tech_stack, features, etc.
+        template_data: Growth template data (optional)
+
+    Returns:
+        Tuple of (summary, todo_list) where summary is a brief description of what
+        the tasks accomplish, and todo_list is a list of items with 'task' and
+        'priority' keys. Returns (None, None) on failure.
+    """
+    import re as _re
+
+    from skene_growth.cli.prompt_builder import extract_technical_execution
+
+    # Extract structured Technical Execution section from the memo
+    tech_exec = extract_technical_execution(memo_content)
+
+    # Build a compact tech-stack summary the LLM can reference
+    tech_stack_lines = []
+    tech = manifest_data.get("tech_stack", {})
+    for key, value in tech.items():
+        if value:
+            tech_stack_lines.append(f"- {key}: {value}")
+    tech_stack_str = "\n".join(tech_stack_lines) if tech_stack_lines else "Not detected"
+
+    project_name = manifest_data.get("project_name", "Project")
+
+    # Build the Technical Execution context block
+    if tech_exec:
+        tech_exec_block = ""
+        if tech_exec.get("next_build"):
+            tech_exec_block += f"**The Next Build:**\n{tech_exec['next_build']}\n\n"
+        if tech_exec.get("exact_logic"):
+            tech_exec_block += f"**Exact Logic:**\n{tech_exec['exact_logic']}\n\n"
+        if tech_exec.get("data_triggers"):
+            tech_exec_block += f"**Data Triggers:**\n{tech_exec['data_triggers']}\n\n"
+        if tech_exec.get("sequence"):
+            tech_exec_block += f"**Sequence (Now / Next / Later):**\n{tech_exec['sequence']}\n\n"
+        if tech_exec.get("confidence"):
+            tech_exec_block += f"**Confidence:** {tech_exec['confidence']}\n"
+    else:
+        # Fallback: use a truncated memo when extraction fails
+        tech_exec_block = memo_content[:3000] if len(memo_content) > 3000 else memo_content
+
+    prompt = f"""You are a senior engineer creating an implementation todo list for the project "{project_name}".
+
+## Tech Stack
+{tech_stack_str}
+
+## Technical Execution Plan
+{tech_exec_block}
+
+Based on the Technical Execution plan above, produce:
+1. A brief summary (1-2 sentences) explaining what these implementation tasks accomplish
+2. A focused, ordered todo list of engineering tasks to implement this
+
+Rules for tasks:
+- Each task must be a concrete engineering action (e.g. "Create middleware X in src/...",
+  "Add event Y to analytics service").
+- Reference the actual tech stack (framework, language, tools) in the tasks.
+- Focus on the "Now" items from the Sequence — things to build first.
+- Order tasks by implementation dependency: foundational work first, integration last.
+- Do NOT include meetings, research, or vague items like "plan the architecture".
+- Maximum 8 tasks.
+
+Return ONLY a valid JSON object:
+{{
+  "summary": "Brief 1-2 sentence summary of what these tasks accomplish",
+  "todos": [
+    {{"task": "...", "priority": "high"}},
+    {{"task": "...", "priority": "medium"}}
+  ]
+}}
+
+priority is "high", "medium", or "low". Return only the JSON object, nothing else."""
+
+    try:
+        response = await llm.generate_content(prompt)
+
+        # Extract the first JSON object from the response
+        json_match = _re.search(r'\{[\s\S]*\}', response)
+        if json_match:
+            try:
+                result = json.loads(json_match.group(0))
+                if isinstance(result, dict):
+                    summary = result.get("summary", "").strip()
+                    todo_items = result.get("todos", [])
+
+                    if isinstance(todo_items, list):
+                        validated = [
+                            {
+                                "task": str(item["task"]).strip(),
+                                "priority": item.get("priority", "medium").lower(),
+                            }
+                            for item in todo_items
+                            if isinstance(item, dict) and "task" in item
+                        ]
+                        if validated:
+                            return (summary if summary else None, validated)
+            except json.JSONDecodeError:
+                pass
+
+        return (None, None)
+
+    except Exception:
+        return (None, None)
+
+
 async def run_cycle(
     manifest_path: Path | None,
     template_path: Path | None,
@@ -208,14 +329,14 @@ async def run_cycle(
     model: str,
     verbose: bool,
     onboarding: bool = False,
+    context_dir: Path | None = None,
 ):
     """Run cycle generation using Council of Growth Engineers."""
     from pydantic import SecretStr
 
-    from skene_growth.cli.prompt_builder import extract_ceo_next_action
     from skene_growth.llm import create_llm_client
 
-    next_action = None
+    todo_list = None
     memo_content = None
 
     with Progress(
@@ -240,6 +361,38 @@ async def run_cycle(
             else:
                 template_data = {"lifecycles": []}
 
+            # Load growth-loops from skene-context/growth-loops folder
+            progress.update(task, description="Loading growth-loops...")
+            from skene_growth.growth_loops.storage import load_existing_growth_loops
+
+            # Determine base directory for loading growth-loops
+            # Use context_dir if provided, otherwise infer from output_path or manifest_path
+            if context_dir:
+                base_dir = context_dir
+            elif manifest_path:
+                # If manifest is in skene-context, use that parent
+                if manifest_path.parent.name == "skene-context":
+                    base_dir = manifest_path.parent
+                else:
+                    # Check if skene-context exists in same directory as manifest
+                    potential_context = manifest_path.parent / "skene-context"
+                    base_dir = potential_context if potential_context.exists() else manifest_path.parent
+            elif output_path:
+                # If output is in skene-context, use that parent
+                if output_path.parent.name == "skene-context":
+                    base_dir = output_path.parent
+                else:
+                    # Check if skene-context exists in same directory as output
+                    potential_context = output_path.parent / "skene-context"
+                    base_dir = potential_context if potential_context.exists() else output_path.parent
+            else:
+                # Fallback to current directory
+                base_dir = Path(".")
+
+            growth_loops = load_existing_growth_loops(base_dir)
+            if growth_loops:
+                progress.update(task, description=f"Found {len(growth_loops)} active growth loop(s)...")
+
             # Connect to LLM
             progress.update(task, description="Connecting to LLM provider...")
             llm = create_llm_client(provider, SecretStr(api_key), model)
@@ -263,12 +416,14 @@ async def run_cycle(
                         llm=llm,
                         manifest_data=manifest_data,
                         template_data=template_data,
+                        growth_loops=growth_loops,
                     )
                 else:
                     memo_content = await planner.generate_council_memo(
                         llm=llm,
                         manifest_data=manifest_data,
                         template_data=template_data,
+                        growth_loops=growth_loops,
                     )
             finally:
                 # Stop progress indicator
@@ -286,10 +441,13 @@ async def run_cycle(
 
             progress.update(task, description="Complete!")
 
-            # Extract and display CEO's Next Action
-            next_action = extract_ceo_next_action(memo_content)
+            # Generate todo list from memo + structured project context
+            progress.update(task, description="Generating todo list...")
+            todo_summary, todo_list = await generate_todo_list(
+                llm, memo_content, manifest_data, template_data
+            )
 
-            return memo_content, next_action
+            return memo_content, (todo_summary, todo_list)
 
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")

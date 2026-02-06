@@ -591,9 +591,27 @@ def plan(
         )
     )
 
+    # Determine context directory for growth-loops loading
+    context_dir_for_loops = None
+    if context:
+        context_dir_for_loops = context
+    elif manifest:
+        # If manifest is in skene-context, use that parent
+        if manifest.parent.name == "skene-context":
+            context_dir_for_loops = manifest.parent
+    elif resolved_output:
+        # If output is in skene-context, use that parent
+        if resolved_output.parent.name == "skene-context":
+            context_dir_for_loops = resolved_output.parent
+        else:
+            # Check if skene-context exists in same directory as output
+            potential_context = resolved_output.parent / "skene-context"
+            if potential_context.exists():
+                context_dir_for_loops = potential_context
+
     # Run async cycle generation - execute and handle output
     async def execute_cycle():
-        memo_content, next_action = await run_cycle(
+        memo_content, todo_data = await run_cycle(
             manifest_path=manifest,
             template_path=template,
             output_path=resolved_output,
@@ -602,6 +620,7 @@ def plan(
             model=resolved_model,
             verbose=verbose,
             onboarding=onboarding,
+            context_dir=context_dir_for_loops,
         )
 
         if memo_content is None:
@@ -614,17 +633,45 @@ def plan(
             console.print()
             console.print(memo_content)
 
-        # Display next action box
-        if next_action:
-            console.print("\n")
-            console.print(
-                Panel(
-                    next_action,
-                    title="[bold yellow]⚡ Next Action - Ship in 24 Hours[/bold yellow]",
-                    border_style="yellow",
-                    padding=(1, 2),
+        # Display implementation todo list
+        if todo_data:
+            todo_summary, todo_list = todo_data if isinstance(todo_data, tuple) else (None, todo_data)
+
+            if todo_list:
+                console.print("\n")
+
+                # Sort by priority (high first) for ordering, but don't display priority
+                priority_order = {"high": 0, "medium": 1, "low": 2}
+                sorted_todos = sorted(
+                    todo_list,
+                    key=lambda x: priority_order.get(x.get("priority", "medium"), 1),
                 )
-            )
+
+                # Create table with checkbox column and task column
+                todo_table = Table(show_header=False, box=None, padding=(0, 1))
+                todo_table.add_column("", style="dim", width=3)
+                todo_table.add_column("Task", style="white")
+
+                # Add summary as first row if available
+                if todo_summary:
+                    todo_table.add_row("", f"[dim]{todo_summary}[/dim]")
+                    todo_table.add_row("", "")  # Empty row for spacing
+
+                for todo in sorted_todos:
+                    task = todo.get("task", "")
+                    todo_table.add_row("[ ]", task)
+                    todo_table.add_row("", "")  # Empty row for spacing
+
+                console.print(
+                    Panel(
+                        todo_table,
+                        title="[bold yellow]Implementation Todo List[/bold yellow]",
+                        border_style="yellow",
+                        padding=(1, 2),
+                    )
+                )
+                console.print("\n[dim]Next: Use [cyan]skene build[/cyan] command to implement this[/dim]")
+            console.print("")
 
     asyncio.run(execute_cycle())
 

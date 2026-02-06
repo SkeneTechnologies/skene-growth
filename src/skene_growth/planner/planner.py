@@ -88,6 +88,7 @@ class Planner:
         llm: LLMClient,
         manifest_data: dict[str, Any],
         template_data: dict[str, Any] | None = None,
+        growth_loops: list[dict[str, Any]] | None = None,
     ) -> str:
         """
         Generate a Council of Growth Engineers memo.
@@ -99,6 +100,7 @@ class Planner:
             llm: LLM client for generation
             manifest_data: Project manifest data
             template_data: Growth template data with lifecycle stages (optional)
+            growth_loops: List of active growth loop definitions (optional)
 
         Returns:
             Markdown content for the memo
@@ -110,6 +112,14 @@ class Planner:
         if template_data:
             template_summary = self._format_template_summary(template_data)
             template_section = f"\n### Growth Journey (Lifecycle Template)\n{template_summary}\n"
+
+        growth_loops_section = ""
+        if growth_loops:
+            from skene_growth.growth_loops.storage import format_growth_loops_summary
+
+            growth_loops_summary = format_growth_loops_summary(growth_loops)
+            if growth_loops_summary:
+                growth_loops_section = f"\n{growth_loops_summary}\n"
 
         # Get current machine time for date reference
         current_time = datetime.now()
@@ -227,6 +237,7 @@ Deliver the response as a Confidential Engineering Memo:
 ### Project Manifest (Current State)
 {manifest_summary}
 {template_section}
+{growth_loops_section}
 
 """
 
@@ -238,6 +249,7 @@ Deliver the response as a Confidential Engineering Memo:
         llm: LLMClient,
         manifest_data: dict[str, Any],
         template_data: dict[str, Any] | None = None,
+        growth_loops: list[dict[str, Any]] | None = None,
     ) -> str:
         """
         Generate an Onboarding Engineering memo.
@@ -249,6 +261,7 @@ Deliver the response as a Confidential Engineering Memo:
             llm: LLM client for generation
             manifest_data: Project manifest data
             template_data: Growth template data with lifecycle stages (optional)
+            growth_loops: List of active growth loop definitions (optional)
 
         Returns:
             Markdown content for the memo
@@ -260,6 +273,14 @@ Deliver the response as a Confidential Engineering Memo:
         if template_data:
             template_summary = self._format_template_summary(template_data)
             template_section = f"\n### Growth Journey (Lifecycle Template)\n{template_summary}\n"
+
+        growth_loops_section = ""
+        if growth_loops:
+            from skene_growth.growth_loops.storage import format_growth_loops_summary
+
+            growth_loops_summary = format_growth_loops_summary(growth_loops)
+            if growth_loops_summary:
+                growth_loops_section = f"\n{growth_loops_summary}\n"
 
         # Get current machine time for date reference
         current_time = datetime.now()
@@ -402,6 +423,7 @@ Built for Speed and Dominance.
 ### Project Manifest (Current State)
 {manifest_summary}
 {template_section}
+{growth_loops_section}
 
 """
 
