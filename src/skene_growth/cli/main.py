@@ -463,6 +463,11 @@ def plan(
         "--onboarding",
         help="Generate onboarding-focused plan using Senior Onboarding Engineer perspective",
     ),
+    prompt: Optional[str] = typer.Option(
+        None,
+        "--prompt",
+        help="Additional user prompt to influence the plan generation",
+    ),
 ):
     """
     Generate a growth plan using Council of Growth Engineers.
@@ -485,6 +490,9 @@ def plan(
 
         # Generate onboarding-focused plan
         uvx skene plan --onboarding --api-key "your-key"
+
+        # Generate plan with additional user context
+        uvx skene plan --prompt "Focus on enterprise customers" --api-key "your-key"
     """
     # Load config with fallbacks
     config = load_config()
@@ -632,6 +640,7 @@ def plan(
             verbose=verbose,
             onboarding=onboarding,
             context_dir=context_dir_for_loops,
+            user_prompt=prompt,
         )
 
         if memo_content is None:
@@ -825,6 +834,134 @@ def validate(
     except Exception as e:
         console.print(f"[red]Validation failed:[/red] {e}")
         raise typer.Exit(1)
+
+
+@app.command()
+def status(
+    path: Path = typer.Argument(
+        ".",
+        help="Path to the project root",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    context: Optional[Path] = typer.Option(
+        None,
+        "--context",
+        "-c",
+        help="Path to skene-context directory (auto-detected if omitted)",
+    ),
+    find_alternatives: bool = typer.Option(
+        False,
+        "--find-alternatives",
+        help="Use LLM to find existing functions that might fulfill missing requirements (requires API key)",
+    ),
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM provider (required for --find-alternatives)",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider: openai, gemini, anthropic, ollama (uses config if not provided)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model (uses provider default if not provided)",
+    ),
+):
+    """
+    Show implementation status of growth loop requirements.
+
+    Loads all growth loop JSON definitions from skene-context/growth-loops/
+    and uses AST parsing to verify that required files, functions, and
+    patterns are implemented. Displays a report showing which requirements
+    are met and which are missing.
+
+    With --find-alternatives, uses LLM to search for existing functions that
+    might fulfill missing requirements, helping discover duplicate implementations.
+
+    Examples:
+
+        skene status
+        skene status ./my-project --context ./my-project/skene-context
+        skene status --find-alternatives --api-key "your-key"
+    """
+    from skene_growth.validators.loop_validator import (
+        print_validation_report,
+        validate_all_loops,
+    )
+
+    # Resolve the context directory
+    if context is None:
+        # Auto-detect: look for skene-context relative to path
+        candidates = [
+            path / "skene-context",
+            Path.cwd() / "skene-context",
+        ]
+        for candidate in candidates:
+            if (candidate / "growth-loops").is_dir():
+                context = candidate
+                break
+        if context is None:
+            console.print(
+                "[red]Could not find skene-context/growth-loops/ directory.[/red]\n"
+                "Use --context to specify the path explicitly."
+            )
+            raise typer.Exit(1)
+
+    loops_dir = context / "growth-loops"
+    if not loops_dir.is_dir():
+        console.print(f"[red]Growth loops directory not found:[/red] {loops_dir}")
+        raise typer.Exit(1)
+
+    # Setup LLM client if find_alternatives is enabled
+    llm_client = None
+    if find_alternatives:
+        from skene_growth.config import default_model_for_provider, load_config
+        from skene_growth.llm.factory import create_llm_client
+
+        config = load_config()
+        resolved_api_key = api_key or config.api_key
+        resolved_provider = provider or config.provider
+        resolved_model = model or config.model
+
+        if not resolved_api_key:
+            console.print(
+                "[yellow]Warning:[/yellow] --find-alternatives requires an API key.\n"
+                "Provide --api-key or set SKENE_API_KEY environment variable."
+            )
+            raise typer.Exit(1)
+
+        try:
+            llm_client = create_llm_client(
+                provider=resolved_provider,
+                api_key=SecretStr(resolved_api_key),
+                model_name=resolved_model,
+            )
+            console.print("[dim]💡 Semantic matching enabled (finding alternative implementations)[/dim]")
+        except Exception as exc:
+            console.print(f"[red]Failed to initialize LLM client:[/red] {exc}")
+            raise typer.Exit(1)
+
+    console.print(f"[dim]Project root:[/dim] {path}")
+    console.print(f"[dim]Context dir:[/dim]  {context}")
+    console.print(f"[dim]Loops dir:[/dim]    {loops_dir}")
+    console.print()
+
+    results = validate_all_loops(
+        context_dir=context,
+        project_root=path,
+        llm_client=llm_client,
+        find_alternatives=find_alternatives,
+    )
+    print_validation_report(results)
 
 
 @app.command()
@@ -1376,6 +1513,7 @@ def skene_entry_point():
     skene_app.command()(plan)
     skene_app.command()(chat)
     skene_app.command()(validate)
+    skene_app.command()(status)
     skene_app.command()(build)
     skene_app.command()(config)
 
