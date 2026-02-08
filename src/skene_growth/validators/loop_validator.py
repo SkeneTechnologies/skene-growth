@@ -238,7 +238,7 @@ def _format_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
         param = f"{arg.arg}: {annotation}" if annotation else arg.arg
         default_idx = i - defaults_offset
         if default_idx >= 0 and args.defaults[default_idx]:
-            param += f" = ..."
+            param += " = ..."
         params.append(param)
 
     # *args
@@ -898,7 +898,7 @@ def _print_loop_result(result: LoopValidationResult) -> None:
         for fv in result.function_results:
             icon = _STATUS_ICON[CheckStatus.PASSED] if fv.passed else _STATUS_ICON[CheckStatus.FAILED]
             detail = fv.detail if fv.detail else ("Found" if fv.found else "Missing")
-            
+
             # Add alternative matches info if available
             if fv.alternatives:
                 alt_info = f"{detail} | 💡 {len(fv.alternatives)} alternative(s) found"

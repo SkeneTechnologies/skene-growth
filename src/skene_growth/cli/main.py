@@ -148,12 +148,6 @@ def analyze(
         "--verbose",
         help="Enable verbose output",
     ),
-    business_type: Optional[str] = typer.Option(
-        None,
-        "--business-type",
-        "-b",
-        help="Business type for growth template (e.g., 'design-agency', 'b2b-saas'). LLM will infer if not provided.",
-    ),
     product_docs: bool = typer.Option(
         False,
         "--product-docs",
@@ -194,9 +188,6 @@ def analyze(
 
         # With API key
         uvx skene analyze . --api-key "your-key"
-
-        # Specify business type for custom growth template
-        uvx skene analyze . --business-type "design-agency"
 
         # Generate product documentation
         uvx skene analyze . --product-docs
@@ -304,7 +295,6 @@ def analyze(
             resolved_model,
             verbose,
             product_docs,
-            business_type,
             exclude_folders=exclude_folders if exclude_folders else None,
             base_url=resolved_base_url,
             llm=llm,
@@ -320,7 +310,6 @@ def analyze(
         template_data = await write_growth_template(
             llm,
             manifest_data,
-            business_type,
             resolved_output,
         )
 
@@ -332,54 +321,6 @@ def analyze(
             show_analysis_summary(result.data, template_data)
 
     asyncio.run(execute_analysis())
-
-
-@app.command()
-def audit(
-    path: Path = typer.Argument(
-        ".",
-        help="Path to codebase to audit",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        resolve_path=True,
-    ),
-    output: Optional[Path] = typer.Option(
-        None,
-        "-o",
-        "--output",
-        help="Output path (not used in sample mode)",
-    ),
-    exclude: Optional[list[str]] = typer.Option(
-        None,
-        "--exclude",
-        "-e",
-        help="Folder names to exclude (not used in sample mode)",
-    ),
-):
-    """
-    Show sample growth analysis preview (no API key).
-
-    Displays a preview of the strategic insights and recommendations available
-    with full API-powered analysis. This gives you a sense of:
-    - Growth opportunity identification
-    - Strategic recommendations
-    - Implementation roadmaps
-    - Technical growth infrastructure
-
-    For full codebase-specific analysis, configure an API key.
-
-    Examples:
-
-        # Show sample growth analysis
-        uvx skene audit .
-        # Or: uvx skene-growth audit .
-
-        # Analyze with full AI insights (requires API key)
-        uvx skene analyze . --api-key YOUR_KEY
-    """
-    # Always show sample report
-    show_sample_report(path, output, exclude_folders=exclude if exclude else None)
 
 
 @app.command(deprecated=True, hidden=True)
@@ -924,7 +865,7 @@ def status(
     # Setup LLM client if find_alternatives is enabled
     llm_client = None
     if find_alternatives:
-        from skene_growth.config import default_model_for_provider, load_config
+        from skene_growth.config import load_config
         from skene_growth.llm.factory import create_llm_client
 
         config = load_config()
@@ -1509,7 +1450,6 @@ def skene_entry_point():
     # Add all commands from the main app as subcommands FIRST
     # This ensures subcommands are recognized before the callback
     skene_app.command()(analyze)
-    skene_app.command()(audit)
     skene_app.command()(plan)
     skene_app.command()(chat)
     skene_app.command()(validate)

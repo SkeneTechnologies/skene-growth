@@ -48,16 +48,11 @@ async def run_analysis(
     model: str,
     verbose: bool,
     product_docs: Optional[bool] = False,
-    business_type: Optional[str] = None,
     exclude_folders: Optional[list[str]] = None,
     base_url: Optional[str] = None,
     llm: Optional[LLMClient] = None,
 ):
-    """Run the async analysis.
-
-    Args:
-        llm: Optional LLM client to reuse. If not provided, one will be created.
-    """
+    """Run the async analysis."""
     from pydantic import SecretStr
 
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
@@ -79,7 +74,7 @@ async def run_analysis(
             # Create LLM client if not provided
             if llm is None:
                 progress.update(task, description="Connecting to LLM provider...")
-                llm = create_llm_client(provider, SecretStr(api_key), model)
+                llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url)
 
             # Load existing growth loops from output directory
             progress.update(task, description="Loading existing growth loops...")
@@ -339,6 +334,7 @@ async def run_cycle(
     verbose: bool,
     onboarding: bool = False,
     context_dir: Path | None = None,
+    user_prompt: str | None = None,
 ):
     """Run cycle generation using Council of Growth Engineers."""
     from pydantic import SecretStr
@@ -426,6 +422,7 @@ async def run_cycle(
                         manifest_data=manifest_data,
                         template_data=template_data,
                         growth_loops=growth_loops,
+                        user_prompt=user_prompt,
                     )
                 else:
                     memo_content = await planner.generate_council_memo(
@@ -433,6 +430,7 @@ async def run_cycle(
                         manifest_data=manifest_data,
                         template_data=template_data,
                         growth_loops=growth_loops,
+                        user_prompt=user_prompt,
                     )
             finally:
                 # Stop progress indicator

@@ -36,7 +36,7 @@ With the `--product-docs` flag, it also collects:
 - **Product Docs** - Generates user-friendly product-docs.md file
 
 After the manifest is created, skene-growth generates a **custom growth template** (JSON)
-tailored to your business type using LLM analysis. The templates use examples in `src/templates/` as 
+using LLM analysis. The templates use examples in `src/templates/` as 
 reference but create custom lifecycle stages and keywords specific to your product.
 
 ## Installation
@@ -68,7 +68,7 @@ pip install skene-growth
 
 skene-growth follows a flexible workflow:
 
-1. **Analyze** - Establishes the foundation by analyzing your codebase and generating a comprehensive growth manifest. This creates the general AI context about your codebase structure, technology stack, user journey, and growth opportunities. The output includes current growth features, revenue leakage issues, growth opportunities, and a custom growth template tailored to your business type.
+1. **Analyze** - Establishes the foundation by analyzing your codebase and generating a comprehensive growth manifest. This creates the general AI context about your codebase structure, technology stack, user journey, and growth opportunities. The output includes current growth features, revenue leakage issues, growth opportunities, and a custom growth template.
 
 2. **Plan** - Generates a growth plan using Council of Growth Engineers analysis. This command uses an LLM to analyze your manifest and template to produce a detailed growth plan with 3-5 selected high-impact growth loops, implementation roadmap, and recommendations.
 
@@ -114,10 +114,6 @@ uvx skene-growth analyze . --provider generic --base-url "https://your-api.com/v
 # Generic provider with local endpoint (no API key required)
 uvx skene-growth analyze . --provider generic --base-url "http://localhost:8000/v1" --model "local-model"
 
-# Specify business type for custom growth template
-uvx skene-growth analyze . --business-type "design-agency"
-uvx skene-growth analyze . --business-type "b2b-saas"
-
 # Generate product documentation (collects product overview and features)
 uvx skene-growth analyze . --product-docs
 
@@ -128,16 +124,13 @@ uvx skene-growth analyze . -e planner -e docs
 
 **Output:**
 - `./skene-context/growth-manifest.json` (structured data)
-- `./skene-context/growth-template.json` (if --business-type specified)
+- `./skene-context/growth-template.json` (custom template with lifecycle stages and keywords)
 - `./skene-context/product-docs.md` (if --product-docs flag used)
 
-**Growth Templates:** The system generates custom templates tailored to your business type, with
-lifecycle stages and keywords specific to your user journey. If no business type is specified,
-the LLM infers it from your codebase.
+**Growth Templates:** The system generates custom templates with lifecycle stages and keywords specific to your user journey, inferred from your codebase.
 
 **Flags:**
 - `--product-docs`: Generate user-friendly product documentation (collects product overview, features, and generates product-docs.md)
-- `--business-type`: Specify business type for custom growth template
 - `-e, --exclude`: Folder names to exclude from analysis (can be used multiple times). Excludes any folder containing the specified name anywhere in the path. Can also be configured in `.skene-growth.config` file.
 
 The `--product-docs` flag enables enhanced analysis mode which collects product overview and feature documentation, producing a v2.0 manifest with additional fields and a user-friendly product-docs.md file.

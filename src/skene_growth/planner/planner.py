@@ -89,6 +89,7 @@ class Planner:
         manifest_data: dict[str, Any],
         template_data: dict[str, Any] | None = None,
         growth_loops: list[dict[str, Any]] | None = None,
+        user_prompt: str | None = None,
     ) -> str:
         """
         Generate a Council of Growth Engineers memo.
@@ -124,6 +125,11 @@ class Planner:
         # Get current machine time for date reference
         current_time = datetime.now()
         current_time_str = current_time.isoformat()
+
+        # Build user context section (extract to avoid nested f-string with escape sequences)
+        user_context_section = ""
+        if user_prompt:
+            user_context_section = f"### User Context\n{user_prompt}\n"
 
         prompt = f"""You are not an assistant. You are a Council of Growth Engineers. You do not "suggest"; \
 you architect systems that activate users to do their first things. You operate at the intersection of product, \
@@ -238,6 +244,10 @@ Deliver the response as a Confidential Engineering Memo:
 {manifest_summary}
 {template_section}
 {growth_loops_section}
+{user_context_section}
+---
+
+**Note:** Prefer activation phase actions.
 
 """
 
@@ -250,6 +260,7 @@ Deliver the response as a Confidential Engineering Memo:
         manifest_data: dict[str, Any],
         template_data: dict[str, Any] | None = None,
         growth_loops: list[dict[str, Any]] | None = None,
+        user_prompt: str | None = None,
     ) -> str:
         """
         Generate an Onboarding Engineering memo.
@@ -285,6 +296,11 @@ Deliver the response as a Confidential Engineering Memo:
         # Get current machine time for date reference
         current_time = datetime.now()
         current_time_str = current_time.isoformat()
+
+        # Build user context section (extract to avoid nested f-string with escape sequences)
+        user_context_section = ""
+        if user_prompt:
+            user_context_section = f"### User Context\n{user_prompt}\n"
 
         prompt = f"""You are a Senior Onboarding Engineer sitting on a Council of Growth Experts.
 Your mandate is to bridge the chasm between "signed up" and "integrated into the workflow."
@@ -424,7 +440,7 @@ Built for Speed and Dominance.
 {manifest_summary}
 {template_section}
 {growth_loops_section}
-
+{user_context_section}
 """
 
         response = await llm.generate_content(prompt)
