@@ -596,7 +596,13 @@ def plan(
 
         # Display implementation todo list
         if todo_data:
-            todo_summary, todo_list = todo_data if isinstance(todo_data, tuple) else (None, todo_data)
+            # Handle both old format (2-tuple) and new format (3-tuple)
+            if isinstance(todo_data, tuple) and len(todo_data) == 3:
+                executive_summary, todo_summary, todo_list = todo_data
+            elif isinstance(todo_data, tuple) and len(todo_data) == 2:
+                executive_summary, todo_summary, todo_list = None, todo_data[0], todo_data[1]
+            else:
+                executive_summary, todo_summary, todo_list = None, None, todo_data
 
             if todo_list:
                 console.print("\n")
@@ -613,7 +619,12 @@ def plan(
                 todo_table.add_column("", style="dim", width=3)
                 todo_table.add_column("Task", style="white")
 
-                # Add summary as first row if available
+                # Add executive summary as first row if available
+                if executive_summary:
+                    todo_table.add_row("", f"[bold]{executive_summary}[/bold]")
+                    todo_table.add_row("", "")  # Empty row for spacing
+
+                # Add todo summary as second row if available
                 if todo_summary:
                     todo_table.add_row("", f"[dim]{todo_summary}[/dim]")
                     todo_table.add_row("", "")  # Empty row for spacing

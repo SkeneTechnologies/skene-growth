@@ -454,7 +454,12 @@ async def run_cycle(
                 llm, memo_content, manifest_data, template_data
             )
 
-            return memo_content, (todo_summary, todo_list)
+            # Extract executive summary from memo
+            from skene_growth.cli.prompt_builder import extract_executive_summary
+
+            executive_summary = extract_executive_summary(memo_content)
+
+            return memo_content, (executive_summary, todo_summary, todo_list)
 
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")

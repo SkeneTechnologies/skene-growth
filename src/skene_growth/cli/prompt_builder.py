@@ -14,6 +14,30 @@ from rich.console import Console
 console = Console()
 
 
+def extract_executive_summary(memo_content: str) -> str | None:
+    """Extract the Executive Summary section from the memo.
+
+    Args:
+        memo_content: Full memo markdown content
+
+    Returns:
+        Extracted executive summary text or None if not found
+    """
+    # Look for Executive Summary section (flexible patterns)
+    pattern = r"##?\s*Executive\s+Summary.*?\n+(.*?)(?=\n\n###|\n\n##|\Z)"
+    match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
+
+    if match:
+        summary = match.group(1).strip()
+        # Clean up markdown formatting
+        summary = re.sub(r"\*\*", "", summary)  # Remove bold markers
+        summary = re.sub(r"\[.*?\]", "", summary)  # Remove markdown links
+        summary = re.sub(r"\n\n+", "\n\n", summary)  # Normalize line breaks
+        return summary
+
+    return None
+
+
 def extract_ceo_next_action(memo_content: str) -> str | None:
     """Extract the CEO's Next Action or NEXT ACTION section from the memo.
 
