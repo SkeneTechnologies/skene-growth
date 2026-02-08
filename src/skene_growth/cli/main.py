@@ -399,10 +399,10 @@ def plan(
         "--verbose",
         help="Enable verbose output",
     ),
-    onboarding: bool = typer.Option(
+    activation: bool = typer.Option(
         False,
-        "--onboarding",
-        help="Generate onboarding-focused plan using Senior Onboarding Engineer perspective",
+        "--activation",
+        help="Generate activation-focused plan using Senior Activation Engineer perspective",
     ),
     prompt: Optional[str] = typer.Option(
         None,
@@ -429,8 +429,8 @@ def plan(
         # Override context file paths
         uvx skene plan --manifest ./manifest.json --template ./template.json
 
-        # Generate onboarding-focused plan
-        uvx skene plan --onboarding --api-key "your-key"
+        # Generate activation-focused plan
+        uvx skene plan --activation --api-key "your-key"
 
         # Generate plan with additional user context
         uvx skene plan --prompt "Focus on enterprise customers" --api-key "your-key"
@@ -538,7 +538,7 @@ def plan(
     # Ensure final path is absolute (should already be, but double-check)
     resolved_output = resolved_output.resolve()
 
-    plan_type = "onboarding plan" if onboarding else "growth plan"
+    plan_type = "activation plan" if activation else "growth plan"
     console.print(
         Panel.fit(
             f"[bold blue]Generating {plan_type}[/bold blue]\n"
@@ -579,7 +579,7 @@ def plan(
             provider=resolved_provider,
             model=resolved_model,
             verbose=verbose,
-            onboarding=onboarding,
+            activation=activation,
             context_dir=context_dir_for_loops,
             user_prompt=prompt,
         )

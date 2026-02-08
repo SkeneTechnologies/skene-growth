@@ -332,7 +332,7 @@ async def run_cycle(
     provider: str,
     model: str,
     verbose: bool,
-    onboarding: bool = False,
+    activation: bool = False,
     context_dir: Path | None = None,
     user_prompt: str | None = None,
 ):
@@ -403,7 +403,7 @@ async def run_cycle(
             llm = create_llm_client(provider, SecretStr(api_key), model)
 
             # Generate memo
-            memo_type = "onboarding memo" if onboarding else "Council memo"
+            memo_type = "activation memo" if activation else "Council memo"
             progress.update(task, description=f"Generating {memo_type}...")
             from skene_growth.planner import Planner
 
@@ -416,8 +416,8 @@ async def run_cycle(
             try:
                 progress_task = asyncio.create_task(_show_progress_indicator(stop_event))
 
-                if onboarding:
-                    memo_content = await planner.generate_onboarding_memo(
+                if activation:
+                    memo_content = await planner.generate_activation_memo(
                         llm=llm,
                         manifest_data=manifest_data,
                         template_data=template_data,
