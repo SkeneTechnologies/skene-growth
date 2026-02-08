@@ -237,9 +237,14 @@ The output MUST be a valid JSON object with these REQUIRED fields:
 - `description` (string): Detailed description of what this loop accomplishes
 - `requirements` (object):
   - `files` (array): File requirements with path, purpose, required, checks
-  - `functions` (array): Function requirements with file, name, required, signature
-  - `integrations` (array): Integration requirements with type, description, verification
-  - `telemetry` (array): Telemetry requirements with event_name, function, file, properties
+    (checks: array of objects with type, pattern, description)
+  - `functions` (array): Function requirements with file, name, required,
+    signature, logic (logic field is REQUIRED)
+  - `integrations` (array): Integration requirements with type, description,
+    verification
+  - `telemetry` (array): Telemetry requirements with event_name, description,
+    trigger_location, trigger_condition, properties (event-focused,
+    not function-specific)
 - `dependencies` (array of strings): Loop IDs this depends on (use empty array [] if none)
 - `verification_commands` (array of strings): Manual verification commands
 - `test_coverage` (object):
@@ -266,19 +271,60 @@ Analyze the technical execution context and generate a complete, actionable grow
 **For `requirements.files`:**
 - Identify specific files that need to be created or modified
 - Provide a `purpose` description for each file explaining its role
-- Define `checks` for verifying the file (e.g., function_exists, contains patterns)
+- Define `checks` as an array of objects (NOT strings) with this structure:
+  - `type` (string, required): One of "contains", "function_exists", "class_exists", "import_exists"
+  - `pattern` (string, required): The pattern, function name, class name, or import to check for
+  - `description` (string, required): A clear, human-readable explanation of what this check verifies
+  Example: `{{"type": "function_exists", "pattern": "scan_for_leaks",
+    "description": "Function 'scan_for_leaks' must exist in this file"}}`
+  Example: `{{"type": "contains", "pattern": "stripe.Charge.create",
+    "description": "File must contain code that calls stripe.Charge.create"}}`
 
 **For `requirements.functions`:**
 - List key functions that need to exist
 - Specify which file each function should be in
+- Include a `signature` field with the function signature (e.g., "function_name(arg1: type) -> return_type")
+- **CRITICAL**: Always include a `logic` field that clearly describes what the function should do, including:
+  - What inputs it processes and their purpose
+  - What operations or transformations it performs
+  - What it returns and the structure of the return value
+  - Any important side effects, error handling, or edge cases
+  The logic description should be detailed enough that a developer can
+  implement the function without ambiguity.
+  Example: `{{"name": "detect_revenue_leaks", "logic": "Scans the given
+    directory path recursively for revenue leak patterns using hardcoded regex
+    patterns. Returns a list of dictionaries, each containing leak details
+    with keys: 'type' (str), 'location' (str), 'severity' (str),
+    'pattern_matched' (str)."}}`
 
 **For `requirements.integrations`:**
 - Identify integration points (cli_flag, api_endpoint, ui_component, external_service)
 - Provide verification commands
 
 **For `requirements.telemetry`:**
-- Define telemetry events to track success
-- Specify tracking functions and their locations
+- Focus on the EVENT itself, not specific function implementations
+- Define telemetry events that need to be tracked for measuring success
+- Each event should have:
+  - `event_name` (string, required): Unique identifier for the event
+    (snake_case)
+  - `description` (string, required): Clear explanation of when/why this
+    event occurs and what it represents
+  - `trigger_location` (string, required): File or module where this event
+    should be tracked (e.g., "src/discovery/local_scanner.py")
+  - `trigger_condition` (string, required): Description of the specific
+    condition or moment when this event should be emitted (e.g., "After scan
+    completes and leaks are found", "When user clicks generate fix button")
+  - `properties` (array of strings, required): List of data fields that
+    should be included with this event
+- Do NOT specify exact function names - let developers decide how to
+  implement event emission
+- The event can be emitted using any telemetry/logging mechanism (e.g.,
+  general "skene" event system, logging framework, etc.)
+- Example: `{{"event_name": "local_vulnerability_detected",
+    "description": "Emitted when local scanner detects revenue leak patterns",
+    "trigger_location": "src/discovery/local_scanner.py",
+    "trigger_condition": "After scan completes and leaks are found",
+    "properties": ["leak_count", "leak_types", "scan_duration_ms"]}}`
 
 **For `verification_commands`:**
 - Provide concrete commands that can verify the implementation
