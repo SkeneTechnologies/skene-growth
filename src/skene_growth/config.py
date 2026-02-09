@@ -75,6 +75,11 @@ class Config:
         return self.get("verbose", False)
 
     @property
+    def debug(self) -> bool:
+        """Get debug flag for LLM input/output logging."""
+        return self.get("debug", False)
+
+    @property
     def model(self) -> str:
         """Get LLM model name."""
         model = self.get("model")
@@ -173,5 +178,7 @@ def load_config() -> Config:
         config.set("provider", provider)
     if base_url := os.environ.get("SKENE_BASE_URL"):
         config.set("base_url", base_url)
+    if os.environ.get("SKENE_DEBUG", "").lower() in ("1", "true", "yes"):
+        config.set("debug", True)
 
     return config

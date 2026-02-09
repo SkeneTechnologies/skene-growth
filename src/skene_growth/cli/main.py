@@ -169,6 +169,11 @@ def analyze(
             "Example: --exclude tests --exclude vendor"
         ),
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Log all LLM input/output to .skene-growth/debug/",
+    ),
 ):
     """
     Analyze a codebase and generate growth-manifest.json.
@@ -283,6 +288,9 @@ def analyze(
         # Merge CLI excludes with config excludes (deduplicate)
         exclude_folders = list(set(exclude_folders + exclude))
 
+    # Resolve debug flag (CLI overrides config)
+    resolved_debug = debug or config.debug
+
     # Run async analysis - execute and handle output
 
     from skene_growth.llm import create_llm_client
@@ -294,6 +302,7 @@ def analyze(
             SecretStr(resolved_api_key),
             resolved_model,
             base_url=resolved_base_url,
+            debug=resolved_debug,
         )
 
         result, manifest_data = await run_analysis(
@@ -459,6 +468,11 @@ def plan(
         "--onboarding",
         help="Generate onboarding-focused plan using Senior Onboarding Engineer perspective",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Log all LLM input/output to .skene-growth/debug/",
+    ),
 ):
     """
     Generate a growth plan using Council of Growth Engineers.
@@ -616,6 +630,9 @@ def plan(
             if potential_context.exists():
                 context_dir_for_loops = potential_context
 
+    # Resolve debug flag (CLI overrides config)
+    resolved_debug = debug or config.debug
+
     # Run async cycle generation - execute and handle output
     async def execute_cycle():
         memo_content, todo_data = await run_cycle(
@@ -628,6 +645,7 @@ def plan(
             verbose=verbose,
             onboarding=onboarding,
             context_dir=context_dir_for_loops,
+            debug=resolved_debug,
         )
 
         if memo_content is None:
@@ -721,6 +739,11 @@ def chat(
         "--tool-output-limit",
         help="Max tool output characters kept in context",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Log all LLM input/output to .skene-growth/debug/",
+    ),
 ):
     """
     Interactive terminal chat that invokes skene-growth tools.
@@ -757,6 +780,9 @@ def chat(
             )
             raise typer.Exit(1)
 
+    # Resolve debug flag (CLI overrides config)
+    resolved_debug = debug or config.debug
+
     from skene_growth.cli.chat import run_chat
 
     run_chat(
@@ -767,6 +793,7 @@ def chat(
         model=resolved_model,
         max_steps=max_steps,
         tool_output_limit=tool_output_limit,
+        debug=resolved_debug,
     )
 
 
@@ -854,6 +881,11 @@ def build(
         "-m",
         help="LLM model (uses provider default if not provided)",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Log all LLM input/output to .skene-growth/debug/",
+    ),
 ):
     """
     Build an AI prompt from your growth plan using LLM, then choose where to send it.
@@ -881,7 +913,7 @@ def build(
         Set api_key and provider in .skene-growth.config or ~/.config/skene-growth/config
     """
     # Run async logic
-    asyncio.run(_build_async(plan, context, api_key, provider, model))
+    asyncio.run(_build_async(plan, context, api_key, provider, model, debug))
 
 
 async def _build_async(
@@ -890,6 +922,7 @@ async def _build_async(
     api_key: Optional[str],
     provider: Optional[str],
     model: Optional[str],
+    debug: bool = False,
 ):
     """Async implementation of build command."""
     # Load config to get LLM settings
@@ -982,7 +1015,8 @@ async def _build_async(
 
         from skene_growth.llm import create_llm_client
 
-        llm = create_llm_client(provider, SecretStr(api_key), model)
+        resolved_debug = debug or config.debug
+        llm = create_llm_client(provider, SecretStr(api_key), model, debug=resolved_debug)
         console.print("")
         console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
 
