@@ -14,6 +14,7 @@ def create_llm_client(
     api_key: SecretStr,
     model_name: str,
     base_url: Optional[str] = None,
+    debug: bool = False,
 ) -> LLMClient:
     """
     Factory function to create an LLM client based on provider.
@@ -23,6 +24,7 @@ def create_llm_client(
         api_key: API key wrapped in SecretStr for security
         model_name: Model name to use
         base_url: Optional base URL for the API endpoint (required for "generic" provider)
+        debug: When True, wrap the client with DebugLLMClient to log all LLM I/O
 
     Returns:
         Instance of LLMClient implementation
@@ -51,28 +53,35 @@ def create_llm_client(
         case "gemini":
             from skene_growth.llm.providers.gemini import GoogleGeminiClient
 
-            return GoogleGeminiClient(api_key=api_key, model_name=model_name)
+            client = GoogleGeminiClient(api_key=api_key, model_name=model_name)
         case "openai":
             from skene_growth.llm.providers.openai import OpenAIClient
 
-            return OpenAIClient(api_key=api_key, model_name=model_name)
+            client = OpenAIClient(api_key=api_key, model_name=model_name)
         case "anthropic" | "claude":
             from skene_growth.llm.providers.anthropic import AnthropicClient
 
-            return AnthropicClient(api_key=api_key, model_name=model_name)
+            client = AnthropicClient(api_key=api_key, model_name=model_name)
         case "lmstudio" | "lm-studio" | "lm_studio":
             from skene_growth.llm.providers.lmstudio import LMStudioClient
 
-            return LMStudioClient(api_key=api_key, model_name=model_name, base_url=base_url)
+            client = LMStudioClient(api_key=api_key, model_name=model_name, base_url=base_url)
         case "ollama":
             from skene_growth.llm.providers.ollama import OllamaClient
 
-            return OllamaClient(api_key=api_key, model_name=model_name, base_url=base_url)
+            client = OllamaClient(api_key=api_key, model_name=model_name, base_url=base_url)
         case "generic" | "openai-compatible" | "openai_compatible":
             from skene_growth.llm.providers.generic import GenericClient
 
             if not base_url:
                 raise ValueError("base_url is required for the generic provider")
-            return GenericClient(api_key=api_key, model_name=model_name, base_url=base_url)
+            client = GenericClient(api_key=api_key, model_name=model_name, base_url=base_url)
         case _:
             raise ValueError(f"Unknown provider: {provider}")
+
+    if debug:
+        from skene_growth.llm.debug import DebugLLMClient
+
+        client = DebugLLMClient(client)
+
+    return client
