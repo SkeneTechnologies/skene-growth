@@ -70,8 +70,6 @@ class GenerateStep(AnalysisStep):
             # Parse response
             parsed = self._parse_response(response, codebase)
 
-            logger.info("GenerateStep completed")
-
             return StepResult(
                 step_name=self.name,
                 data={self.output_key: parsed},
