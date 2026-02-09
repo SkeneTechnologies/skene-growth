@@ -38,6 +38,31 @@ def extract_executive_summary(memo_content: str) -> str | None:
     return None
 
 
+def extract_next_action(memo_content: str) -> str | None:
+    """Extract "The Next Action" section from the planner memo.
+
+    Args:
+        memo_content: Full memo markdown content
+
+    Returns:
+        Extracted next action text or None if not found
+    """
+    # Look for "### 1. The Next Action" section (planner format)
+    pattern = r"###\s*1\.\s*The\s+Next\s+Action.*?\n+(.*?)(?=\n\n###|\n\n##|\Z)"
+    match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
+
+    if match:
+        action = match.group(1).strip()
+        # Clean up markdown formatting
+        action = re.sub(r"\[.*?\]", "", action)  # Remove markdown links
+        action = re.sub(r"\n\n+", "\n\n", action)  # Normalize line breaks
+        # Remove bold markers but keep content
+        action = re.sub(r"\*\*([^*]+)\*\*", r"\1", action)  # Remove bold but keep text
+        return action
+
+    return None
+
+
 def extract_ceo_next_action(memo_content: str) -> str | None:
     """Extract the CEO's Next Action or NEXT ACTION section from the memo.
 

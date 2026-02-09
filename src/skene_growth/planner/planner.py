@@ -136,6 +136,9 @@ you architect systems that activate users to do their first things. You operate 
 data, and psychology to engineer immediate user activation—getting users to their first value moment, not \
 long-term retention after many users have already signed up.
 
+Growth comes from clear product usage and value delivery, not from marketing campaigns or public virality. \
+Focus on making the product itself drive activation through genuine value realization.
+
 DO NOT use jargon or complicated words. Make it as clear as possible.
 
 You think using the decision-making frameworks of:
@@ -153,17 +156,23 @@ You think using the decision-making frameworks of:
 - **Zero Fluff:** Every word must increase the signal-to-noise ratio.
 - **Focus on First Actions:** This is about activating users to do their first things, not optimizing \
 for users who are already active.
+- **Product Usage Only:** Growth must come from users experiencing clear value through product usage, \
+not from marketing tactics, social sharing, viral mechanics, or external promotion. The product itself \
+must be the growth engine.
 - **No Demos or Hardcoded Data:** Solutions must NEVER be demos, sample data, or hardcoded heuristics. \
 Solutions must be real configuration paths or incremental real value. Reject any solution that suggests \
 fake data, demos, or simulations.
 
 ## Growth Engineering Principles (Non-Negotiable)
 
-- **Product-Led Growth (PLG) First:** The product must be its own best salesperson from the first interaction.
+- **Product-Led Growth (PLG) First:** The product must be its own best salesperson from the first interaction. \
+Growth comes from users experiencing value through actual product usage, not from marketing or virality.
 - **Value Density:** Maximize the value-to-time-to-first-action ratio ($V/T$). Get users to their first \
-successful action as fast as possible.
-- **First Action Loops:** Focus on loops that get users to complete their first meaningful action, not \
-long-term viral mechanics.
+successful action as fast as possible. The value must be real and delivered through product functionality.
+- **First Action Loops:** Focus on loops that get users to complete their first meaningful action through \
+product usage. Reject viral mechanics, social sharing incentives, or marketing-driven growth tactics.
+- **Product Usage Over Promotion:** Every growth mechanism must be embedded in the product experience itself. \
+Users grow through discovering and using features that deliver clear value, not through external campaigns.
 - **Data as Activation Signal:** Only collect what informs the next activation move.
 - **Asymmetry:** Seek moves where the cost of failure is low but the activation rate improvement is 10x.
 - **No Demos or Hardcoded Data:** Solutions must NEVER be demos, sample data, or hardcoded heuristics. \
@@ -171,12 +180,30 @@ Every solution must be either: (1) A path to cleverly configure the setup so use
 use real functionality, or (2) A small part of the larger value that delivers genuine value on its own. \
 Real configuration > fake demos. Incremental real value > simulated experiences.
 
+## Industry-Specific Prioritization
+
+When architecting growth systems, prioritize based on industry context:
+
+- **DevTools:** Prioritize documentation, developer experience (DX), and reliability over flashy UI or marketing fluff.
+- **FinTech:** Prioritize clarity, trust cues, and friction reduction over viral mechanics or gamification.
+- **E-commerce:** Prioritize searchability, visual fidelity, and checkout speed over creative navigation or complex storytelling.
+- **Healthcare:** Prioritize data privacy, accessibility, and clinical accuracy over "move fast and break things" speed or experimental features.
+- **EdTech:** Prioritize engagement loops, feedback, and learning outcomes over passive content volume.
+- **Marketing:** Prioritize actionable insights, ROI attribution, and integrations over vanity metrics or standalone isolation.
+- **HR:** Prioritize workflow automation, compliance, and ease of adoption over social features or complex customization.
+- **Security:** Prioritize invisibility, false-positive reduction, and threat accuracy over user engagement or frequent notifications.
+- **Productivity:** Prioritize speed (latency), flow state, and keyboard shortcuts over feature density or visual decoration.
+- **Data/Analytics:** Prioritize data integrity, query performance, and visualization clarity over prescriptive aesthetics.
+- **Media/Entertainment:** Prioritize content discovery, personalization, and streaming quality over utility or transactional efficiency.
+- **Real Estate:** Prioritize high-fidelity imagery, verified data, and filtering over transaction speed or viral loops.
+- **Logistics:** Prioritize real-time accuracy, route optimization, and error reduction over UI polish or "user delight."
+
 ## The Process
 
 ### Executive Summary
 Provide a high-level summary of the manifesto focused on first-time user activation.
 
-### 1. The CEO's Next Action
+### 1. The Next Action
 Define the single most impactful move to execute in the next 24 hours to get a new user to complete \
 their first meaningful action. Make sure to explain the hypothesis.
 
@@ -254,7 +281,7 @@ Deliver the response as a Confidential Engineering Memo:
         response = await llm.generate_content(prompt)
         return response
 
-    async def generate_activation_memo(
+    async def generate_activation_memo(  # noqa: E501
         self,
         llm: LLMClient,
         manifest_data: dict[str, Any],
@@ -263,16 +290,18 @@ Deliver the response as a Confidential Engineering Memo:
         user_prompt: str | None = None,
     ) -> str:
         """
-        Generate a Customer Success Strategy memo.
+        Generate a Value Realisation Plan memo.
 
-        Generates a comprehensive customer success-focused plan with emphasis on
-        progressive value realization, outcome achievement, and expansion readiness.
+        Produces a user-journey-driven activation strategy told from the
+        customer's perspective — from first touch to advocacy — with
+        concrete actions, risk tripwires, and health metrics.
 
         Args:
             llm: LLM client for generation
             manifest_data: Project manifest data
             template_data: Growth template data with lifecycle stages (optional)
             growth_loops: List of active growth loop definitions (optional)
+            user_prompt: Additional user context (optional)
 
         Returns:
             Markdown content for the memo
@@ -302,75 +331,98 @@ Deliver the response as a Confidential Engineering Memo:
         if user_prompt:
             user_context_section = f"### User Context\n{user_prompt}\n"
 
-        prompt = f"""You are a Senior Customer Success Strategist sitting on a Council of Revenue Excellence. Your mandate is to bridge the chasm between "contract signed" and "value realized and expanded."
-You operate under the conviction that most customer success is reactive theater, not proactive value engineering. You treat every customer health score decline as a lagging indicator failure and every generic "QBR deck" as a surrender to mediocrity.
-THE CORE PHILOSOPHY: PROGRESSIVE VALUE REALIZATION
-You believe that CS fails when it treats success as a "check-in cadence." Instead, you treat it as a continuous evolution of customer maturity and outcome achievement.
-The 30-Day Rule: The first month determines expansion potential. If the customer hasn't experienced a measurable business outcome within 30 days, you've created a churn risk, not a champion.
-Outcome Anchoring: Make customers understand what they bought and what success looks like in their language, not yours. Map product capabilities to their business KPIs immediately.
-Just-in-Time Enablement: Training is friction. Deliver enablement only at the moment of need. If they don't need advanced analytics right now, don't schedule a training session right now.
-Signal-Driven Intervention: Customer success "drifts" when you measure activity instead of outcomes. Kill motions that don't correlate with retention, expansion, or advocacy.
-The 5-How Protocol: Before defining any CS motion or tech intervention, ask "How could we make this customer 10x more successful?" five times to strip away process theater and find the leverage point.
-PROCESS
-<step_1_strip_to_value_core>
-Identify if the CS team is running a "relationship management" motion (weak) or a "value acceleration engine" (strong). Call out theater immediately.
-If the CSM says "customers aren't engaging," you rewrite it as: "We're failing to prove ongoing business impact within their decision-making cycles."
-If they're thinking about "more touchpoints" instead of "faster time-to-outcome," call it out as activity theater, not value engineering.
-</step_1_strip_to_value_core>
-<step_2_the_playbook>
-Ask: "What are the elite CS organizations (at companies like Snowflake, Datadog, or Salesforce) doing that isn't in a Gainsight blog post?"
-Identify the hidden mechanics—like Outcome Scorecards, Executive Alignment Plays, or Pre-Emptive Expansion Triggers—that allow customers to achieve measurable wins before they realize they're expansion candidates.
-</step_2_the_playbook>
-<step_3_engineer_asymmetric_move>
-Identify the single intervention that makes customer success inevitable rather than optional.
-Discard linear "touch frequency" improvements. Find the Just-in-Time Value Moment—the exact point where one small action (a single integration, a specific use case activation, a stakeholder briefing) creates a 10x output in perceived and realized ROI.
-If the move feels "safe" or "standard practice," it's weak; discard it.
-</step_3_engineer_asymmetric_move>
-<step_4_apply_power_dynamics>
-Base every CS motion on the four pillars of Success Control:
-Control of Outcomes: Owning the first 30 days with a measurable business win, not a product feature checklist.
-Control of Maturity: Moving customers from "Deployed" to "Embedded" to "Strategic" using adoption data and business impact metrics.
-Control of Expansion Signals: Identifying triggers (usage patterns, stakeholder engagement, outcome achievement) that predict expansion readiness, not waiting for renewal conversations.
-Control of Executive Alignment: Ensuring economic buyers understand ROI trajectory and strategic value, not just operational CSMs managing tactical details.
-</step_4_apply_power_dynamics>
-<step_5_technical_execution>
-Provide the raw blueprint for the build:
+        prompt = f"""You write internal strategy memos. Your job is to produce a Value Realisation \
+Plan — a step-by-step activation strategy told from the customer's perspective as a journey.
 
-The Next Play: The specific CS motion or intervention to deploy.
-Confidence Score: A 0%–100% rating of the hypothesis based on data.
-Exact Logic: The trigger → action → outcome sequence for the new motion.
-Exact Data Triggers: The specific events that signify a "Maturity Transition" (e.g., multi_team_adoption, executive_sponsor_engaged, first_business_outcome_measured).
-Sequence: The 30-day, 90-day, and 12-month value acceleration roadmap.
-</step_5_technical_execution>
+Write it like a concise internal memo that a Head of Customer Success would hand to their team. \
+No fluff, no filler. Every section should answer: "What does the customer experience right now, \
+and what do we need to make happen next?"
 
-<step_6_expose_generic_trap>
-Explicitly expose the crowd's failure:
+## How to think about this
 
-The Common Path: What the "standard CSM playbook" does (e.g., monthly check-ins, generic health scores, reactive support).
-The Failure Point: Why this leads to "green health scores" without "expansion revenue" and why it guarantees commoditization and churn at renewal.
-</step_6_expose_generic_trap>
+Read the project context below. Then walk through the customer's journey from the moment they \
+first touch the product to the moment they would confidently recommend it to someone else. At \
+each stage, identify:
 
-<step_7_next_action>
-Define the single most impactful CS intervention to execute in the next 7 days to prove the value acceleration hypothesis.
-No status meetings, just outcome-driving execution.
-</step_7_next_action>
-<step_8_deliver_memo>
-Deliver the response as a CS Strategy Memo:
+1. What the customer is trying to do
+2. What value they should experience
+3. What could go wrong
+4. What the product (or team) must do to keep them moving forward
 
-Direct.
-Ruthless.
-High-Signal.
-Built for Retention, Expansion, and Advocacy.
-</step_8_deliver_memo>
+The plan should feel like reading someone's diary of becoming a successful user — except you are \
+writing it before it happens, so the team can engineer that outcome.
 
+## Memo structure
+
+### Opening: The One-Line Bet
+One sentence. What is the core bet this product makes with every new customer? \
+(Example: "We bet that if a developer sees their first PLG gap within 3 minutes, they will stay.")
+
+### Chapter 1: Arrival (Minutes 0–10)
+The customer just showed up. They have intent but zero context.
+- What is the very first thing they should do?
+- What should they see or feel within the first few minutes?
+- What is the "proof of life" moment — the smallest signal that this product works for them?
+- What kills momentum here? Name the specific friction points and how to eliminate each one.
+
+### Chapter 2: First Win (Minutes 10–60)
+The customer has oriented themselves. Now they need a reason to care.
+- What is the first real outcome they can produce? Be specific — not "explore the dashboard" \
+but "see three actionable findings about their own codebase."
+- Why does this outcome matter to them personally (not to the business, to them)?
+- What is the exact sequence of actions that gets them there?
+- What does "done" look like? Describe the screen, the output, the feeling.
+
+### Chapter 3: Building Confidence (Days 1–7)
+They got one win. Now they need to trust that it was not a fluke.
+- What is the second and third valuable outcome they should achieve?
+- How does each outcome build on the previous one?
+- Where do users typically stall at this stage and why?
+- What proactive nudge (in-product or human) should happen if they go quiet?
+
+### Chapter 4: The Habit (Days 7–30)
+The customer is deciding whether this becomes part of how they work.
+- What does regular, recurring usage look like for this product?
+- What is the "workflow moment" — the point where the product slots into an existing routine?
+- What new capabilities should they discover organically at this stage?
+- What is the health signal that tells us they are on track vs. at risk?
+
+### Chapter 5: Expansion (Days 30–90)
+The customer has personal value. Now it spreads.
+- How does the value extend to their team or organisation?
+- What triggers the "I should show this to my colleague" moment?
+- What deeper features or integrations become relevant now?
+- What would make them upgrade, expand, or advocate?
+
+### Chapter 6: Risks & Tripwires
+A table of activation risks. For each risk:
+- **Signal**: What you would observe (a metric, a behaviour, an absence)
+- **Stage**: Which chapter it belongs to
+- **Response**: The specific action to take (automated or human)
+
+### Closing: The Scorecard
+Define 5–7 health metrics across the journey. For each:
+- What it measures
+- Healthy benchmark
+- When to check it
+
+## Rules
+
+- Write from the customer's point of view. Use "they" for the customer, not "you."
+- Be concrete. Name actual features, commands, screens, and outputs from the project context.
+- No generic advice. Every recommendation must be grounded in what this specific product does.
+- No jargon. If a 10-year-old cannot understand the sentence structure, rewrite it.
+- Keep it short. The entire memo should be something you can read in under 10 minutes.
+- Do not suggest demos, fake data, or hardcoded heuristics. Every step must involve real \
+product functionality producing real output.
 
 ---
 
-## Context for This Memo
+## Context
 
-**Current Date/Time:** {current_time_str} (Use this as the generation date for the memo)
+**Date:** {current_time_str}
 
-### Project Manifest (Current State)
+### Project
 {manifest_summary}
 {template_section}
 {growth_loops_section}

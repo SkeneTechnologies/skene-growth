@@ -19,7 +19,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 from pydantic import SecretStr
@@ -846,7 +846,10 @@ def status(
         skene status --find-alternatives --api-key "your-key"
     """
     from skene_growth.validators.loop_validator import (
+        ValidationEvent,
+        clear_event_listeners,
         print_validation_report,
+        register_event_listener,
         validate_all_loops,
     )
 
@@ -907,12 +910,39 @@ def status(
     console.print(f"[dim]Loops dir:[/dim]    {loops_dir}")
     console.print()
 
-    results = validate_all_loops(
-        context_dir=context,
-        project_root=path,
-        llm_client=llm_client,
-        find_alternatives=find_alternatives,
-    )
+    # Register event listener for simple text output
+    def event_listener(event: ValidationEvent, payload: dict[str, Any]) -> None:
+        """Display validation events as simple text messages."""
+        if event == ValidationEvent.LOOP_VALIDATION_STARTED:
+            loop_name = payload.get("loop_name", "Unknown Loop")
+            console.print(f"Validating {loop_name}...")
+        elif event == ValidationEvent.REQUIREMENT_MET:
+            req_type = payload.get("type", "")
+            if req_type == "file":
+                file_path = payload.get("path", "")
+                console.print(f"  File requirement met: {file_path}...")
+            elif req_type == "function":
+                func_name = payload.get("name", "")
+                console.print(f"  Function requirement met: {func_name}...")
+        elif event == ValidationEvent.LOOP_COMPLETED:
+            loop_name = payload.get("loop_name", "Unknown Loop")
+            console.print(f"Loop complete: {loop_name}...")
+        # Skip VALIDATION_TIME event - not user-facing
+
+    register_event_listener(event_listener)
+
+    try:
+        results = validate_all_loops(
+            context_dir=context,
+            project_root=path,
+            llm_client=llm_client,
+            find_alternatives=find_alternatives,
+        )
+    finally:
+        # Clean up event listener
+        clear_event_listeners()
+
+    console.print()
     print_validation_report(results)
 
 

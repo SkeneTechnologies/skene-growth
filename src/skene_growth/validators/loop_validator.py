@@ -156,8 +156,7 @@ def clear_event_listeners() -> None:
 
 
 def _emit(event: ValidationEvent, payload: dict[str, Any]) -> None:
-    """Emit a validation event to all registered listeners and logger."""
-    logger.debug("validation_event: {} | {}", event.value, payload)
+    """Emit a validation event to all registered listeners."""
     for listener in _event_listeners:
         try:
             listener(event, payload)
