@@ -65,10 +65,7 @@ class DebugLLMClient(LLMClient):
         response = await self._client.generate_content(prompt)
         duration = time.monotonic() - start
 
-        self._write(
-            f"\n[RESPONSE] ({duration:.2f}s)\n{response}\n"
-            f"\n--- End call #{call_id} ---\n"
-        )
+        self._write(f"\n[RESPONSE] ({duration:.2f}s)\n{response}\n\n--- End call #{call_id} ---\n")
         logger.debug(
             "LLM call #{} completed | {:.2f}s | response_len={}",
             call_id,
@@ -104,10 +101,7 @@ class DebugLLMClient(LLMClient):
         duration = time.monotonic() - start
 
         full_response = "".join(chunks)
-        self._write(
-            f"\n[RESPONSE] (stream, {duration:.2f}s)\n{full_response}\n"
-            f"\n--- End call #{call_id} ---\n"
-        )
+        self._write(f"\n[RESPONSE] (stream, {duration:.2f}s)\n{full_response}\n\n--- End call #{call_id} ---\n")
         logger.debug(
             "LLM stream #{} completed | {:.2f}s | response_len={}",
             call_id,
