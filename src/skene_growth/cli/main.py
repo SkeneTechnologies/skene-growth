@@ -1226,14 +1226,16 @@ def config(
         return
 
     # Interactive configuration setup
-    config_path, selected_provider, selected_model, new_api_key = interactive_config_setup()
+    config_path, selected_provider, selected_model, new_api_key, base_url = interactive_config_setup()
 
     # Save configuration
     try:
-        save_config(config_path, selected_provider, selected_model, new_api_key)
+        save_config(config_path, selected_provider, selected_model, new_api_key, base_url)
         console.print(f"\n[green]✓ Configuration saved to:[/green] {config_path}")
         console.print(f"[green]  Provider:[/green] {selected_provider}")
         console.print(f"[green]  Model:[/green] {selected_model}")
+        if base_url:
+            console.print(f"[green]  Base URL:[/green] {base_url}")
         console.print(f"[green]  API Key:[/green] {'Set' if new_api_key else 'Not set'}")
     except Exception as e:
         console.print(f"[red]Error saving configuration:[/red] {e}")

@@ -22,8 +22,8 @@ DEFAULT_MODEL_BY_PROVIDER = {
     "openai": "gpt-4o",
     "gemini": "gemini-3-flash-preview",  # v1beta API requires -preview suffix
     "anthropic": "claude-sonnet-4-5",
-    "claude": "claude-sonnet-4-5",
     "ollama": "llama3.3",
+    "generic": "custom-model",
 }
 
 
