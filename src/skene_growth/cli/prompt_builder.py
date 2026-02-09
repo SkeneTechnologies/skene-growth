@@ -368,17 +368,11 @@ def run_claude(prompt_file: Path) -> None:
     Raises:
         RuntimeError: If launching Claude fails
     """
-    prompt_with_ref = (
-        f"The full task is saved in @{prompt_file}. "
-        f"Refer to that file for the complete instructions.\n\n"
-    )
+    prompt_with_ref = f"The full task is saved in @{prompt_file}. Refer to that file for the complete instructions.\n\n"
 
     try:
         subprocess.run(["claude", prompt_with_ref], check=False)
     except FileNotFoundError:
-        raise RuntimeError(
-            "Claude CLI not found. "
-            "Please install it: https://docs.anthropic.com/claude-code"
-        )
+        raise RuntimeError("Claude CLI not found. Please install it: https://docs.anthropic.com/claude-code")
     except KeyboardInterrupt:
         pass

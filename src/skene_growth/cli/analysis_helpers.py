@@ -285,7 +285,7 @@ priority is "high", "medium", or "low". Return only the JSON object, nothing els
         response = await llm.generate_content(prompt)
 
         # Extract the first JSON object from the response
-        json_match = _re.search(r'\{[\s\S]*\}', response)
+        json_match = _re.search(r"\{[\s\S]*\}", response)
         if json_match:
             try:
                 result = json.loads(json_match.group(0))
@@ -436,9 +436,7 @@ async def run_cycle(
 
             # Generate todo list from memo + structured project context
             progress.update(task, description="Generating todo list...")
-            todo_summary, todo_list = await generate_todo_list(
-                llm, memo_content, manifest_data, template_data
-            )
+            todo_summary, todo_list = await generate_todo_list(llm, memo_content, manifest_data, template_data)
 
             return memo_content, (todo_summary, todo_list)
 

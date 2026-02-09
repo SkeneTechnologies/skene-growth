@@ -141,6 +141,7 @@ def save_config(config_path: Path, provider: str, model: str, api_key: str, base
     config_path.write_text("\n".join(lines))
     _set_config_permissions(config_path)
 
+
 def interactive_config_setup() -> tuple[Path, str, str, str, str | None]:
     """
     Interactive configuration setup.
