@@ -10,7 +10,7 @@ from pydantic import SecretStr
 from skene_growth.llm.base import LLMClient
 
 # Default fallback model for rate limiting (429 errors)
-DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5"
 
 
 class AnthropicClient(LLMClient):

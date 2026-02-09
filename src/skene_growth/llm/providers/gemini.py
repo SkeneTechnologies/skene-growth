@@ -12,6 +12,7 @@ from pydantic import SecretStr
 from skene_growth.llm.base import LLMClient
 
 # Default fallback model for rate limiting (429 errors)
+# Using stable 2.5-flash as fallback (works with both v1 and v1beta APIs)
 DEFAULT_FALLBACK_MODEL = "gemini-2.5-flash"
 
 
@@ -25,7 +26,7 @@ class GoogleGeminiClient(LLMClient):
     Example:
         client = GoogleGeminiClient(
             api_key=SecretStr("your-api-key"),
-            model_name="gemini-2.5-pro"
+            model_name="gemini-3-flash-preview"  # v1beta API requires -preview suffix
         )
         response = await client.generate_content("Hello!")
     """
@@ -41,7 +42,7 @@ class GoogleGeminiClient(LLMClient):
 
         Args:
             api_key: Google API key (wrapped in SecretStr for security)
-            model_name: Primary model to use (e.g., "gemini-2.5-pro")
+            model_name: Primary model to use (e.g., "gemini-3-flash-preview" for v1beta API)
             fallback_model: Model to use when rate limited (default: gemini-2.5-flash)
         """
         try:

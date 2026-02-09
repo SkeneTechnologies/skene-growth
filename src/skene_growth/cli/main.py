@@ -16,18 +16,40 @@ Configuration files (optional):
 
 import asyncio
 import json
+import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import typer
 from pydantic import SecretStr
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from skene_growth import __version__
+from skene_growth.cli.analysis_helpers import (
+    run_analysis,
+    run_cycle,
+    show_analysis_summary,
+)
+from skene_growth.cli.config_manager import (
+    create_sample_config,
+    interactive_config_setup,
+    save_config,
+    show_config_status,
+)
+from skene_growth.cli.output_writers import write_growth_template, write_product_docs
+from skene_growth.cli.prompt_builder import (
+    build_prompt_from_template,
+    build_prompt_with_llm,
+    extract_technical_execution,
+    open_cursor_deeplink,
+    run_claude,
+    save_prompt_to_file,
+)
+from skene_growth.cli.sample_report import show_sample_report
 from skene_growth.config import default_model_for_provider, load_config
 
 app = typer.Typer(
@@ -38,13 +60,6 @@ app = typer.Typer(
 )
 
 console = Console()
-
-
-def json_serializer(obj: Any) -> str:
-    """JSON serializer for objects not serializable by default."""
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
 def version_callback(value: bool):
@@ -75,12 +90,14 @@ def main(
 
     Quick start with uvx (no installation required):
 
-        uvx skene-growth analyze .
+        uvx skene analyze .
+        # Or: uvx skene-growth analyze .
 
     Or install with pip:
 
         pip install skene-growth
-        skene-growth analyze .
+        skene analyze .
+        # Or: skene-growth analyze .
     """
     pass
 
@@ -111,13 +128,19 @@ def analyze(
         None,
         "--provider",
         "-p",
-        help="LLM provider to use (openai, gemini, anthropic/claude, ollama)",
+        help="LLM provider to use (openai, gemini, anthropic/claude, lmstudio, ollama, generic)",
     ),
     model: Optional[str] = typer.Option(
         None,
         "--model",
         "-m",
-        help="LLM model name (e.g., gemini-2.0-flash)",
+        help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
+    ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        envvar="SKENE_BASE_URL",
+        help="Base URL for OpenAI-compatible API endpoint (required for generic provider)",
     ),
     verbose: bool = typer.Option(
         False,
@@ -146,11 +169,6 @@ def analyze(
             "Example: --exclude tests --exclude vendor"
         ),
     ),
-    base_url: Optional[str] = typer.Option(
-        None,
-        "--base-url",
-        help="Base URL for OpenAI-compatible API endpoint (required for 'generic' provider)",
-    ),
 ):
     """
     Analyze a codebase and generate growth-manifest.json.
@@ -168,19 +186,20 @@ def analyze(
     Examples:
 
         # Analyze current directory (uvx)
-        uvx skene-growth analyze .
+        uvx skene analyze .
+        # Or: uvx skene-growth analyze .
 
         # Analyze specific path with custom output
-        uvx skene-growth analyze ./my-project -o manifest.json
+        uvx skene analyze ./my-project -o manifest.json
 
         # With API key
-        uvx skene-growth analyze . --api-key "your-key"
+        uvx skene analyze . --api-key "your-key"
 
         # Specify business type for custom growth template
-        uvx skene-growth analyze . --business-type "design-agency"
+        uvx skene analyze . --business-type "design-agency"
 
         # Generate product documentation
-        uvx skene-growth analyze . --product-docs
+        uvx skene analyze . --product-docs
     """
     # Load config with fallbacks
     config = load_config()
@@ -215,7 +234,7 @@ def analyze(
     else:
         resolved_output = Path(config.output_dir) / "growth-manifest.json"
 
-    # LM Studio, Ollama, and generic providers may not require an API key
+    # LM Studio and Ollama don't require an API key (local servers)
     is_local_provider = resolved_provider.lower() in (
         "lmstudio",
         "lm-studio",
@@ -232,16 +251,18 @@ def analyze(
             console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
             raise typer.Exit(1)
 
+    # If no API key and not using local provider, show sample report
+    if not resolved_api_key and not is_local_provider:
+        console.print(
+            "[yellow]No API key provided.[/yellow] Showing sample growth analysis preview.\n"
+            "For full AI-powered analysis, set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config\n"
+        )
+        show_sample_report(path, output, exclude_folders=exclude if exclude else None)
+        return
+
     if not resolved_api_key:
         if is_local_provider:
             resolved_api_key = resolved_provider  # Dummy key for local server
-        else:
-            console.print(
-                "[yellow]Warning:[/yellow] No API key provided. "
-                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
-            )
-            console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
-            raise typer.Exit(1)
 
     # If product docs are requested, use docs mode to collect features
     mode_str = "docs" if product_docs else "growth"
@@ -262,244 +283,99 @@ def analyze(
         # Merge CLI excludes with config excludes (deduplicate)
         exclude_folders = list(set(exclude_folders + exclude))
 
-    # Run async analysis
-    asyncio.run(
-        _run_analysis(
+    # Run async analysis - execute and handle output
+
+    from skene_growth.llm import create_llm_client
+
+    async def execute_analysis():
+        # Create LLM client once and reuse it
+        llm = create_llm_client(
+            resolved_provider,
+            SecretStr(resolved_api_key),
+            resolved_model,
+            base_url=resolved_base_url,
+        )
+
+        result, manifest_data = await run_analysis(
             path,
             resolved_output,
-            resolved_api_key,
-            resolved_provider,
-            resolved_model,
+            llm,
             verbose,
             product_docs,
             business_type,
             exclude_folders=exclude_folders if exclude_folders else None,
-            base_url=resolved_base_url,
         )
-    )
 
-
-async def _run_analysis(
-    path: Path,
-    output: Path,
-    api_key: str,
-    provider: str,
-    model: str,
-    verbose: bool,
-    product_docs: Optional[bool] = False,
-    business_type: Optional[str] = None,
-    exclude_folders: Optional[list[str]] = None,
-    base_url: Optional[str] = None,
-):
-    """Run the async analysis."""
-    from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
-    from skene_growth.codebase import CodebaseExplorer
-    from skene_growth.llm import create_llm_client
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Initializing...", total=None)
-
-        try:
-            # Initialize components
-            progress.update(task, description="Setting up codebase explorer...")
-            codebase = CodebaseExplorer(path, exclude_folders=exclude_folders)
-
-            progress.update(task, description="Connecting to LLM provider...")
-            llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url)
-
-            # Create analyzer
-            progress.update(task, description="Creating analyzer...")
-            if product_docs:
-                analyzer = DocsAnalyzer()
-                request_msg = "Generate documentation for this project"
-            else:
-                analyzer = ManifestAnalyzer()
-                request_msg = "Analyze this codebase for growth opportunities"
-
-            # Define progress callback
-            def on_progress(message: str, pct: float):
-                progress.update(task, description=f"{message}")
-
-            # Run analysis
-            progress.update(task, description="Analyzing codebase...")
-            result = await analyzer.run(
-                codebase=codebase,
-                llm=llm,
-                request=request_msg,
-                on_progress=on_progress,
-            )
-
-            if not result.success:
-                console.print("[red]Analysis failed[/red]")
-                if verbose and result.data:
-                    console.print(json.dumps(result.data, indent=2, default=json_serializer))
-                raise typer.Exit(1)
-
-            # Save output - unwrap "output" key if present
-            progress.update(task, description="Saving manifest...")
-            output.parent.mkdir(parents=True, exist_ok=True)
-            manifest_data = result.data.get("output", result.data) if "output" in result.data else result.data
-            output.write_text(json.dumps(manifest_data, indent=2, default=json_serializer))
-
-            # Generate product docs if requested
-            if product_docs:
-                _write_product_docs(manifest_data, output)
-
-            template_data = await _write_growth_template(llm, manifest_data, business_type, output)
-
-            progress.update(task, description="Complete!")
-
-        except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
-            if verbose:
-                import traceback
-
-                console.print(traceback.format_exc())
+        if result is None:
             raise typer.Exit(1)
 
-    # Show summary
-    console.print(f"\n[green]Success![/green] Manifest saved to: {output}")
+        # Generate product docs if requested
+        if product_docs:
+            write_product_docs(manifest_data, resolved_output)
 
-    # Show quick stats if available
-    if result.data:
-        _show_analysis_summary(result.data, template_data)
-
-
-def _show_analysis_summary(data: dict, template_data: dict | None = None):
-    """Display a summary of the analysis results.
-
-    Args:
-        data: Manifest data
-        template_data: Growth template data (optional)
-    """
-    # Unwrap "output" key if present (from GenerateStep)
-    if "output" in data and isinstance(data["output"], dict):
-        data = data["output"]
-
-    table = Table(title="Analysis Summary")
-    table.add_column("Category", style="cyan")
-    table.add_column("Details", style="white")
-
-    if "tech_stack" in data:
-        tech = data["tech_stack"]
-        tech_items = [f"{k}: {v}" for k, v in tech.items() if v]
-        table.add_row("Tech Stack", "\n".join(tech_items[:5]) or "Not detected")
-
-    if "industry" in data and data["industry"]:
-        industry = data["industry"]
-        primary = industry.get("primary") or "Unknown"
-        secondary = industry.get("secondary", [])
-        confidence = industry.get("confidence")
-        industry_str = primary
-        if secondary:
-            industry_str += f" ({', '.join(secondary[:3])})"
-        if confidence is not None:
-            industry_str += f" — {int(confidence * 100)}% confidence"
-        table.add_row("Industry", industry_str)
-
-    features = data.get("current_growth_features")
-    if features:
-        table.add_row("Current Growth Features", f"{len(features)} features detected")
-
-    opportunities = data.get("growth_opportunities")
-    if opportunities:
-        table.add_row("Growth Opportunities", f"{len(opportunities)} opportunities identified")
-
-    if "revenue_leakage" in data:
-        leakage = data["revenue_leakage"]
-        high_impact = sum(1 for item in leakage if item.get("impact") == "high")
-        table.add_row(
-            "Revenue Leakage",
-            f"{len(leakage)} issues found ({high_impact} high impact)" if leakage else "None detected",
+        template_data = await write_growth_template(
+            llm,
+            manifest_data,
+            business_type,
+            resolved_output,
         )
-    # Add growth template summary
-    if template_data:
-        if "lifecycles" in template_data:
-            # New format with lifecycles
-            lifecycle_count = len(template_data["lifecycles"])
-            lifecycle_names = [lc["name"] for lc in template_data["lifecycles"][:3]]
-            lifecycle_summary = ", ".join(lifecycle_names)
-            if lifecycle_count > 3:
-                lifecycle_summary += f", +{lifecycle_count - 3} more"
-            table.add_row("Lifecycle Stages", f"{lifecycle_count} stages: {lifecycle_summary}")
-        elif "visuals" in template_data and "lifecycleVisuals" in template_data["visuals"]:
-            # Legacy format with visuals
-            lifecycle_count = len(template_data["visuals"]["lifecycleVisuals"])
-            lifecycle_names = list(template_data["visuals"]["lifecycleVisuals"].keys())[:3]
-            lifecycle_summary = ", ".join(lifecycle_names)
-            if lifecycle_count > 3:
-                lifecycle_summary += f", +{lifecycle_count - 3} more"
-            table.add_row("Lifecycle Stages", f"{lifecycle_count} stages: {lifecycle_summary}")
 
-    console.print(table)
+        # Show summary
+        console.print(f"\n[green]Success![/green] Manifest saved to: {resolved_output}")
+
+        # Show quick stats if available
+        if result.data:
+            show_analysis_summary(result.data, template_data)
+
+    asyncio.run(execute_analysis())
 
 
-def _write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
-    """Generate and save product documentation alongside analysis output.
-
-    Args:
-        manifest_data: The manifest data dict
-        manifest_path: Path to the growth-manifest.json (used to determine output location)
+@app.command()
+def audit(
+    path: Path = typer.Argument(
+        ".",
+        help="Path to codebase to audit",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    output: Optional[Path] = typer.Option(
+        None,
+        "-o",
+        "--output",
+        help="Output path (not used in sample mode)",
+    ),
+    exclude: Optional[list[str]] = typer.Option(
+        None,
+        "--exclude",
+        "-e",
+        help="Folder names to exclude (not used in sample mode)",
+    ),
+):
     """
-    from skene_growth.docs import DocsGenerator
-    from skene_growth.manifest import DocsManifest, GrowthManifest
+    Show sample growth analysis preview (no API key).
 
-    try:
-        # Parse manifest (DocsManifest for v2.0, GrowthManifest otherwise)
-        if manifest_data.get("version") == "2.0" or "product_overview" in manifest_data or "features" in manifest_data:
-            manifest = DocsManifest.model_validate(manifest_data)
-        else:
-            manifest = GrowthManifest.model_validate(manifest_data)
-    except Exception as exc:
-        console.print(f"[yellow]Warning:[/yellow] Failed to parse manifest for product docs: {exc}")
-        return
+    Displays a preview of the strategic insights and recommendations available
+    with full API-powered analysis. This gives you a sense of:
+    - Growth opportunity identification
+    - Strategic recommendations
+    - Implementation roadmaps
+    - Technical growth infrastructure
 
-    # Write to same directory as manifest (./skene-context/)
-    output_dir = manifest_path.parent
-    product_docs_path = output_dir / "product-docs.md"
+    For full codebase-specific analysis, configure an API key.
 
-    try:
-        generator = DocsGenerator()
-        product_content = generator.generate_product_docs(manifest)
-        product_docs_path.write_text(product_content)
-        console.print(f"[green]Product docs saved to:[/green] {product_docs_path}")
-    except Exception as exc:
-        console.print(f"[yellow]Warning:[/yellow] Failed to generate product docs: {exc}")
+    Examples:
 
+        # Show sample growth analysis
+        uvx skene audit .
+        # Or: uvx skene-growth audit .
 
-async def _write_growth_template(
-    llm, manifest_data: dict, business_type: Optional[str] = None, manifest_path: Optional[Path] = None
-) -> dict | None:
-    """Generate and save the growth template JSON output.
-
-    Args:
-        llm: LLM client
-        manifest_data: Manifest data
-        business_type: Optional business type
-        manifest_path: Path to the manifest file (template will be saved to same directory)
-
-    Returns:
-        Template data dict if successful, None if failed
+        # Analyze with full AI insights (requires API key)
+        uvx skene analyze . --api-key YOUR_KEY
     """
-    from skene_growth.templates import generate_growth_template, write_growth_template_outputs
-
-    try:
-        template_data = await generate_growth_template(llm, manifest_data, business_type)
-        # Save template to the same directory as the manifest
-        if manifest_path:
-            output_dir = manifest_path.parent
-        else:
-            output_dir = Path("./skene-context")
-        json_path, markdown_path = write_growth_template_outputs(template_data, output_dir)
-        console.print(f"[green]Growth template saved to:[/green] {json_path}")
-        return template_data
-    except Exception as exc:
-        console.print(f"[yellow]Warning:[/yellow] Failed to generate growth template: {exc}")
-        return None
+    # Always show sample report
+    show_sample_report(path, output, exclude_folders=exclude if exclude else None)
 
 
 @app.command(deprecated=True, hidden=True)
@@ -570,7 +446,7 @@ def plan(
         None,
         "--model",
         "-m",
-        help="LLM model name (e.g., gemini-2.0-flash)",
+        help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
     ),
     verbose: bool = typer.Option(
         False,
@@ -578,10 +454,10 @@ def plan(
         "--verbose",
         help="Enable verbose output",
     ),
-    base_url: Optional[str] = typer.Option(
-        None,
-        "--base-url",
-        help="Base URL for OpenAI-compatible API endpoint (required for 'generic' provider)",
+    onboarding: bool = typer.Option(
+        False,
+        "--onboarding",
+        help="Generate onboarding-focused plan using Senior Onboarding Engineer perspective",
     ),
 ):
     """
@@ -594,13 +470,17 @@ def plan(
     Examples:
 
         # Generate growth plan (uses any context files found)
-        uvx skene-growth plan --api-key "your-key"
+        uvx skene plan --api-key "your-key"
+        # Or: uvx skene-growth plan --api-key "your-key"
 
         # Specify context directory containing manifest and template
-        uvx skene-growth plan --context ./my-context --api-key "your-key"
+        uvx skene plan --context ./my-context --api-key "your-key"
 
         # Override context file paths
-        uvx skene-growth plan --manifest ./manifest.json --template ./template.json
+        uvx skene plan --manifest ./manifest.json --template ./template.json
+
+        # Generate onboarding-focused plan
+        uvx skene plan --onboarding --api-key "your-key"
     """
     # Load config with fallbacks
     config = load_config()
@@ -608,7 +488,6 @@ def plan(
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
-    resolved_base_url = base_url or config.base_url
     if model:
         resolved_model = model
     else:
@@ -671,26 +550,22 @@ def plan(
         "lm-studio",
         "lm_studio",
         "ollama",
-        "generic",
-        "openai-compatible",
-        "openai_compatible",
     )
 
-    # Generic provider requires base_url
-    if resolved_provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
-        if not resolved_base_url:
-            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
-            raise typer.Exit(1)
+    # If no API key and not using local provider, show sample report
+    if not resolved_api_key and not is_local_provider:
+        # Determine path for sample report (use context dir if provided, else current dir)
+        sample_path = context if context else Path(".")
+        console.print(
+            "[yellow]No API key provided.[/yellow] Showing sample growth plan preview.\n"
+            "For full AI-powered plan generation, set --api-key, SKENE_API_KEY env var, "
+            "or add to .skene-growth.config\n"
+        )
+        show_sample_report(sample_path, output, exclude_folders=None)
+        return
 
     if not resolved_api_key:
-        if is_local_provider:
-            resolved_api_key = resolved_provider  # Dummy key for local server
-        else:
-            console.print(
-                "[yellow]Warning:[/yellow] No API key provided. "
-                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
-            )
-            raise typer.Exit(1)
+        resolved_api_key = resolved_provider  # Dummy key for local server
 
     # Handle output path: if it's a directory, append default filename
     # Resolve to absolute path
@@ -710,9 +585,10 @@ def plan(
     # Ensure final path is absolute (should already be, but double-check)
     resolved_output = resolved_output.resolve()
 
+    plan_type = "onboarding plan" if onboarding else "growth plan"
     console.print(
         Panel.fit(
-            f"[bold blue]Generating growth plan[/bold blue]\n"
+            f"[bold blue]Generating {plan_type}[/bold blue]\n"
             f"Manifest: {manifest if manifest and manifest.exists() else 'Not provided'}\n"
             f"Template: {template if template and template.exists() else 'Not provided'}\n"
             f"Output: {resolved_output}\n"
@@ -722,9 +598,27 @@ def plan(
         )
     )
 
-    # Run async cycle generation
-    asyncio.run(
-        _run_cycle(
+    # Determine context directory for growth-loops loading
+    context_dir_for_loops = None
+    if context:
+        context_dir_for_loops = context
+    elif manifest:
+        # If manifest is in skene-context, use that parent
+        if manifest.parent.name == "skene-context":
+            context_dir_for_loops = manifest.parent
+    elif resolved_output:
+        # If output is in skene-context, use that parent
+        if resolved_output.parent.name == "skene-context":
+            context_dir_for_loops = resolved_output.parent
+        else:
+            # Check if skene-context exists in same directory as output
+            potential_context = resolved_output.parent / "skene-context"
+            if potential_context.exists():
+                context_dir_for_loops = potential_context
+
+    # Run async cycle generation - execute and handle output
+    async def execute_cycle():
+        memo_content, todo_data = await run_cycle(
             manifest_path=manifest,
             template_path=template,
             output_path=resolved_output,
@@ -732,139 +626,148 @@ def plan(
             provider=resolved_provider,
             model=resolved_model,
             verbose=verbose,
-            base_url=resolved_base_url,
+            onboarding=onboarding,
+            context_dir=context_dir_for_loops,
         )
-    )
 
-
-def _extract_ceo_next_action(memo_content: str) -> str | None:
-    """Extract the CEO's Next Action section from the memo.
-
-    Args:
-        memo_content: Full memo markdown content
-
-    Returns:
-        Extracted next action text or None if not found
-    """
-    import re
-
-    # Look for the CEO's Next Action section (flexible patterns)
-    # Pattern 1: Match section heading followed by any bold text
-    pattern = r"##?\s*7?\.\s*(?:THE\s+)?CEO'?s?\s+Next\s+Action.*?\n\n\*\*(.*?):\*\*\s*(.*?)(?=\n\n###|\n\n##|\Z)"
-    match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
-
-    if match:
-        intro = match.group(1).strip()  # e.g., "Within 24 hours", "Ship in 24 Hours"
-        action = match.group(2).strip()
-
-        # Combine intro and action for context
-        full_action = f"{intro}: {action}" if intro else action
-
-        # Clean up markdown and extra formatting
-        full_action = re.sub(r"\[.*?\]", "", full_action)  # Remove markdown links
-        full_action = re.sub(r"\n\n+", "\n\n", full_action)  # Normalize line breaks
-        return full_action
-
-    # Fallback: Look for any bold text after CEO's Next Action heading
-    pattern2 = r"##?\s*7?\.\s*(?:THE\s+)?CEO'?s?\s+Next\s+Action.*?\n\n(.*?)(?=\n\n###|\n\n##|\Z)"
-    match2 = re.search(pattern2, memo_content, re.IGNORECASE | re.DOTALL)
-
-    if match2:
-        action = match2.group(1).strip()
-        action = re.sub(r"\[.*?\]", "", action)
-        action = re.sub(r"\n\n+", "\n\n", action)
-        # Remove the bold markers if present
-        action = re.sub(r"\*\*", "", action)
-        return action
-
-    return None
-
-
-async def _run_cycle(
-    manifest_path: Path | None,
-    template_path: Path | None,
-    output_path: Path,
-    api_key: str,
-    provider: str,
-    model: str,
-    verbose: bool,
-    base_url: Optional[str] = None,
-):
-    """Run cycle generation using Council of Growth Engineers."""
-    from pydantic import SecretStr
-
-    from skene_growth.llm import create_llm_client
-
-    next_action = None
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Initializing...", total=None)
-
-        try:
-            # Load manifest (use empty dict if missing)
-            progress.update(task, description="Loading manifest...")
-            if manifest_path and manifest_path.exists():
-                manifest_data = json.loads(manifest_path.read_text())
-            else:
-                manifest_data = {"project_name": "Project", "description": "No manifest provided."}
-
-            # Load template (use empty dict if missing)
-            progress.update(task, description="Loading template...")
-            if template_path and template_path.exists():
-                template_data = json.loads(template_path.read_text())
-            else:
-                template_data = {"lifecycles": []}
-
-            # Connect to LLM
-            progress.update(task, description="Connecting to LLM provider...")
-            llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url)
-
-            # Generate Council memo
-            progress.update(task, description="Generating Council memo...")
-            from skene_growth.planner import Planner
-
-            planner = Planner()
-            memo_content = await planner.generate_council_memo(
-                llm=llm,
-                manifest_data=manifest_data,
-                template_data=template_data,
-            )
-
-            # Write output
-            progress.update(task, description="Writing output...")
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(memo_content)
-
-            progress.update(task, description="Complete!")
-
-            # Extract and display CEO's Next Action
-            next_action = _extract_ceo_next_action(memo_content)
-
-        except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
-            if verbose:
-                import traceback
-
-                console.print(traceback.format_exc())
+        if memo_content is None:
             raise typer.Exit(1)
 
-    console.print(f"\n[green]Success![/green] Growth plan saved to: {output_path}")
+        console.print(f"\n[green]Success![/green] Growth plan saved to: {resolved_output}")
 
-    # Display next action box
-    if next_action:
-        console.print("\n")
-        console.print(
-            Panel(
-                next_action,
-                title="[bold yellow]⚡ Next Action - Ship in 24 Hours[/bold yellow]",
-                border_style="yellow",
-                padding=(1, 2),
+        # Print the report to terminal
+        if memo_content:
+            console.print()
+            console.print(memo_content)
+
+        # Display implementation todo list
+        if todo_data:
+            todo_summary, todo_list = todo_data if isinstance(todo_data, tuple) else (None, todo_data)
+
+            if todo_list:
+                console.print("\n")
+
+                # Sort by priority (high first) for ordering, but don't display priority
+                priority_order = {"high": 0, "medium": 1, "low": 2}
+                sorted_todos = sorted(
+                    todo_list,
+                    key=lambda x: priority_order.get(x.get("priority", "medium"), 1),
+                )
+
+                # Create table with checkbox column and task column
+                todo_table = Table(show_header=False, box=None, padding=(0, 1))
+                todo_table.add_column("", style="dim", width=3)
+                todo_table.add_column("Task", style="white")
+
+                # Add summary as first row if available
+                if todo_summary:
+                    todo_table.add_row("", f"[dim]{todo_summary}[/dim]")
+                    todo_table.add_row("", "")  # Empty row for spacing
+
+                for todo in sorted_todos:
+                    task = todo.get("task", "")
+                    todo_table.add_row("[ ]", task)
+                    todo_table.add_row("", "")  # Empty row for spacing
+
+                console.print(
+                    Panel(
+                        todo_table,
+                        title="[bold yellow]Implementation Todo List[/bold yellow]",
+                        border_style="yellow",
+                        padding=(1, 2),
+                    )
+                )
+                console.print("\n[dim]Next: Use [cyan]skene build[/cyan] command to implement this[/dim]")
+            console.print("")
+
+    asyncio.run(execute_cycle())
+
+
+@app.command()
+def chat(
+    path: Path = typer.Argument(
+        ".",
+        help="Path to codebase to analyze",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM provider (or set SKENE_API_KEY env var)",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider to use (openai, gemini, anthropic/claude, ollama)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
+    ),
+    max_steps: int = typer.Option(
+        4,
+        "--max-steps",
+        help="Maximum tool calls per user request",
+    ),
+    tool_output_limit: int = typer.Option(
+        4000,
+        "--tool-output-limit",
+        help="Max tool output characters kept in context",
+    ),
+):
+    """
+    Interactive terminal chat that invokes skene-growth tools.
+
+    Examples:
+
+        uvx skene chat . --api-key "your-key"
+        # Or: uvx skene-growth chat . --api-key "your-key"
+        uvx skene chat ./my-project --provider gemini --model gemini-3-flash-preview
+    """
+    config = load_config()
+
+    resolved_api_key = api_key or config.api_key
+    resolved_provider = provider or config.provider
+    if model:
+        resolved_model = model
+    else:
+        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
+
+    is_local_provider = resolved_provider.lower() in (
+        "lmstudio",
+        "lm-studio",
+        "lm_studio",
+        "ollama",
+    )
+
+    if not resolved_api_key:
+        if is_local_provider:
+            resolved_api_key = resolved_provider
+        else:
+            console.print(
+                "[yellow]Warning:[/yellow] No API key provided. "
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
             )
-        )
+            raise typer.Exit(1)
+
+    from skene_growth.cli.chat import run_chat
+
+    run_chat(
+        console=console,
+        repo_path=path,
+        api_key=resolved_api_key,
+        provider=resolved_provider,
+        model=resolved_model,
+        max_steps=max_steps,
+        tool_output_limit=tool_output_limit,
+    )
 
 
 @app.command()
@@ -883,7 +786,8 @@ def validate(
 
     Examples:
 
-        uvx skene-growth validate ./growth-manifest.json
+        uvx skene validate ./growth-manifest.json
+        # Or: uvx skene-growth validate ./growth-manifest.json
     """
     console.print(f"Validating: {manifest}")
 
@@ -920,6 +824,345 @@ def validate(
 
 
 @app.command()
+def build(
+    plan: Optional[Path] = typer.Option(
+        None,
+        "--plan",
+        help="Path to growth plan markdown file",
+    ),
+    context: Optional[Path] = typer.Option(
+        None,
+        "--context",
+        "-c",
+        help="Directory containing growth-plan.md (auto-detected if not specified)",
+    ),
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM (uses config if not provided)",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider: openai, gemini, anthropic, ollama (uses config if not provided)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model (uses provider default if not provided)",
+    ),
+):
+    """
+    Build an AI prompt from your growth plan using LLM, then choose where to send it.
+
+    Workflow:
+    1. Extracts Technical Execution from growth plan
+    2. Uses LLM to generate intelligent, focused prompt
+    3. Asks where to send: Cursor, Claude, or Show
+
+    Examples:
+
+        # Uses config for LLM, then asks where to send
+        skene build
+
+        # Override LLM settings from config
+        skene build --api-key "your-key" --provider gemini
+
+        # Custom model
+        skene build --provider anthropic --model claude-sonnet-4
+
+        # Specify custom plan location
+        skene build --plan ./my-plan.md
+
+    Configuration:
+        Set api_key and provider in .skene-growth.config or ~/.config/skene-growth/config
+    """
+    # Run async logic
+    asyncio.run(_build_async(plan, context, api_key, provider, model))
+
+
+async def _build_async(
+    plan: Optional[Path],
+    context: Optional[Path],
+    api_key: Optional[str],
+    provider: Optional[str],
+    model: Optional[str],
+):
+    """Async implementation of build command."""
+    # Load config to get LLM settings
+    config = load_config()
+    api_key = api_key or config.api_key
+    provider = provider or config.provider
+
+    # Validate LLM configuration
+    if not api_key or not provider:
+        console.print(
+            "[red]Error:[/red] LLM configuration required.\n\n"
+            "Please set api_key and provider in one of:\n"
+            "  1. .skene-growth.config (in current directory)\n"
+            "  2. ~/.config/skene-growth/config\n"
+            "  3. Command options: --api-key and --provider\n"
+            "  4. Environment: SKENE_API_KEY\n\n"
+            "Example config:\n"
+            '  api_key = "your-api-key"\n'
+            '  provider = "gemini"  # or anthropic, openai, ollama\n'
+        )
+        raise typer.Exit(1)
+    # Auto-detect plan file
+    if plan is None:
+        default_paths = []
+
+        # If context is specified, check there first
+        if context:
+            if not context.exists():
+                console.print(f"[red]Error:[/red] Context directory does not exist: {context}")
+                raise typer.Exit(1)
+            if not context.is_dir():
+                console.print(f"[red]Error:[/red] Context path is not a directory: {context}")
+                raise typer.Exit(1)
+            default_paths.append(context / "growth-plan.md")
+
+        # Then check standard default paths
+        default_paths.extend(
+            [
+                Path("./skene-context/growth-plan.md"),
+                Path("./growth-plan.md"),
+            ]
+        )
+
+        for p in default_paths:
+            if p.exists():
+                plan = p
+                break
+
+    # Validate plan file exists
+    if plan is None or not plan.exists():
+        console.print(
+            "[red]Error:[/red] Growth plan not found.\n\n"
+            "Please ensure a growth plan exists at one of:\n"
+            "  - ./skene-context/growth-plan.md (default)\n"
+            "  - ./growth-plan.md\n"
+            "  - Or specify a custom path with --plan\n\n"
+            "Generate a plan first with: [cyan]skene plan[/cyan]"
+        )
+        raise typer.Exit(1)
+
+    # Read the plan
+    try:
+        plan_content = plan.read_text()
+    except Exception as e:
+        console.print(f"[red]Error reading plan file:[/red] {e}")
+        raise typer.Exit(1)
+
+    # Extract Technical Execution section
+    technical_execution = extract_technical_execution(plan_content)
+
+    if not technical_execution:
+        console.print(
+            "[red]Error:[/red] Could not extract Technical Execution section from growth plan.\n"
+            "Please ensure your growth plan has a 'TECHNICAL EXECUTION' section with:\n"
+            "  - The Next Build\n"
+            "  - Confidence Score\n"
+            "  - Exact Logic\n"
+            "  - Data Triggers\n"
+            "  - Sequence\n\n"
+            "Generate a proper plan with: [cyan]skene plan[/cyan]\n"
+        )
+        raise typer.Exit(1)
+
+    # Create LLM client and generate prompt
+    if model is None:
+        model = config.get("model") or default_model_for_provider(provider)
+
+    try:
+        from pydantic import SecretStr
+
+        from skene_growth.llm import create_llm_client
+
+        llm = create_llm_client(provider, SecretStr(api_key), model)
+        console.print("")
+        console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
+
+        # Generate prompt with LLM
+        prompt = await build_prompt_with_llm(plan.resolve(), technical_execution, llm)
+
+    except Exception as e:
+        console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
+        console.print("[dim]Falling back to template...[/dim]\n")
+        prompt = build_prompt_from_template(plan.resolve(), technical_execution)
+
+    # Display the technical execution context
+    console.print(f"\n[bold blue]Building prompt from Technical Execution:[/bold blue] {plan}\n")
+
+    if technical_execution.get("next_build"):
+        console.print(
+            Panel(
+                technical_execution["next_build"],
+                title="[bold cyan]The Next Build[/bold cyan]",
+                border_style="cyan",
+                padding=(1, 2),
+            )
+        )
+
+    # Show the prompt preview
+    console.print("\n[bold]Generated Prompt Preview:[/bold]")
+    preview = prompt if len(prompt) <= 200 else prompt[:200] + "..."
+    console.print(f"[dim]{preview}[/dim]\n")
+
+    # Always ask where to send the prompt
+    console.print("[bold cyan]Where do you want to send this prompt?[/bold cyan]")
+
+    # Use questionary for arrow key selection (with fallback)
+    target = None
+    try:
+        import questionary
+
+        choices_list = [
+            questionary.Choice("Cursor (open via deep link)", value="cursor"),
+            questionary.Choice("Claude (open in terminal)", value="claude"),
+            questionary.Choice("Show full prompt", value="show"),
+            questionary.Choice("Cancel", value="cancel"),
+        ]
+
+        selection = questionary.select(
+            "",
+            choices=choices_list,
+            use_arrow_keys=True,
+            use_shortcuts=True,
+            instruction="(Use arrow keys to navigate, Enter to select)",
+        ).ask()
+
+        if selection == "cancel" or selection is None:
+            console.print("\n[dim]Cancelled.[/dim]")
+            return
+
+        target = selection
+
+    except ImportError:
+        # Fallback to numbered menu if questionary not installed
+        choices = [
+            "1. Cursor (open via deep link)",
+            "2. Claude (open in terminal)",
+            "3. Show full prompt",
+            "4. Cancel",
+        ]
+        for choice in choices:
+            console.print(f"  {choice}")
+
+        console.print()
+        selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
+
+        if selection == "1":
+            target = "cursor"
+        elif selection == "2":
+            target = "claude"
+        elif selection == "3":
+            target = "show"
+        elif selection == "4":
+            console.print("[dim]Cancelled.[/dim]")
+            return
+
+    # Save growth loop definition (only if not cancelled)
+    try:
+        from skene_growth.growth_loops.storage import (
+            derive_loop_id,
+            derive_loop_name,
+            generate_loop_definition_with_llm,
+            generate_timestamped_filename,
+            write_growth_loop_json,
+        )
+
+        # Derive initial loop metadata (will be refined after LLM generation)
+        loop_name = derive_loop_name(technical_execution)
+        loop_id = derive_loop_id(loop_name)
+
+        # Determine base output directory
+        if context and context.exists():
+            base_output_dir = context
+        else:
+            base_output_dir = Path(config.output_dir)
+
+        # Generate loop definition with LLM
+        console.print("\n[dim]Please wait...Finalising the prompt and generating growth loop definition...[/dim]")
+        console.print("")
+        loop_definition = await generate_loop_definition_with_llm(
+            llm=llm,
+            technical_execution=technical_execution,
+            plan_path=plan.resolve(),
+            codebase_path=Path.cwd(),
+        )
+
+        # Extract loop_id and name from generated definition (in case LLM changed them)
+        loop_id = loop_definition.get("loop_id", loop_id)
+        loop_name = loop_definition.get("name", loop_name)
+
+        # Generate filename using final loop_id
+        timestamped_filename = generate_timestamped_filename(loop_id)
+
+        # Add metadata for tracking
+        loop_definition["_metadata"] = {
+            "source_plan_path": str(plan.resolve()),
+            "saved_at": datetime.now().isoformat(),
+            "target": target,
+            "prompt": prompt,
+        }
+
+        # Write to file
+        saved_path = write_growth_loop_json(
+            base_dir=base_output_dir,
+            filename=timestamped_filename,
+            payload=loop_definition,
+        )
+
+        console.print(f"[dim]Saved growth loop to: {saved_path}[/dim]\n")
+
+    except Exception as e:
+        # Don't fail the whole build if storage fails
+        console.print(f"[yellow]Warning:[/yellow] Failed to save growth loop: {e}")
+        if config.verbose:
+            import traceback
+
+            console.print(traceback.format_exc())
+
+    # Save prompt to a file for cross-platform consumption
+    prompt_output_dir = plan.parent if plan else Path(config.output_dir)
+    prompt_file = save_prompt_to_file(prompt, prompt_output_dir)
+    console.print(f"[dim]Prompt saved to: {prompt_file}[/dim]")
+
+    # Execute based on target
+    if target == "show":
+        console.print("\n")
+        console.print(Panel(prompt, title="[bold]Full Prompt[/bold]", border_style="blue", padding=(1, 2)))
+        console.print(f"\n[green]✓[/green] Prompt saved to: {prompt_file}")
+        console.print("[dim]Copy and use as needed.[/dim]\n")
+
+    elif target == "cursor":
+        console.print("\n[dim]Opening Cursor with deep link...[/dim]")
+        try:
+            open_cursor_deeplink(prompt_file, project_root=Path.cwd())
+            console.print("[green]Success![/green] Cursor should now open with your prompt.")
+            console.print(f"[dim]Prompt file: {prompt_file}[/dim]\n")
+        except RuntimeError as e:
+            console.print(f"\n[red]Error:[/red] {e}\n")
+            console.print(f"[yellow]Prompt saved to:[/yellow] {prompt_file}")
+            console.print("[dim]You can open this file in Cursor manually.[/dim]\n")
+            raise typer.Exit(1)
+
+    elif target == "claude":
+        console.print("\n[dim]Launching Claude...[/dim]\n")
+        try:
+            run_claude(prompt_file)
+        except RuntimeError as e:
+            console.print(f"\n[red]Error:[/red] {e}\n")
+            console.print(f"[yellow]Prompt saved to:[/yellow] {prompt_file}")
+            console.print("[dim]You can run Claude manually with the saved prompt file.[/dim]\n")
+            raise typer.Exit(1)
+
+
+@app.command()
 def config(
     init: bool = typer.Option(
         False,
@@ -944,10 +1187,12 @@ def config(
     Examples:
 
         # Show current configuration
-        uvx skene-growth config --show
+        uvx skene config --show
+        # Or: uvx skene-growth config --show
 
         # Create a sample config file
-        uvx skene-growth config --init
+        uvx skene config --init
+        # Or: uvx skene-growth config --init
     """
     from skene_growth.config import find_project_config, find_user_config, load_config
 
@@ -957,22 +1202,7 @@ def config(
             console.print(f"[yellow]Config already exists:[/yellow] {config_path}")
             raise typer.Exit(1)
 
-        sample_config = """# skene-growth configuration
-# See: https://github.com/skene-technologies/skene-growth
-
-# API key for LLM provider (can also use SKENE_API_KEY env var)
-# api_key = "your-gemini-api-key"
-
-# LLM provider to use (default: gemini)
-provider = "gemini"
-
-# Default output directory
-output_dir = "./skene-context"
-
-# Enable verbose output
-verbose = false
-"""
-        config_path.write_text(sample_config)
+        create_sample_config(config_path)
         console.print(f"[green]Created config file:[/green] {config_path}")
         console.print("\nEdit this file to add your API key and customize settings.")
         return
@@ -982,48 +1212,239 @@ verbose = false
     project_cfg = find_project_config()
     user_cfg = find_user_config()
 
-    console.print(Panel.fit("[bold blue]Configuration[/bold blue]", title="skene-growth"))
-
-    table = Table(title="Config Files")
-    table.add_column("Type", style="cyan")
-    table.add_column("Path", style="white")
-    table.add_column("Status", style="green")
-
-    table.add_row(
-        "Project",
-        str(project_cfg) if project_cfg else "./.skene-growth.config",
-        "[green]Found[/green]" if project_cfg else "[dim]Not found[/dim]",
-    )
-    table.add_row(
-        "User",
-        str(user_cfg) if user_cfg else "~/.config/skene-growth/config",
-        "[green]Found[/green]" if user_cfg else "[dim]Not found[/dim]",
-    )
-    console.print(table)
-
-    console.print()
-
-    values_table = Table(title="Current Values")
-    values_table.add_column("Setting", style="cyan")
-    values_table.add_column("Value", style="white")
-    values_table.add_column("Source", style="dim")
-
-    # Show API key (masked)
-    api_key = cfg.api_key
-    if api_key:
-        masked = api_key[:4] + "..." + api_key[-4:] if len(api_key) > 8 else "***"
-        values_table.add_row("api_key", masked, "config/env")
-    else:
-        values_table.add_row("api_key", "[dim]Not set[/dim]", "-")
-
-    values_table.add_row("provider", cfg.provider, "config/default")
-    values_table.add_row("output_dir", cfg.output_dir, "config/default")
-    values_table.add_row("verbose", str(cfg.verbose), "config/default")
-
-    console.print(values_table)
+    show_config_status(cfg, project_cfg, user_cfg)
 
     if not project_cfg and not user_cfg:
         console.print("\n[dim]Tip: Run 'skene-growth config --init' to create a config file[/dim]")
+        return
+
+    # Ask if user wants to edit
+    console.print()
+    edit = Confirm.ask("[bold yellow]Do you want to edit this configuration?[/bold yellow]", default=False)
+
+    if not edit:
+        return
+
+    # Interactive configuration setup
+    config_path, selected_provider, selected_model, new_api_key, base_url = interactive_config_setup()
+
+    # Save configuration
+    try:
+        save_config(config_path, selected_provider, selected_model, new_api_key, base_url)
+        console.print(f"\n[green]✓ Configuration saved to:[/green] {config_path}")
+        console.print(f"[green]  Provider:[/green] {selected_provider}")
+        console.print(f"[green]  Model:[/green] {selected_model}")
+        if base_url:
+            console.print(f"[green]  Base URL:[/green] {base_url}")
+        console.print(f"[green]  API Key:[/green] {'Set' if new_api_key else 'Not set'}")
+    except Exception as e:
+        console.print(f"[red]Error saving configuration:[/red] {e}")
+        raise typer.Exit(1)
+
+
+def _run_chat_default(
+    path: Path = typer.Argument(
+        ".",
+        help="Path to codebase to analyze",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM provider (or set SKENE_API_KEY env var)",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider to use (openai, gemini, anthropic/claude, ollama)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
+    ),
+    max_steps: int = typer.Option(
+        4,
+        "--max-steps",
+        help="Maximum tool calls per user request",
+    ),
+    tool_output_limit: int = typer.Option(
+        4000,
+        "--tool-output-limit",
+        help="Max tool output characters kept in context",
+    ),
+):
+    """Interactive terminal chat that invokes skene-growth tools."""
+    # Auto-create user config on first run if no config exists
+    from skene_growth.config import find_project_config, find_user_config
+
+    user_cfg = find_user_config()
+    project_cfg = find_project_config()
+
+    if not user_cfg and not project_cfg:
+        # Create user config directory if it doesn't exist
+        config_home = os.environ.get("XDG_CONFIG_HOME")
+        if config_home:
+            config_dir = Path(config_home) / "skene-growth"
+        else:
+            config_dir = Path.home() / ".config" / "skene-growth"
+
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "config"
+
+        # Create sample config
+        create_sample_config(config_path)
+        console.print(
+            f"[green]Created config file:[/green] {config_path}\n"
+            "[dim]Edit this file to add your API key and customize settings.[/dim]\n"
+        )
+
+    config = load_config()
+
+    resolved_api_key = api_key or config.api_key
+    resolved_provider = provider or config.provider
+    if model:
+        resolved_model = model
+    else:
+        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
+
+    is_local_provider = resolved_provider.lower() in (
+        "lmstudio",
+        "lm-studio",
+        "lm_studio",
+        "ollama",
+    )
+
+    if not resolved_api_key:
+        if is_local_provider:
+            resolved_api_key = resolved_provider
+        else:
+            # Find which config file exists to show helpful message
+            config_file = find_project_config() or find_user_config()
+            if config_file:
+                console.print(
+                    f"[yellow]Warning:[/yellow] No API key provided. "
+                    "While that is ok, without api-key, Skene will not use advanced AI-analysis tools.\n"
+                    f"To enable AI features, add your API key to: [cyan]{config_file}[/cyan]\n"
+                    "Or set --api-key flag or SKENE_API_KEY env var."
+                )
+            else:
+                console.print(
+                    "[yellow]Warning:[/yellow] No API key provided. "
+                    "While that is ok, without api-key, Skene will not use advanced AI-analysis tools.\n"
+                    "To enable AI features, set --api-key, SKENE_API_KEY env var, or create a config file:\n"
+                    "  ~/.config/skene-growth/config (user-level)\n"
+                    "  ./.skene-growth.config (project-level)"
+                )
+            raise typer.Exit(1)
+
+    from skene_growth.cli.chat import run_chat
+
+    run_chat(
+        console=console,
+        repo_path=path,
+        api_key=resolved_api_key,
+        provider=resolved_provider,
+        model=resolved_model,
+        max_steps=max_steps,
+        tool_output_limit=tool_output_limit,
+    )
+
+
+def skene_entry_point():
+    """Entry point for 'skene' command - includes all commands, defaults to chat."""
+    # Create a typer app for the skene command that includes all commands
+    skene_app = typer.Typer(
+        name="skene",
+        help="PLG analysis toolkit for codebases. Analyze code, detect growth opportunities.",
+        add_completion=False,
+        no_args_is_help=False,
+    )
+
+    # Add all commands from the main app as subcommands FIRST
+    # This ensures subcommands are recognized before the callback
+    skene_app.command()(analyze)
+    skene_app.command()(audit)
+    skene_app.command()(plan)
+    skene_app.command()(chat)
+    skene_app.command()(validate)
+    skene_app.command()(build)
+    skene_app.command()(config)
+
+    # Add callback to handle default case (no subcommand) - launches chat
+    # Added AFTER commands so subcommands take precedence
+    # No arguments in callback to avoid conflicts with subcommands
+    @skene_app.callback(invoke_without_command=True)
+    def default_callback(ctx: typer.Context):
+        """Default: Launch interactive chat. Use subcommands for other operations."""
+        # Only invoke chat if no subcommand was provided
+        if ctx.invoked_subcommand is None:
+            # Parse all arguments manually from sys.argv
+            import sys
+
+            path_arg = "."
+            api_key_arg = None
+            provider_arg = None
+            model_arg = None
+            max_steps_arg = 4
+            tool_output_limit_arg = 4000
+
+            args = sys.argv[1:]  # Skip script name
+            i = 0
+            while i < len(args):
+                arg = args[i]
+                if arg in ["--api-key"] and i + 1 < len(args):
+                    api_key_arg = args[i + 1]
+                    i += 2
+                elif arg in ["--provider", "-p"] and i + 1 < len(args):
+                    provider_arg = args[i + 1]
+                    i += 2
+                elif arg in ["--model", "-m"] and i + 1 < len(args):
+                    model_arg = args[i + 1]
+                    i += 2
+                elif arg == "--max-steps" and i + 1 < len(args):
+                    max_steps_arg = int(args[i + 1])
+                    i += 2
+                elif arg == "--tool-output-limit" and i + 1 < len(args):
+                    tool_output_limit_arg = int(args[i + 1])
+                    i += 2
+                elif arg.startswith("--api-key="):
+                    api_key_arg = arg.split("=", 1)[1]
+                    i += 1
+                elif arg.startswith("--provider=") or arg.startswith("-p="):
+                    provider_arg = arg.split("=", 1)[1]
+                    i += 1
+                elif arg.startswith("--model=") or arg.startswith("-m="):
+                    model_arg = arg.split("=", 1)[1]
+                    i += 1
+                elif not arg.startswith("-"):
+                    # Found a non-option argument - this is the path
+                    path_arg = arg
+                    i += 1
+                else:
+                    i += 1
+
+            # Check environment variable for API key if not provided
+            if not api_key_arg:
+                api_key_arg = os.environ.get("SKENE_API_KEY")
+
+            _run_chat_default(
+                Path(path_arg),
+                api_key_arg,
+                provider_arg,
+                model_arg,
+                max_steps_arg,
+                tool_output_limit_arg,
+            )
+
+    # Run the app - typer will handle sys.argv automatically
+    skene_app()
 
 
 if __name__ == "__main__":

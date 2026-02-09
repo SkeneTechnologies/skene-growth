@@ -50,8 +50,11 @@ Be conservative - only include values you're confident about. Use null for uncer
 Return an empty array for services if none are detected.
 """
 
+
 # Current Growth Features Detection Prompt
-GROWTH_FEATURES_PROMPT = """
+def build_growth_features_prompt(existing_loops_summary: str = "") -> str:
+    """Build growth features prompt with optional existing loops context."""
+    base_prompt = """
 Analyze the provided source files and identify current features with growth potential.
 
 A "current growth feature" is an existing feature in the codebase that:
@@ -60,7 +63,12 @@ A "current growth feature" is an existing feature in the codebase that:
 - Facilitates user onboarding (tutorials, tooltips, guided flows)
 - Supports monetization (payments, subscriptions, upgrades)
 - Enables data-driven decisions (analytics, dashboards, reporting)
+"""
 
+    if existing_loops_summary:
+        base_prompt += f"\n{existing_loops_summary}\n"
+
+    base_prompt += """
 For each growth feature you identify, provide:
 1. **feature_name**: A clear name for the feature
 2. **file_path**: The primary file where this feature is implemented
@@ -72,6 +80,11 @@ For each growth feature you identify, provide:
 Return your analysis as a JSON array of current growth features.
 Focus on quality over quantity - identify the most impactful features.
 """
+    return base_prompt
+
+
+# Backward compatibility - default prompt without existing loops
+GROWTH_FEATURES_PROMPT = build_growth_features_prompt()
 
 # Revenue Leakage Detection Prompt
 REVENUE_LEAKAGE_PROMPT = """
@@ -98,8 +111,11 @@ Return your analysis as a JSON array of revenue leakage issues.
 Focus on actionable issues that could realistically impact revenue.
 """
 
+
 # Manifest Generation Prompt
-MANIFEST_PROMPT = """
+def build_manifest_prompt(existing_loops_summary: str = "") -> str:
+    """Build manifest generation prompt with optional existing loops context."""
+    base_prompt = """
 Generate a complete growth manifest by combining the analysis results.
 
 You have been provided with:
@@ -107,14 +123,27 @@ You have been provided with:
 - Current growth features analysis (existing features with growth potential)
 - Revenue leakage analysis (potential revenue issues)
 - Industry classification (market vertical and business model tags)
+"""
 
+    if existing_loops_summary:
+        base_prompt += f"\n{existing_loops_summary}\n"
+
+    base_prompt += """
 Your task is to:
 1. Create a cohesive project summary
 2. Include the tech stack and current growth features from the analysis
 3. Include revenue leakage issues from the analysis
 4. Include the industry classification from the analysis
 5. Identify growth opportunities - missing features that could drive growth
+"""
 
+    if existing_loops_summary:
+        base_prompt += """
+**IMPORTANT:** When identifying growth opportunities, DO NOT duplicate or overlap with the existing growth loops listed above.
+Focus on complementary opportunities that build on or extend the existing loops, or address entirely different growth areas.
+"""  # noqa: E501
+
+    base_prompt += """
 For growth opportunities, consider what's missing:
 - User onboarding flows
 - Viral/sharing mechanisms
@@ -132,6 +161,11 @@ Return a complete growth manifest as JSON with:
 - industry: From the industry classification analysis (include primary, secondary, confidence, evidence)
 - growth_opportunities: Your identified opportunities with priority (high/medium/low)
 """
+    return base_prompt
+
+
+# Backward compatibility - default prompt without existing loops
+MANIFEST_PROMPT = build_manifest_prompt()
 
 # Industry Classification Prompt
 INDUSTRY_PROMPT = """
@@ -255,8 +289,11 @@ Return as a JSON array of features:
 Prioritize the most important 5-10 features. Quality over quantity.
 """
 
+
 # Documentation Manifest Generation Prompt
-DOCS_MANIFEST_PROMPT = """
+def build_docs_manifest_prompt(existing_loops_summary: str = "") -> str:
+    """Build documentation manifest prompt with optional existing loops context."""
+    base_prompt = """
 Generate a complete documentation manifest by combining all analysis results.
 
 You have been provided with:
@@ -265,14 +302,27 @@ You have been provided with:
 - Industry classification (market vertical and business model tags)
 - Features documentation (user-facing feature descriptions)
 - Current growth features analysis (existing features with growth potential)
+"""
 
+    if existing_loops_summary:
+        base_prompt += f"\n{existing_loops_summary}\n"
+
+    base_prompt += """
 Your task is to:
 1. Create a cohesive DocsManifest combining all sections
 2. Infer a project_name from the codebase structure or package files
 3. Write a brief description summarizing the project
 4. Include all provided analysis data including industry classification
 5. Identify growth opportunities - missing features that could drive growth
+"""
 
+    if existing_loops_summary:
+        base_prompt += """
+**IMPORTANT:** When identifying growth opportunities, DO NOT duplicate or overlap with the existing growth loops listed above.
+Focus on complementary opportunities that build on or extend the existing loops, or address entirely different growth areas.
+"""  # noqa: E501
+
+    base_prompt += """
 For growth opportunities, consider what's missing:
 - User onboarding flows
 - Viral/sharing mechanisms
@@ -291,3 +341,8 @@ Return a complete manifest as JSON with:
 - current_growth_features: From the growth features analysis
 - growth_opportunities: Your identified opportunities with priority (high/medium/low)
 """
+    return base_prompt
+
+
+# Backward compatibility - default prompt without existing loops
+DOCS_MANIFEST_PROMPT = build_docs_manifest_prompt()

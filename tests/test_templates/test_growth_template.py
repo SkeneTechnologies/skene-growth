@@ -208,20 +208,10 @@ async def test_generate_growth_template_with_business_type():
 
 
 def test_write_growth_template_outputs(tmp_path):
-    """Test writing template outputs to JSON and Markdown files."""
+    """Test writing template outputs to JSON file."""
     candidate = _build_candidate_template()
 
-    json_path, markdown_path = write_growth_template_outputs(candidate, tmp_path)
+    json_path = write_growth_template_outputs(candidate, tmp_path)
 
     assert json_path.exists()
-    assert markdown_path.exists()
     assert json.loads(json_path.read_text())["title"] == "Test SaaS PLG Template"
-    markdown_content = markdown_path.read_text()
-    assert "Test SaaS PLG Template" in markdown_content
-    assert "ACQUISITION" in markdown_content
-    assert "ACTIVATION" in markdown_content
-    assert "RETENTION" in markdown_content
-    # Verify metrics are in markdown as list items
-    assert "Key Metrics" in markdown_content
-    assert "**Conversion Rate**:" in markdown_content
-    assert "Benchmark:" in markdown_content

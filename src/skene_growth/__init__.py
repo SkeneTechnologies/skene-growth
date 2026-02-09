@@ -25,7 +25,6 @@ from skene_growth.manifest import (
     TechStack,
 )
 from skene_growth.planner import (
-    GrowthLoop,
     Planner,
 )
 from skene_growth.strategies import (
@@ -43,7 +42,7 @@ from skene_growth.strategies.steps import (
     SelectFilesStep,
 )
 
-__version__ = "0.1.8"
+__version__ = "0.2.0b1"
 
 __all__ = [
     # Analyzers
@@ -81,6 +80,5 @@ __all__ = [
     "DocsGenerator",
     "PSEOBuilder",
     # Planner
-    "GrowthLoop",
     "Planner",
 ]

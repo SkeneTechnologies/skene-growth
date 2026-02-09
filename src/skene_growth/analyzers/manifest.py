@@ -5,12 +5,14 @@ Combines tech stack and growth features analysis to produce
 a complete GrowthManifest.
 """
 
+from typing import Any
+
 from skene_growth.analyzers.prompts import (
-    GROWTH_FEATURES_PROMPT,
     INDUSTRY_PROMPT,
-    MANIFEST_PROMPT,
     REVENUE_LEAKAGE_PROMPT,
     TECH_STACK_PROMPT,
+    build_growth_features_prompt,
+    build_manifest_prompt,
 )
 from skene_growth.manifest import GrowthManifest, IndustryInfo, TechStack
 from skene_growth.strategies import MultiStepStrategy
@@ -43,8 +45,19 @@ class ManifestAnalyzer(MultiStepStrategy):
         manifest = GrowthManifest.model_validate(result.data.get("output"))
     """
 
-    def __init__(self):
+    def __init__(self, existing_growth_loops: list[dict[str, Any]] | None = None):
         """Initialize the manifest analyzer with all analysis steps."""
+        self.existing_growth_loops = existing_growth_loops or []
+
+        # Format existing loops for prompt inclusion
+        from skene_growth.growth_loops.storage import format_growth_loops_summary
+
+        loops_summary = format_growth_loops_summary(self.existing_growth_loops)
+
+        # Build prompts with existing loops context
+        growth_features_prompt = build_growth_features_prompt(loops_summary)
+        manifest_prompt = build_manifest_prompt(loops_summary)
+
         super().__init__(
             steps=[
                 # Phase 1: Detect tech stack
@@ -109,7 +122,7 @@ class ManifestAnalyzer(MultiStepStrategy):
                     output_key="file_contents",
                 ),
                 AnalyzeStep(
-                    prompt=GROWTH_FEATURES_PROMPT,
+                    prompt=growth_features_prompt,
                     output_key="current_growth_features",
                     source_key="file_contents",
                 ),
@@ -175,7 +188,7 @@ class ManifestAnalyzer(MultiStepStrategy):
                 ),
                 # Phase 4: Generate final manifest
                 GenerateStep(
-                    prompt=MANIFEST_PROMPT,
+                    prompt=manifest_prompt,
                     output_schema=GrowthManifest,
                     include_context_keys=["tech_stack", "current_growth_features", "revenue_leakage", "industry"],
                     output_key="output",

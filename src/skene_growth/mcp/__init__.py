@@ -11,6 +11,15 @@ Usage:
     python -m skene_growth.mcp
 """
 
-from skene_growth.mcp.server import main, serve
+
+# Lazy imports to avoid requiring mcp package when importing other mcp modules
+def __getattr__(name: str):
+    """Lazy import for MCP server functions."""
+    if name in ("main", "serve"):
+        from skene_growth.mcp.server import main, serve
+
+        return main if name == "main" else serve
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = ["main", "serve"]

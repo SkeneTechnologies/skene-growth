@@ -32,7 +32,7 @@ class OllamaClient(OpenAICompatibleClient):
     Example:
         client = OllamaClient(
             api_key=SecretStr("ollama"),  # API key is optional for local use
-            model_name="llama2"
+            model_name="llama3.3"
         )
         response = await client.generate_content("Hello!")
     """

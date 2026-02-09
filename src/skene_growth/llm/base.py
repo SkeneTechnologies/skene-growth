@@ -14,7 +14,7 @@ class LLMClient(ABC):
     Implementations should handle provider-specific details internally.
 
     Example:
-        client = create_llm_client("gemini", api_key, "gemini-2.5-pro")
+        client = create_llm_client("gemini", api_key, "gemini-3-flash-preview")
         response = await client.generate_content("Hello, world!")
     """
 
