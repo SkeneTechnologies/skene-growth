@@ -369,7 +369,7 @@ def run_claude(prompt_file: Path) -> None:
         RuntimeError: If launching Claude fails
     """
     prompt_with_ref = (
-        f"The full task is saved in {prompt_file}. "
+        f"The full task is saved in @{prompt_file}. "
         f"Refer to that file for the complete instructions.\n\n"
     )
 
