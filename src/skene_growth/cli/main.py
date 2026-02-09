@@ -299,15 +299,11 @@ def analyze(
         result, manifest_data = await run_analysis(
             path,
             resolved_output,
-            resolved_api_key,
-            resolved_provider,
-            resolved_model,
+            llm,
             verbose,
             product_docs,
             business_type,
             exclude_folders=exclude_folders if exclude_folders else None,
-            base_url=resolved_base_url,
-            llm=llm,
         )
 
         if result is None:

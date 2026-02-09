@@ -43,26 +43,15 @@ def json_serializer(obj: Any) -> str:
 async def run_analysis(
     path: Path,
     output: Path,
-    api_key: str,
-    provider: str,
-    model: str,
+    llm: LLMClient,
     verbose: bool,
     product_docs: Optional[bool] = False,
     business_type: Optional[str] = None,
     exclude_folders: Optional[list[str]] = None,
-    base_url: Optional[str] = None,
-    llm: Optional[LLMClient] = None,
 ):
-    """Run the async analysis.
-
-    Args:
-        llm: Optional LLM client to reuse. If not provided, one will be created.
-    """
-    from pydantic import SecretStr
-
+    """Run the async analysis."""
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
     from skene_growth.codebase import CodebaseExplorer
-    from skene_growth.llm import create_llm_client
 
     with Progress(
         SpinnerColumn(),
@@ -75,11 +64,6 @@ async def run_analysis(
             # Initialize components
             progress.update(task, description="Setting up codebase explorer...")
             codebase = CodebaseExplorer(path, exclude_folders=exclude_folders)
-
-            # Create LLM client if not provided
-            if llm is None:
-                progress.update(task, description="Connecting to LLM provider...")
-                llm = create_llm_client(provider, SecretStr(api_key), model)
 
             # Load existing growth loops from output directory
             progress.update(task, description="Loading existing growth loops...")
