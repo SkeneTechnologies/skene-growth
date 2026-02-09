@@ -173,19 +173,28 @@ def interactive_config_setup() -> tuple[Path, str, str, str, str | None]:
 
     # Ask for provider
     console.print()
-    providers = ["openai", "gemini", "anthropic", "lmstudio", "ollama", "generic"]
-    provider_options = "\n".join([f"  {i + 1}. {p}" for i, p in enumerate(providers)])
+    providers = [
+        ("openai", "OpenAI"),
+        ("gemini", "Google Gemini"),
+        ("anthropic", "Anthropic"),
+        ("lmstudio", "LM Studio"),
+        ("ollama", "Ollama"),
+        ("generic", "OpenAI compatible API"),
+    ]
+    provider_options = "\n".join([f"  {i + 1}. {label}" for i, (_key, label) in enumerate(providers)])
     console.print(f"[bold]Select LLM provider:[/bold]\n{provider_options}")
+
+    provider_keys = [key for key, _label in providers]
 
     while True:
         provider_choice = Prompt.ask(
             f"\n[cyan]Provider[/cyan] (1-{len(providers)})",
-            default=str(providers.index(current_provider) + 1) if current_provider in providers else "1",
+            default=str(provider_keys.index(current_provider) + 1) if current_provider in provider_keys else "1",
         )
         try:
             idx = int(provider_choice) - 1
             if 0 <= idx < len(providers):
-                selected_provider = providers[idx]
+                selected_provider = providers[idx][0]
                 break
             else:
                 console.print(
@@ -198,7 +207,7 @@ def interactive_config_setup() -> tuple[Path, str, str, str, str | None]:
     console.print()
     models = get_provider_models(selected_provider)
     model_options = "\n".join([f"  {i + 1}. {m}" for i, m in enumerate(models)])
-    console.print(f"[bold]Select model for {selected_provider}:[/bold]\n{model_options}")
+    console.print(f"[bold]Select model:[/bold]\n{model_options}")
 
     # Determine default model
     default_model_idx = None
