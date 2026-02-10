@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "PLG analysis toolkit for codebases - analyze code, detect growth opportunities, generate documentation"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.11"
+requires-python = ">=3.11,<4"
 authors = [
     { name = "Skene Technologies" }
 ]
