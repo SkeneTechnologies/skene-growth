@@ -1,0 +1,162 @@
+# Troubleshooting
+
+Solutions for common issues when using skene-growth.
+
+## LM Studio
+
+### Context length error
+
+```
+Error code: 400 - {'error': 'The number of tokens to keep from the initial prompt is greater than the context length...'}
+```
+
+The model's context length is too small for the analysis. To fix:
+
+1. In LM Studio, unload the current model
+2. Go to **Developer > Load**
+3. Click on **Context Length: Model supports up to N tokens**
+4. Set it to the maximum supported value
+5. Reload to apply changes
+
+Reference: [lmstudio-ai/lmstudio-bug-tracker#237](https://github.com/lmstudio-ai/lmstudio-bug-tracker/issues/237)
+
+### Connection refused
+
+Ensure:
+- LM Studio is running
+- A model is loaded and ready
+- The server is running on the default port (`http://localhost:1234`)
+
+For a custom port:
+
+```bash
+export LMSTUDIO_BASE_URL="http://localhost:8080/v1"
+```
+
+## Ollama
+
+### Connection refused
+
+Ensure:
+- Ollama is running (`ollama serve`)
+- A model is pulled and available (`ollama list`)
+- The server is on the default port (`http://localhost:11434`)
+
+Getting started with Ollama:
+
+```bash
+# Pull a model
+ollama pull llama3.3
+
+# Start the server (usually runs automatically after install)
+ollama serve
+```
+
+For a custom port:
+
+```bash
+export OLLAMA_BASE_URL="http://localhost:8080/v1"
+```
+
+## API key issues
+
+### "No API key" or fallback to sample report
+
+If `analyze` runs without an API key, it falls back to showing a sample preview (equivalent to `audit`). Set your key using one of:
+
+```bash
+# CLI flag
+uvx skene-growth analyze . --api-key "your-key"
+
+# Environment variable
+export SKENE_API_KEY="your-key"
+
+# Config file (interactive)
+uvx skene-growth config
+```
+
+### Wrong provider for API key
+
+Make sure the API key matches the provider. An OpenAI key won't work with `--provider gemini`.
+
+## Provider issues
+
+### Unknown provider
+
+Valid provider names:
+- `openai`
+- `gemini`
+- `anthropic` or `claude`
+- `lmstudio`, `lm-studio`, or `lm_studio`
+- `ollama`
+- `generic`, `openai-compatible`, or `openai_compatible`
+
+### Generic provider: missing base URL
+
+The `generic` provider requires a base URL:
+
+```bash
+uvx skene-growth analyze . --provider generic --base-url "http://localhost:8000/v1" --model "your-model"
+```
+
+Or set via environment variable:
+
+```bash
+export SKENE_BASE_URL="http://localhost:8000/v1"
+```
+
+## File not found errors
+
+### Manifest not found (plan/build commands)
+
+The `plan` and `build` commands look for files in `./skene-context/` by default. Make sure you've run `analyze` first:
+
+```bash
+uvx skene-growth analyze .   # Creates ./skene-context/growth-manifest.json
+uvx skene-growth plan        # Reads from ./skene-context/
+```
+
+Or specify paths explicitly:
+
+```bash
+uvx skene-growth plan --manifest ./path/to/manifest.json --template ./path/to/template.json
+uvx skene-growth plan --context ./my-output-dir
+```
+
+### Growth plan not found (build command)
+
+```bash
+uvx skene-growth plan    # Creates ./skene-context/growth-plan.md
+uvx skene-growth build   # Reads from ./skene-context/
+
+# Or specify explicitly
+uvx skene-growth build --plan ./path/to/growth-plan.md
+```
+
+## Debug mode
+
+Use `--debug` on any command to log all LLM input and output to `.skene-growth/debug/`:
+
+```bash
+uvx skene-growth analyze . --debug
+uvx skene-growth plan --debug
+uvx skene-growth chat --debug
+```
+
+Debug mode can also be enabled via environment variable or config:
+
+```bash
+export SKENE_DEBUG=true
+```
+
+```toml
+# .skene-growth.config
+debug = true
+```
+
+The debug logs show the full prompts sent to the LLM and the complete responses, which is useful for diagnosing unexpected output or provider-specific issues.
+
+## Getting help
+
+- GitHub issues: [github.com/SkeneTechnologies/skene-growth/issues](https://github.com/SkeneTechnologies/skene-growth/issues)
+- Documentation: [www.skene.ai/resources/docs/skene-growth](https://www.skene.ai/resources/docs/skene-growth)
