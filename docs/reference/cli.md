@@ -39,7 +39,7 @@ skene-growth analyze [PATH] [OPTIONS]
 |------|-------|---------|-------------|
 | `--output PATH` | `-o` | `./skene-context/growth-manifest.json` | Output path for the manifest file. If a directory is given, `growth-manifest.json` is appended automatically. |
 | `--api-key TEXT` | | `$SKENE_API_KEY` or config | API key for the LLM provider |
-| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic` (or `claude`), `lmstudio`, `ollama`, `generic`, `openai-compatible` |
+| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic` (or `claude`), `lmstudio`, `ollama`, `generic` (aliases: `openai-compatible`, `openai_compatible`) |
 | `--model TEXT` | `-m` | provider default | LLM model name (e.g. `gpt-4o`, `gemini-3-flash-preview`) |
 | `--base-url TEXT` | | `$SKENE_BASE_URL` or config | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. |
 | `--verbose` | `-v` | `false` | Enable verbose output |
@@ -50,9 +50,9 @@ skene-growth analyze [PATH] [OPTIONS]
 
 ### Behavior notes
 
-- When no API key is provided and the provider is not local (`lmstudio`, `ollama`, `generic`, `openai-compatible`), the command falls back to a sample preview (same as `audit`).
-- Local providers (`lmstudio`, `ollama`, `generic`, `openai-compatible`) do not require an API key.
-- The `generic` and `openai-compatible` providers require `--base-url`.
+- When no API key is provided and the provider is not local (`lmstudio`, `ollama`, `generic`), the command falls back to a sample preview (same as `audit`).
+- Local providers (`lmstudio`, `ollama`, `generic`) do not require an API key.
+- The `generic` provider requires `--base-url`.
 
 See the [analyze guide](../guides/analyze.md) for detailed usage.
 

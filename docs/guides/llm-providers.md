@@ -35,12 +35,12 @@ See [Configuration](configuration.md) for the full priority order.
 
 The default provider. Get an API key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
 
-**Available models**: gpt-5.2, gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4
+Any OpenAI model can be used via `--model`. The default is `gpt-4o`.
 
 ```bash
 uvx skene-growth analyze . --provider openai --api-key "sk-..."
 
-# gpt-4o is the default, but you can specify another
+# gpt-4o is the default, but you can specify any OpenAI model
 uvx skene-growth analyze . --model gpt-4o-mini --api-key "sk-..."
 ```
 
@@ -48,7 +48,7 @@ uvx skene-growth analyze . --model gpt-4o-mini --api-key "sk-..."
 
 Google's Gemini models via the v1beta API. Get an API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 
-**Available models**: gemini-3-flash-preview, gemini-3-pro-preview, gemini-2.5-flash, gemini-2.5-pro, gemini-3-nano-preview
+Any Gemini model can be used via `--model`. The default is `gemini-3-flash-preview`.
 
 ```bash
 uvx skene-growth analyze . --provider gemini --api-key "your-gemini-key"
@@ -63,7 +63,7 @@ uvx skene-growth analyze . --provider gemini --model gemini-2.5-pro --api-key "y
 
 Anthropic's Claude models. Get an API key at [console.anthropic.com](https://console.anthropic.com/). Both `anthropic` and `claude` work as provider names.
 
-**Available models**: claude-opus-4-5, claude-sonnet-4-5, claude-haiku-4-5
+Any Claude model can be used via `--model`. The default is `claude-sonnet-4-5`.
 
 ```bash
 uvx skene-growth analyze . --provider anthropic --api-key "sk-ant-..."
@@ -79,14 +79,14 @@ uvx skene-growth analyze . --provider claude --model claude-haiku-4-5 --api-key 
 
 Run models locally with [LM Studio](https://lmstudio.ai/). No API key required.
 
-**Available models**: custom-model, llama-3.3-70b, llama-3.3-8b, mistral-large, phi-4
+Use `--model` to specify whichever model you have loaded in LM Studio. If omitted, skene-growth sends `custom-model` as the model name (LM Studio typically ignores this and uses whichever model is currently loaded).
 
 ```bash
 # Make sure LM Studio is running with a model loaded
 uvx skene-growth analyze . --provider lmstudio
 
-# Specify the model loaded in LM Studio
-uvx skene-growth analyze . --provider lmstudio --model llama-3.3-70b
+# Specify the model name if needed
+uvx skene-growth analyze . --provider lmstudio --model "your-loaded-model"
 ```
 
 **Default server URL**: `http://localhost:1234/v1`
@@ -105,7 +105,7 @@ See [Troubleshooting](../troubleshooting.md) for common LM Studio issues.
 
 Run models locally with [Ollama](https://ollama.com/). No API key required.
 
-**Available models**: llama3.3, llama3.2, mistral, qwen2.5, phi4
+Use `--model` to specify whichever model you have pulled in Ollama. The default is `llama3.3`.
 
 ```bash
 # Pull a model first

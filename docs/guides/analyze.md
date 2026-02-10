@@ -38,7 +38,7 @@ If no API key is configured and you are not using a local provider, the command 
 | `PATH` | | Path to codebase (default: `.`, must be an existing directory) |
 | `--output PATH` | `-o` | Output path for `growth-manifest.json` |
 | `--api-key TEXT` | | API key for LLM provider (or `SKENE_API_KEY` env var) |
-| `--provider TEXT` | `-p` | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic`, `openai-compatible` |
+| `--provider TEXT` | `-p` | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` (aliases: `openai-compatible`, `openai_compatible`) |
 | `--model TEXT` | `-m` | Model name (e.g., `gpt-4o`, `gemini-3-flash-preview`, `claude-sonnet-4-5`) |
 | `--base-url TEXT` | | Base URL for OpenAI-compatible endpoint (required for `generic` provider; also `SKENE_BASE_URL` env var) |
 | `--business-type TEXT` | `-b` | Business type for growth template (e.g., `design-agency`, `b2b-saas`). LLM infers if not provided. |
