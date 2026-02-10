@@ -169,7 +169,7 @@ uvx skene-growth analyze . --provider openai --api-key "sk-..." --model gpt-4o
 uvx skene-growth analyze . --provider gemini --api-key "AI..." --model gemini-3-flash-preview
 ```
 
-### Anthropic (Claude)
+### Anthropic
 
 ```bash
 uvx skene-growth analyze . --provider anthropic --api-key "sk-ant-..." --model claude-sonnet-4-5

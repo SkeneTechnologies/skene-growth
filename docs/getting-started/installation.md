@@ -54,21 +54,6 @@ skene-growth analyze .
 skene chat
 ```
 
-### Optional dependency groups
-
-Install extras for additional functionality:
-
-| Extra | Install command | What it adds |
-|-------|----------------|--------------|
-| `mcp` | `pip install skene-growth[mcp]` | MCP server support (`skene-growth-mcp` entry point). Adds `mcp>=1.0.0` and `xxhash>=3.0`. |
-| `ui` | `pip install skene-growth[ui]` | Interactive terminal prompts via `questionary>=2.0`. |
-
-You can combine extras:
-
-```bash
-pip install skene-growth[mcp,ui]
-```
-
 ---
 
 ## Option 3: From source
@@ -99,6 +84,29 @@ pip install -e ".[mcp,ui,dev]"
 ```
 
 The `[dev]` group adds `pytest`, `pytest-asyncio`, and `ruff` for running tests and linting.
+
+---
+
+## Optional extras
+
+Install extras for additional functionality:
+
+| Extra | What it adds |
+|-------|--------------|
+| `mcp` | MCP server support (`skene-growth-mcp` entry point). Adds `mcp>=1.0.0` and `xxhash>=3.0`. |
+| `ui` | Interactive terminal prompts via `questionary>=2.0`. |
+
+```bash
+# With uvx (use --from to specify extras)
+uvx --from "skene-growth[mcp]" skene-growth-mcp
+
+# With uv
+uv pip install skene-growth[mcp]
+
+# With pip
+pip install skene-growth[mcp]
+pip install skene-growth[mcp,ui]
+```
 
 ---
 
