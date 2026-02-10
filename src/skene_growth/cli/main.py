@@ -24,6 +24,7 @@ from typing import Any, Optional
 import typer
 from pydantic import SecretStr
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
@@ -592,7 +593,7 @@ def plan(
         # Print the report to terminal
         if memo_content:
             console.print()
-            console.print(memo_content)
+            console.print(Markdown(memo_content))
 
         # Display implementation todo list
         if todo_data:
@@ -626,7 +627,7 @@ def plan(
 
                 # Add todo summary as second row if available
                 if todo_summary:
-                    todo_table.add_row("", f"[dim]{todo_summary}[/dim]")
+                    todo_table.add_row("", f"[bold]{todo_summary}[/bold]")
                     todo_table.add_row("", "")  # Empty row for spacing
 
                 for todo in sorted_todos:
