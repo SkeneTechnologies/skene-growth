@@ -250,17 +250,18 @@ class TestGenerateLoopDefinitionWithLlm:
                         "integrations": [{"type": "cli_flag", "description": "--test flag", "required": True}],
                         "telemetry": [
                             {
-                                "event_name": "test_event",
-                                "function": "track_test",
-                                "file": "tracking.py",
-                                "required": True,
+                                "action_name": "document_created",
+                                "table": "documents",
+                                "operation": "INSERT",
+                                "description": "Tracks when a document is created",
+                                "properties": ["workspace_id", "id"],
                             }
                         ],
                     },
                     "dependencies": [],
                     "verification_commands": ["echo test"],
                     "test_coverage": {"unit_tests": [], "integration_tests": [], "manual_tests": []},
-                    "metrics": {"telemetry_events": ["test_event"], "success_criteria": ["Test success"]},
+                    "metrics": {"data_actions": ["document_created"], "success_criteria": ["Test success"]},
                 }
             )
         )

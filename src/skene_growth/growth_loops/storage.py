@@ -223,6 +223,12 @@ async def generate_loop_definition_with_llm(
 
     context = "\n\n".join(context_parts)
 
+    # Load database schema for table-aware telemetry
+    schema_path = plan_path.parent / "schema.md"
+    schema_context = ""
+    if schema_path.exists():
+        schema_context = schema_path.read_text(encoding="utf-8")
+
     # Construct the LLM prompt
     prompt = (
         f"""You are a growth engineering expert. Generate a complete growth loop definition """
@@ -242,9 +248,8 @@ The output MUST be a valid JSON object with these REQUIRED fields:
     signature, logic (logic field is REQUIRED)
   - `integrations` (array): Integration requirements with type, description,
     verification
-  - `telemetry` (array): Telemetry requirements with event_name, description,
-    trigger_location, trigger_condition, properties (event-focused,
-    not function-specific)
+  - `telemetry` (array): Data-state telemetry based on database triggers.
+    Each item: action_name, table, operation, description, properties.
 - `dependencies` (array of strings): Loop IDs this depends on (use empty array [] if none)
 - `verification_commands` (array of strings): Manual verification commands
 - `test_coverage` (object):
@@ -252,7 +257,7 @@ The output MUST be a valid JSON object with these REQUIRED fields:
   - `integration_tests` (array of strings)
   - `manual_tests` (array of strings)
 - `metrics` (object):
-  - `telemetry_events` (array of strings)
+  - `data_actions` (array of strings): action_name values from telemetry
   - `success_criteria` (array of strings)
 
 ## Technical Execution Context
@@ -263,6 +268,10 @@ The output MUST be a valid JSON object with these REQUIRED fields:
 
 - Codebase path: {codebase_path}
 - Growth plan: {plan_path}
+
+## Database Schema
+
+{schema_context if schema_context else "(No schema.md found — infer tables from the project context.)"}
 
 ## Your Task
 
@@ -302,29 +311,25 @@ Analyze the technical execution context and generate a complete, actionable grow
 - Provide verification commands
 
 **For `requirements.telemetry`:**
-- Focus on the EVENT itself, not specific function implementations
-- Define telemetry events that need to be tracked for measuring success
-- Each event should have:
-  - `event_name` (string, required): Unique identifier for the event
-    (snake_case)
-  - `description` (string, required): Clear explanation of when/why this
-    event occurs and what it represents
-  - `trigger_location` (string, required): File or module where this event
-    should be tracked (e.g., "src/discovery/local_scanner.py")
-  - `trigger_condition` (string, required): Description of the specific
-    condition or moment when this event should be emitted (e.g., "After scan
-    completes and leaks are found", "When user clicks generate fix button")
-  - `properties` (array of strings, required): List of data fields that
-    should be included with this event
-- Do NOT specify exact function names - let developers decide how to
-  implement event emission
-- The event can be emitted using any telemetry/logging mechanism (e.g.,
-  general "skene" event system, logging framework, etc.)
-- Example: `{{"event_name": "local_vulnerability_detected",
-    "description": "Emitted when local scanner detects revenue leak patterns",
-    "trigger_location": "src/discovery/local_scanner.py",
-    "trigger_condition": "After scan completes and leaks are found",
-    "properties": ["leak_count", "leak_types", "scan_duration_ms"]}}`
+- Focus on DATA STATE CHANGES in the database, NOT app-side event emission
+- Define telemetry as database triggers that fire on INSERT, UPDATE, or DELETE
+- Use the Database Schema above to identify which tables and columns matter
+- Each item must have:
+  - `action_name` (string, required): Unique identifier for the action
+    (snake_case, e.g., "document_created", "api_key_revoked")
+  - `table` (string, required): Database table where the change occurs
+    (must be a table from the schema)
+  - `operation` (string, required): One of "INSERT", "UPDATE", "DELETE"
+  - `description` (string, required): What this data change represents
+    for growth measurement (e.g., "First document created = activation milestone")
+  - `properties` (array of strings, required): Column names from the table
+    to include in the trigger payload (e.g., ["workspace_id", "id", "created_at"])
+- Implementation: PostgreSQL AFTER INSERT/UPDATE/DELETE triggers that write
+  to a telemetry table or emit to the tracking pipeline
+- Example: `{{"action_name": "document_created", "table": "documents",
+    "operation": "INSERT",
+    "description": "Tracks when a new document is persisted — activation milestone",
+    "properties": ["workspace_id", "id", "created_at"]}}`
 
 **For `verification_commands`:**
 - Provide concrete commands that can verify the implementation
@@ -333,7 +338,7 @@ Analyze the technical execution context and generate a complete, actionable grow
 - Suggest unit tests, integration tests, and manual test steps
 
 **For `metrics`:**
-- List telemetry events to track
+- List data actions to track (action_name values from telemetry)
 - Define success criteria (KPIs)
 
 Return ONLY the JSON object, no markdown code fences, no explanations. The JSON must be valid and parseable."""
@@ -402,7 +407,7 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
             }
         if "metrics" not in loop_def:
             loop_def["metrics"] = {
-                "telemetry_events": [],
+                "data_actions": [],
                 "success_criteria": [],
             }
 
@@ -428,7 +433,7 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
                 "manual_tests": [],
             },
             "metrics": {
-                "telemetry_events": [],
+                "data_actions": [],
                 "success_criteria": [],
             },
         }
@@ -589,8 +594,14 @@ def format_growth_loops_summary(loops: list[dict[str, Any]]) -> str:
 
         telemetry = requirements.get("telemetry", [])
         if telemetry:
-            events = [t.get("event_name", "unknown") for t in telemetry[:3]]
-            lines.append(f"**Telemetry Events:** {', '.join(events)}")
+            labels = []
+            for t in telemetry[:3]:
+                name = t.get("action_name", "unknown")
+                table = t.get("table", "")
+                op = t.get("operation", "")
+                suffix = f" ({table} {op})" if table else ""
+                labels.append(f"{name}{suffix}")
+            lines.append(f"**Data Actions:** {', '.join(labels)}")
 
         # Include dependencies
         dependencies = loop.get("dependencies", [])
