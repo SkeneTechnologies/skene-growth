@@ -68,9 +68,10 @@ pip install skene-growth
 
 skene-growth follows a flexible workflow:
 
-1. **Analyze** - Establishes the foundation by analyzing your codebase and generating a comprehensive growth manifest. This creates the general AI context about your codebase structure, technology stack, user journey, and growth opportunities. The output includes current growth features, revenue leakage issues, growth opportunities, and a custom growth template.
-
-2. **Plan** - Generates a growth plan using Council of Growth Engineers analysis. This command uses an LLM to analyze your manifest and template to produce a detailed growth plan with 3-5 selected high-impact growth loops, implementation roadmap, and recommendations.
+1. **analyze** - Analyze your codebase and generate a growth manifest (tech stack, growth features, opportunities, growth template).
+2. **plan** - Generate a growth plan using Council of Growth Engineers (3-5 high-impact loops, roadmap, recommendations).
+3. **build** - Extract Technical Execution from the plan, generate an implementation prompt, save growth loop definition, and send to Cursor/Claude.
+4. **status** - Verify implementation status of growth loop requirements (files, functions) against your codebase.
 
 ## CLI Commands
 
@@ -131,9 +132,8 @@ uvx skene-growth analyze . -e planner -e docs
 
 **Flags:**
 - `--product-docs`: Generate user-friendly product documentation (collects product overview, features, and generates product-docs.md)
-- `-e, --exclude`: Folder names to exclude from analysis (can be used multiple times). Excludes any folder containing the specified name anywhere in the path. Can also be configured in `.skene-growth.config` file.
-
-The `--product-docs` flag enables enhanced analysis mode which collects product overview and feature documentation, producing a v2.0 manifest with additional fields and a user-friendly product-docs.md file.
+- `-e, --exclude`: Folder names to exclude from analysis (can be used multiple times). Can also be configured in `.skene-growth.config`.
+- `--debug`: Log all LLM input/output to `.skene-growth/debug/`
 
 ### `validate` - Validate a manifest
 
@@ -156,14 +156,15 @@ uvx skene-growth plan --api-key "your-key"
 
 # Specify context directory containing manifest and template
 uvx skene-growth plan --context ./my-context --api-key "your-key"
-# Or use short form:
-uvx skene-growth plan -c ./my-context --api-key "your-key"
 
 # Specify all files explicitly
 uvx skene-growth plan --manifest ./manifest.json --template ./template.json
 
 # Use different provider/model
 uvx skene-growth plan --provider gemini --model gemini-3-flash-preview
+
+# Add user context to influence generation
+uvx skene-growth plan --prompt "Focus on enterprise customers" --api-key "your-key"
 ```
 
 **Output:**
@@ -172,13 +173,13 @@ uvx skene-growth plan --provider gemini --model gemini-3-flash-preview
 **Flags:**
 - `--manifest`: Path to growth-manifest.json (auto-detected if not specified)
 - `--template`: Path to growth-template.json (auto-detected if not specified)
-- `-c, --context`: Directory containing growth-manifest.json and growth-template.json (detected at working directory if not specified)
+- `-c, --context`: Directory containing growth-manifest.json and growth-template.json (auto-detected if not specified)
 - `-o, --output`: Output path for growth plan (markdown format)
 - `--api-key`: API key for LLM provider (or set SKENE_API_KEY env var)
-- `-p, --provider`: LLM provider to use (openai, gemini, anthropic/claude, lmstudio, ollama, generic)
+- `-p, --provider`: LLM provider (openai, gemini, anthropic/claude, lmstudio, ollama, generic)
 - `-m, --model`: LLM model name
-- `--base-url`: Base URL for OpenAI-compatible API endpoint (required for generic provider)
-- `-v, --verbose`: Enable verbose output
+- `--prompt`: Additional user prompt to influence plan generation
+- `--debug`: Log all LLM input/output to `.skene-growth/debug/`
 
 **Council of Growth Engineers Analysis:**
 The plan command uses a "Council of Growth Engineers" system prompt that acts as an elite advisory board of growth strategists. It provides:
@@ -208,6 +209,9 @@ uvx skene-growth build --plan ./my-plan.md
 
 # Use custom context directory
 uvx skene-growth build --context ./my-context
+
+# Enable debug logging
+uvx skene-growth build --debug
 ```
 
 **What it does:**
@@ -227,22 +231,30 @@ uvx skene-growth build --context ./my-context
 - Growth loop definitions are automatically saved as JSON files when using the `build` command
 - Files are stored in `./skene-context/growth-loops/` directory (or custom `output_dir` if specified)
 - Filename format: `<loop_id>_YYYYMMDD_HHMMSS.json` (e.g., `share_flag_20240204_143022.json`)
-- Each file contains a complete loop definition conforming to GROWTH_LOOP_VERIFICATION_SPEC schema:
-  - Loop metadata (ID, name, description)
-  - Requirements (files, functions, integrations, telemetry)
-  - Dependencies on other loops
-  - Verification commands
-  - Test coverage requirements
-  - Metrics and success criteria
+
 - Existing growth loops are automatically loaded and referenced in subsequent analyses to avoid duplicates
+
+### `status` - Show implementation status of growth loops
+
+Verifies that required files, functions, and patterns from growth loop definitions are implemented in your codebase.
+
+```bash
+uvx skene-growth status
+uvx skene-growth status ./my-project --context ./my-project/skene-context
+uvx skene-growth status --find-alternatives --api-key "your-key"
+```
+
+**Flags:**
+- `-c, --context`: Path to skene-context directory (auto-detected if omitted)
+- `--find-alternatives`: Use LLM to find existing functions that might fulfill missing requirements (requires API key)
 
 ### `config` - Manage configuration
 
 ```bash
-# Show current configuration
-uvx skene-growth config
+# Show current configuration (default)
+uvx skene-growth config --show
 
-# Create a config file in current directory
+# Create a sample config file in current directory
 uvx skene-growth config --init
 ```
 
@@ -252,10 +264,7 @@ You can exclude specific folders from analysis to skip test files, vendor direct
 
 ### How Exclusion Works
 
-Exclusion matches folders in three ways:
-1. **Exact folder name match** - Excluding `"tests"` matches exactly `"tests"`
-2. **Substring match in folder names** - Excluding `"test"` matches `"tests"`, `"test_utils"`, `"integration_tests"`, etc.
-3. **Path pattern matching** - Excluding `"tests/unit"` matches any path containing that pattern
+Excluding `"test"` matches paths containing that string: `tests`, `test_utils`, `integration_tests`, `src/tests/unit/file.py`. Path patterns like `"tests/unit"` match any path containing that substring.
 
 ### Examples
 
@@ -266,23 +275,13 @@ uvx skene-growth analyze . --exclude tests --exclude vendor
 # Exclude multiple folders (short form)
 uvx skene-growth analyze . -e planner -e migrations -e docs
 
-# Exclude path patterns
-uvx skene-growth analyze . --exclude "tests/unit" --exclude "vendor/legacy"
+# Exclude path patterns (matches paths containing the string)
+uvx skene-growth analyze . --exclude "tests/unit" --exclude "vendor"
 ```
 
 ### Default Exclusions
 
-By default, skene-growth excludes common build and cache directories:
-- `.git`, `.svn`, `.hg` (version control)
-- `__pycache__`, `.pytest_cache` (Python cache)
-- `node_modules` (Node.js dependencies)
-- `.idea`, `.vscode` (IDE configs)
-- `venv`, `.venv` (Python virtual environments)
-- `dist`, `build` (build outputs)
-- `.next`, `.nuxt` (framework builds)
-- `coverage`, `.cache` (test/build artifacts)
-
-Your custom exclusions are merged with these defaults.
+Common build and cache directories are excluded by default: `.git`, `__pycache__`, `node_modules`, `.idea`, `.vscode`, `venv`, `.venv`, `dist`, `build`, `.next`, `.nuxt`, `coverage`, `.cache`. Your custom exclusions are merged with these.
 
 ## Configuration
 
@@ -319,6 +318,9 @@ output_dir = "./skene-context"
 
 # Enable verbose output
 verbose = false
+
+# Log LLM input/output to .skene-growth/debug/ (or set SKENE_DEBUG=1)
+# debug = false
 
 # Folders to exclude from analysis (folder names or path patterns)
 # Excludes any folder containing these names anywhere in the path
@@ -403,14 +405,16 @@ print(manifest["current_growth_features"])
 ### Documentation Generator
 
 ```python
+from pathlib import Path
+
 from skene_growth import DocsGenerator, GrowthManifest
 
 # Load manifest
-manifest = GrowthManifest.parse_file("growth-manifest.json")
+manifest = GrowthManifest.model_validate_json(Path("growth-manifest.json").read_text())
 
 # Generate docs
 generator = DocsGenerator()
-context_doc = generator.generate_context_doc(manifest)
+context_doc = generator.generate_context(manifest)
 product_doc = generator.generate_product_docs(manifest)
 ```
 
