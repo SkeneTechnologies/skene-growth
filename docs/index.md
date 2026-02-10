@@ -6,11 +6,10 @@ A CLI toolkit for analyzing codebases through the lens of Product-Led Growth (PL
 
 - **Analyzes your codebase** to detect tech stack, growth features, and revenue leakage patterns
 - **Generates a growth manifest** — structured JSON output documenting your product's growth surface area
-- **Creates growth plans** using a Council of Growth Engineers LLM prompt that produces 3-5 high-impact growth loops
+- **Creates growth plans** — a Council of Growth Engineers produces 3-5 high-impact growth loops
 - **Builds implementation prompts** that you can send directly to Cursor, Claude, or display in your terminal
-- **Runs a free local audit** detecting 50 PLG onboarding anti-patterns without requiring an API key
-- **Provides an MCP server** exposing 12 tools for AI assistants like Claude Desktop and Claude Code
-- **Supports multiple LLM providers**: OpenAI, Gemini, Anthropic/Claude, LM Studio, Ollama, and any OpenAI-compatible endpoint
+- **Provides an MCP server** exposing 12 tools for AI assistants
+- **Supports multiple LLM providers**: OpenAI, Gemini, Anthropic, LM Studio, Ollama, and any OpenAI-compatible endpoint
 
 ## Core workflow
 
