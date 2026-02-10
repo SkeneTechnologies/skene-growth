@@ -12,6 +12,8 @@ PLG (Product-Led Growth) codebase analysis toolkit. Scan your codebase, detect g
 uvx skene-growth config --init   # Create config file
 uvx skene-growth config          # Set provider, model, API key
 uvx skene-growth analyze .       # Analyze your codebase
+uvx skene-growth plan            # Generate a growth plan
+uvx skene-growth build           # Build an implementation prompt
 ```
 
 ## What It Does
