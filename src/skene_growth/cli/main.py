@@ -164,6 +164,11 @@ def analyze(
             "Example: --exclude tests --exclude vendor"
         ),
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Log all LLM input/output to .skene-growth/debug/",
+    ),
 ):
     """
     Analyze a codebase and generate growth-manifest.json.
@@ -275,6 +280,9 @@ def analyze(
         # Merge CLI excludes with config excludes (deduplicate)
         exclude_folders = list(set(exclude_folders + exclude))
 
+    # Resolve debug flag (CLI overrides config)
+    resolved_debug = debug or config.debug
+
     # Run async analysis - execute and handle output
 
     from skene_growth.llm import create_llm_client
@@ -286,19 +294,16 @@ def analyze(
             SecretStr(resolved_api_key),
             resolved_model,
             base_url=resolved_base_url,
+            debug=resolved_debug,
         )
 
         result, manifest_data = await run_analysis(
             path,
             resolved_output,
-            resolved_api_key,
-            resolved_provider,
-            resolved_model,
+            llm,
             verbose,
             product_docs,
             exclude_folders=exclude_folders if exclude_folders else None,
-            base_url=resolved_base_url,
-            llm=llm,
         )
 
         if result is None:
@@ -409,6 +414,11 @@ def plan(
         None,
         "--prompt",
         help="Additional user prompt to influence the plan generation",
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Log all LLM input/output to .skene-growth/debug/",
     ),
 ):
     """
@@ -570,6 +580,9 @@ def plan(
             if potential_context.exists():
                 context_dir_for_loops = potential_context
 
+    # Resolve debug flag (CLI overrides config)
+    resolved_debug = debug or config.debug
+
     # Run async cycle generation - execute and handle output
     async def execute_cycle():
         memo_content, todo_data = await run_cycle(
@@ -583,6 +596,7 @@ def plan(
             activation=activation,
             context_dir=context_dir_for_loops,
             user_prompt=prompt,
+            debug=resolved_debug,
         )
 
         if memo_content is None:
@@ -687,6 +701,11 @@ def chat(
         "--tool-output-limit",
         help="Max tool output characters kept in context",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Log all LLM input/output to .skene-growth/debug/",
+    ),
 ):
     """
     Interactive terminal chat that invokes skene-growth tools.
@@ -723,6 +742,9 @@ def chat(
             )
             raise typer.Exit(1)
 
+    # Resolve debug flag (CLI overrides config)
+    resolved_debug = debug or config.debug
+
     from skene_growth.cli.chat import run_chat
 
     run_chat(
@@ -733,6 +755,7 @@ def chat(
         model=resolved_model,
         max_steps=max_steps,
         tool_output_limit=tool_output_limit,
+        debug=resolved_debug,
     )
 
 
@@ -978,6 +1001,11 @@ def build(
         "-m",
         help="LLM model (uses provider default if not provided)",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Log all LLM input/output to .skene-growth/debug/",
+    ),
 ):
     """
     Build an AI prompt from your growth plan using LLM, then choose where to send it.
@@ -1005,7 +1033,7 @@ def build(
         Set api_key and provider in .skene-growth.config or ~/.config/skene-growth/config
     """
     # Run async logic
-    asyncio.run(_build_async(plan, context, api_key, provider, model))
+    asyncio.run(_build_async(plan, context, api_key, provider, model, debug))
 
 
 async def _build_async(
@@ -1014,6 +1042,7 @@ async def _build_async(
     api_key: Optional[str],
     provider: Optional[str],
     model: Optional[str],
+    debug: bool = False,
 ):
     """Async implementation of build command."""
     # Load config to get LLM settings
@@ -1106,7 +1135,8 @@ async def _build_async(
 
         from skene_growth.llm import create_llm_client
 
-        llm = create_llm_client(provider, SecretStr(api_key), model)
+        resolved_debug = debug or config.debug
+        llm = create_llm_client(provider, SecretStr(api_key), model, debug=resolved_debug)
         console.print("")
         console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
 
@@ -1350,14 +1380,16 @@ def config(
         return
 
     # Interactive configuration setup
-    config_path, selected_provider, selected_model, new_api_key = interactive_config_setup()
+    config_path, selected_provider, selected_model, new_api_key, base_url = interactive_config_setup()
 
     # Save configuration
     try:
-        save_config(config_path, selected_provider, selected_model, new_api_key)
+        save_config(config_path, selected_provider, selected_model, new_api_key, base_url)
         console.print(f"\n[green]✓ Configuration saved to:[/green] {config_path}")
         console.print(f"[green]  Provider:[/green] {selected_provider}")
         console.print(f"[green]  Model:[/green] {selected_model}")
+        if base_url:
+            console.print(f"[green]  Base URL:[/green] {base_url}")
         console.print(f"[green]  API Key:[/green] {'Set' if new_api_key else 'Not set'}")
     except Exception as e:
         console.print(f"[red]Error saving configuration:[/red] {e}")

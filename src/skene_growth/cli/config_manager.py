@@ -47,11 +47,6 @@ def get_provider_models(provider: str) -> list[str]:
             "claude-sonnet-4-5",
             "claude-haiku-4-5",
         ],
-        "claude": [
-            "claude-opus-4-5",
-            "claude-sonnet-4-5",
-            "claude-haiku-4-5",
-        ],
         "lmstudio": [
             "custom-model",
             "llama-3.3-70b",
@@ -80,11 +75,14 @@ def get_provider_models(provider: str) -> list[str]:
             "qwen2.5",
             "phi4",
         ],
+        "generic": [
+            "custom-model",
+        ],
     }
     return models_by_provider.get(provider.lower(), ["gpt-4o"])
 
 
-def save_config(config_path: Path, provider: str, model: str, api_key: str) -> None:
+def save_config(config_path: Path, provider: str, model: str, api_key: str, base_url: str | None = None) -> None:
     """Save configuration to a TOML file."""
     from skene_growth.config import load_toml
 
@@ -112,9 +110,14 @@ def save_config(config_path: Path, provider: str, model: str, api_key: str) -> N
     lines.append(f'model = "{model}"')
     lines.append("")
 
+    if base_url:
+        lines.append("# Base URL for OpenAI-compatible provider")
+        lines.append(f'base_url = "{base_url}"')
+        lines.append("")
+
     # Preserve other settings
     for key, value in existing_config.items():
-        if key not in ["api_key", "provider", "model"]:
+        if key not in ["api_key", "provider", "model", "base_url"]:
             if isinstance(value, str):
                 lines.append(f'{key} = "{value}"')
             elif isinstance(value, bool):
@@ -138,12 +141,13 @@ def save_config(config_path: Path, provider: str, model: str, api_key: str) -> N
     config_path.write_text("\n".join(lines))
     _set_config_permissions(config_path)
 
-def interactive_config_setup() -> tuple[Path, str, str, str]:
+
+def interactive_config_setup() -> tuple[Path, str, str, str, str | None]:
     """
     Interactive configuration setup.
 
     Returns:
-        Tuple of (config_path, provider, model, api_key)
+        Tuple of (config_path, provider, model, api_key, base_url)
     """
     from skene_growth.config import find_project_config, find_user_config, load_config
 
@@ -170,19 +174,28 @@ def interactive_config_setup() -> tuple[Path, str, str, str]:
 
     # Ask for provider
     console.print()
-    providers = ["openai", "gemini", "anthropic", "claude", "lmstudio", "ollama"]
-    provider_options = "\n".join([f"  {i + 1}. {p}" for i, p in enumerate(providers)])
+    providers = [
+        ("openai", "OpenAI"),
+        ("gemini", "Google Gemini"),
+        ("anthropic", "Anthropic"),
+        ("lmstudio", "LM Studio"),
+        ("ollama", "Ollama"),
+        ("generic", "OpenAI compatible API"),
+    ]
+    provider_options = "\n".join([f"  {i + 1}. {label}" for i, (_key, label) in enumerate(providers)])
     console.print(f"[bold]Select LLM provider:[/bold]\n{provider_options}")
+
+    provider_keys = [key for key, _label in providers]
 
     while True:
         provider_choice = Prompt.ask(
             f"\n[cyan]Provider[/cyan] (1-{len(providers)})",
-            default=str(providers.index(current_provider) + 1) if current_provider in providers else "1",
+            default=str(provider_keys.index(current_provider) + 1) if current_provider in provider_keys else "1",
         )
         try:
             idx = int(provider_choice) - 1
             if 0 <= idx < len(providers):
-                selected_provider = providers[idx]
+                selected_provider = providers[idx][0]
                 break
             else:
                 console.print(
@@ -195,7 +208,7 @@ def interactive_config_setup() -> tuple[Path, str, str, str]:
     console.print()
     models = get_provider_models(selected_provider)
     model_options = "\n".join([f"  {i + 1}. {m}" for i, m in enumerate(models)])
-    console.print(f"[bold]Select model for {selected_provider}:[/bold]\n{model_options}")
+    console.print(f"[bold]Select model:[/bold]\n{model_options}")
 
     # Determine default model
     default_model_idx = None
@@ -230,6 +243,16 @@ def interactive_config_setup() -> tuple[Path, str, str, str]:
             selected_model = model_choice
             break
 
+    # Ask for base URL if generic provider
+    base_url = None
+    if selected_provider == "generic":
+        console.print()
+        while True:
+            base_url = Prompt.ask("[cyan]Base URL[/cyan] (e.g. https://your-service.com/v1)")
+            if base_url:
+                break
+            console.print("[red]Base URL is required for the generic provider.[/red]")
+
     # Ask for API key
     console.print()
     api_key_prompt = "[cyan]API Key[/cyan]"
@@ -246,7 +269,7 @@ def interactive_config_setup() -> tuple[Path, str, str, str]:
         console.print("[yellow]No API key provided. Configuration will be saved without API key.[/yellow]")
         new_api_key = ""
 
-    return config_path, selected_provider, selected_model, new_api_key
+    return config_path, selected_provider, selected_model, new_api_key, base_url
 
 
 def show_config_status(cfg, project_cfg, user_cfg):

@@ -43,21 +43,14 @@ def json_serializer(obj: Any) -> str:
 async def run_analysis(
     path: Path,
     output: Path,
-    api_key: str,
-    provider: str,
-    model: str,
+    llm: LLMClient,
     verbose: bool,
     product_docs: Optional[bool] = False,
     exclude_folders: Optional[list[str]] = None,
-    base_url: Optional[str] = None,
-    llm: Optional[LLMClient] = None,
 ):
     """Run the async analysis."""
-    from pydantic import SecretStr
-
     from skene_growth.analyzers import DocsAnalyzer, ManifestAnalyzer
     from skene_growth.codebase import CodebaseExplorer
-    from skene_growth.llm import create_llm_client
 
     with Progress(
         SpinnerColumn(),
@@ -70,11 +63,6 @@ async def run_analysis(
             # Initialize components
             progress.update(task, description="Setting up codebase explorer...")
             codebase = CodebaseExplorer(path, exclude_folders=exclude_folders)
-
-            # Create LLM client if not provided
-            if llm is None:
-                progress.update(task, description="Connecting to LLM provider...")
-                llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url)
 
             # Load existing growth loops from output directory
             progress.update(task, description="Loading existing growth loops...")
@@ -296,7 +284,7 @@ priority is "high", "medium", or "low". Return only the JSON object, nothing els
         response = await llm.generate_content(prompt)
 
         # Extract the first JSON object from the response
-        json_match = _re.search(r'\{[\s\S]*\}', response)
+        json_match = _re.search(r"\{[\s\S]*\}", response)
         if json_match:
             try:
                 result = json.loads(json_match.group(0))
@@ -335,6 +323,7 @@ async def run_cycle(
     activation: bool = False,
     context_dir: Path | None = None,
     user_prompt: str | None = None,
+    debug: bool = False,
 ):
     """Run cycle generation using Council of Growth Engineers."""
     from pydantic import SecretStr
@@ -400,7 +389,7 @@ async def run_cycle(
 
             # Connect to LLM
             progress.update(task, description="Connecting to LLM provider...")
-            llm = create_llm_client(provider, SecretStr(api_key), model)
+            llm = create_llm_client(provider, SecretStr(api_key), model, debug=debug)
 
             # Generate memo
             memo_type = "activation memo" if activation else "Council memo"
@@ -450,9 +439,7 @@ async def run_cycle(
 
             # Generate todo list from memo + structured project context
             progress.update(task, description="Generating todo list...")
-            _, todo_list = await generate_todo_list(
-                llm, memo_content, manifest_data, template_data
-            )
+            todo_summary, todo_list = await generate_todo_list(llm, memo_content, manifest_data, template_data)
 
             # Extract executive summary and next action from memo
             from skene_growth.cli.prompt_builder import (
