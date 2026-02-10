@@ -105,7 +105,7 @@ skene-growth plan [OPTIONS]
 | `--context PATH` | `-c` | auto-detected | Directory containing manifest and template files. Checked before default paths. |
 | `--output PATH` | `-o` | `./skene-context/growth-plan.md` | Output path for the growth plan (markdown). If a directory is given, `growth-plan.md` is appended. |
 | `--api-key TEXT` | | `$SKENE_API_KEY` or config | API key for the LLM provider |
-| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `ollama` |
+| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | provider default | LLM model name |
 | `--verbose` | `-v` | `false` | Enable verbose output |
 | `--onboarding` | | `false` | Generate an onboarding-focused plan using a Senior Onboarding Engineer perspective |
@@ -142,7 +142,7 @@ skene-growth build [OPTIONS]
 | `--plan PATH` | | auto-detected | Path to the growth plan markdown file. Auto-detected from `./skene-context/growth-plan.md` or `./growth-plan.md`. |
 | `--context PATH` | `-c` | auto-detected | Directory containing `growth-plan.md` |
 | `--api-key TEXT` | | `$SKENE_API_KEY` or config | API key for the LLM provider |
-| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`, `ollama` |
+| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | provider default | LLM model name |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
 
@@ -184,7 +184,7 @@ skene-growth chat [PATH] [OPTIONS]
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--api-key TEXT` | | `$SKENE_API_KEY` or config | API key for the LLM provider |
-| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `ollama` |
+| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | provider default | LLM model name |
 | `--max-steps INT` | | `4` | Maximum number of tool calls the LLM can make per user request |
 | `--tool-output-limit INT` | | `4000` | Maximum characters of tool output kept in conversation context |

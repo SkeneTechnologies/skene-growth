@@ -162,7 +162,7 @@ Each analysis phase has its own independent cache entry. Running `analyze_tech_s
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SKENE_API_KEY` | API key for the LLM provider | (required for cloud providers) |
-| `SKENE_PROVIDER` | LLM provider: `openai`, `gemini`, `anthropic`, `lmstudio`, `ollama` | `openai` |
+| `SKENE_PROVIDER` | LLM provider: `openai`, `gemini`, `anthropic`, `lmstudio`, `ollama`, `generic` | `openai` |
 | `SKENE_MODEL` | Model name to use | Provider default |
 | `SKENE_CACHE_ENABLED` | Enable or disable caching (`true`/`false`) | `true` |
 | `SKENE_CACHE_DIR` | Directory for disk cache | `~/.cache/skene-growth-mcp` |

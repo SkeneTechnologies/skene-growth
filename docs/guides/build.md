@@ -44,7 +44,7 @@ uvx skene-growth build --context ./my-context
 | `--plan PATH` | | Path to growth plan markdown file |
 | `--context PATH` | `-c` | Directory containing `growth-plan.md`. Auto-detected from `./skene-context/` if not specified. |
 | `--api-key TEXT` | | API key for LLM provider (or `SKENE_API_KEY` env var) |
-| `--provider TEXT` | `-p` | LLM provider: `openai`, `gemini`, `anthropic`, `ollama` |
+| `--provider TEXT` | `-p` | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | Model name (uses provider default if not provided) |
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` |
 

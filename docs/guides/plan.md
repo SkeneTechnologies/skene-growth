@@ -6,7 +6,7 @@ The `plan` command generates a strategic growth plan by feeding your manifest an
 
 Before running `plan`, you need:
 
-- An API key configured for a cloud LLM provider (OpenAI, Gemini, Anthropic), or a local LLM server running (Ollama). See [configuration](configuration.md) for setup instructions.
+- An API key configured for a cloud LLM provider (OpenAI, Gemini, Anthropic), or a local LLM server running (LM Studio, Ollama). See [configuration](configuration.md) for setup instructions.
 - Optionally, `growth-manifest.json` and `growth-template.json` from a previous `analyze` run. The plan command works without these files but produces better results when they are available.
 
 ## Basic usage
@@ -46,7 +46,7 @@ uvx skene-growth plan --onboarding
 | `--context PATH` | `-c` | Directory containing manifest and template. Auto-detected from `./skene-context/` if not specified. |
 | `--output PATH` | `-o` | Output path for growth plan markdown. Default: `./skene-context/growth-plan.md` |
 | `--api-key TEXT` | | API key for LLM provider (or `SKENE_API_KEY` env var) |
-| `--provider TEXT` | `-p` | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `ollama` |
+| `--provider TEXT` | `-p` | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | Model name (e.g., `gemini-3-flash-preview`, `claude-sonnet-4-5`) |
 | `--verbose` | `-v` | Enable verbose output |
 | `--onboarding` | | Generate onboarding-focused plan using Senior Onboarding Engineer perspective |
