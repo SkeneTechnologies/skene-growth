@@ -249,7 +249,8 @@ The output MUST be a valid JSON object with these REQUIRED fields:
   - `integrations` (array): Integration requirements with type, description,
     verification
   - `telemetry` (array): Data-state telemetry based on database triggers.
-    Each item: action_name, table, operation, description, properties.
+    **MUST contain exactly ONE item** - the most meaningful action for this loop.
+    Item: action_name, table, operation, description, properties.
 - `dependencies` (array of strings): Loop IDs this depends on (use empty array [] if none)
 - `verification_commands` (array of strings): Manual verification commands
 - `test_coverage` (object):
@@ -257,7 +258,7 @@ The output MUST be a valid JSON object with these REQUIRED fields:
   - `integration_tests` (array of strings)
   - `manual_tests` (array of strings)
 - `metrics` (object):
-  - `data_actions` (array of strings): action_name values from telemetry
+  - `data_actions` (array of strings): Must contain the single action_name from the one telemetry item
   - `success_criteria` (array of strings)
 
 ## Technical Execution Context
@@ -311,10 +312,12 @@ Analyze the technical execution context and generate a complete, actionable grow
 - Provide verification commands
 
 **For `requirements.telemetry`:**
+- **CRITICAL: Include ONLY ONE telemetry event - the single most meaningful action that represents success for this loop**
+- Pick the ONE data state change that best signals this loop is working (e.g., first activation, key conversion moment)
 - Focus on DATA STATE CHANGES in the database, NOT app-side event emission
 - Define telemetry as database triggers that fire on INSERT, UPDATE, or DELETE
 - Use the Database Schema above to identify which tables and columns matter
-- Each item must have:
+- The single telemetry item must have:
   - `action_name` (string, required): Unique identifier for the action
     (snake_case, e.g., "document_created", "api_key_revoked")
   - `table` (string, required): Database table where the change occurs
@@ -324,12 +327,13 @@ Analyze the technical execution context and generate a complete, actionable grow
     for growth measurement (e.g., "First document created = activation milestone")
   - `properties` (array of strings, required): Column names from the table
     to include in the trigger payload (e.g., ["workspace_id", "id", "created_at"])
-- Implementation: PostgreSQL AFTER INSERT/UPDATE/DELETE triggers that write
-  to a telemetry table or emit to the tracking pipeline
+- Implementation: PostgreSQL AFTER INSERT/UPDATE/DELETE trigger that writes
+  to a telemetry table or emits to the tracking pipeline
 - Example: `{{"action_name": "document_created", "table": "documents",
     "operation": "INSERT",
     "description": "Tracks when a new document is persisted — activation milestone",
     "properties": ["workspace_id", "id", "created_at"]}}`
+- **Remember: Only ONE telemetry item. If you're tempted to add more, choose the most important one.**
 
 **For `verification_commands`:**
 - Provide concrete commands that can verify the implementation
