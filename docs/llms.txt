@@ -24,7 +24,7 @@ skene-growth plan
 
 skene-growth build
   Generate implementation prompt from growth plan. Send to Cursor, Claude, or display in terminal.
-  Flags: --plan, -c/--context, --api-key, -p/--provider, -m/--model, --debug
+  Flags: --plan, -c/--context, --api-key, -p/--provider, -m/--model, --debug, -t/--target (cursor|claude|show|file — skips interactive menu)
 
 skene-growth chat [PATH]
   Interactive terminal chat with function calling. LLM invokes skene-growth tools.

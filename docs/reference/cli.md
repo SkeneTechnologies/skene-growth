@@ -145,6 +145,7 @@ skene-growth build [OPTIONS]
 | `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | provider default | LLM model name |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
+| `--target TEXT` | `-t` | interactive | Skip the interactive menu and send the prompt directly. Options: `cursor`, `claude`, `show`, `file`. |
 
 ### Delivery targets
 
@@ -154,12 +155,15 @@ After generating the prompt, an interactive menu asks where to send it:
 2. **Claude** -- launches the Claude CLI with the prompt file
 3. **Show** -- prints the full prompt to the terminal
 
+When `--target` is provided, the interactive menu is skipped entirely. The `file` target saves the prompt to disk and exits without opening any editor or printing the full content. This is the recommended mode for scripting and subprocess usage.
+
 The prompt is always saved to a file in the plan's parent directory regardless of target selection.
 
 ### Behavior notes
 
 - Requires a configured LLM (API key + provider). Falls back to a template-based prompt if the LLM call fails.
 - Also generates and saves a growth loop definition JSON alongside the prompt.
+- Use `--target file` for non-interactive pipelines (e.g. `analyze && plan && build --target file`).
 
 See the [build guide](../guides/build.md) for detailed usage.
 
