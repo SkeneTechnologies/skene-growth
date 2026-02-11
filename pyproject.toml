@@ -53,7 +53,7 @@ skene = "skene_growth.cli.main:skene_entry_point"
 
 [project.urls]
 Homepage = "https://www.skene.ai"
-Documentation = "https://github.com/SkeneTechnologies/skene-growth#readme"
+Documentation = "https://www.skene.ai/resources/docs/skene-growth"
 Repository = "https://github.com/SkeneTechnologies/skene-growth"
 
 [build-system]
