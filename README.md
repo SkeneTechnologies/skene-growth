@@ -30,6 +30,9 @@ Supports OpenAI, Gemini, Claude, LM Studio, Ollama, and any OpenAI-compatible en
 ## Installation
 
 ```bash
+# Install uv (if you don't have it)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Recommended (no install needed)
 uvx skene-growth
 
