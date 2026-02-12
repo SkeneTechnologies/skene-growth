@@ -86,3 +86,13 @@ htmlcov/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+
+# Claude Code local settings (personal overrides, not shared)
+.claude/settings.local.json
+
+# Claude Code configuration (keep local only)
+CLAUDE.md
+.claude/settings.local.json
+
+# Central strategy docs (symlinked from ~/skene-strategy)
+docs/strategy
