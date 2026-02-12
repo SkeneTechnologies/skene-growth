@@ -278,6 +278,10 @@ class TestGenerateLoopDefinitionWithLlm:
         assert "verification_commands" in result
         assert "test_coverage" in result
         assert "metrics" in result
+        # Feature linking fields (added in Phase 2)
+        assert "linked_feature" in result
+        assert "linked_feature_id" in result
+        assert "growth_pillars" in result
 
     @pytest.mark.asyncio
     async def test_handles_markdown_code_fences(self):

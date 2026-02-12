@@ -50,6 +50,7 @@ from skene_growth.cli.prompt_builder import (
     run_claude,
     save_prompt_to_file,
 )
+from skene_growth.cli.features import features_app
 from skene_growth.cli.sample_report import show_sample_report
 from skene_growth.config import default_model_for_provider, load_config
 
@@ -1103,6 +1104,12 @@ def build(
         "--debug",
         help="Log all LLM input/output to .skene-growth/debug/",
     ),
+    feature: Optional[str] = typer.Option(
+        None,
+        "--feature",
+        "-f",
+        help="Bias toward this feature name when linking the loop",
+    ),
 ):
     """
     Build an AI prompt from your growth plan using LLM, then choose where to send it.
@@ -1131,7 +1138,7 @@ def build(
         Set api_key and provider in .skene-growth.config or ~/.config/skene-growth/config
     """
     # Run async logic
-    asyncio.run(_build_async(plan, context, api_key, provider, model, debug))
+    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, feature))
 
 
 async def _build_async(
@@ -1141,6 +1148,7 @@ async def _build_async(
     provider: Optional[str],
     model: Optional[str],
     debug: bool = False,
+    bias_feature: Optional[str] = None,
 ):
     """Async implementation of build command."""
     # Load config to get LLM settings
@@ -1276,6 +1284,10 @@ async def _build_async(
         else:
             base_output_dir = Path(config.output_dir)
 
+        from skene_growth.feature_registry import load_features_for_build
+
+        features = load_features_for_build(base_output_dir)
+
         # Generate loop definition with LLM (telemetry format depends on run_target)
         console.print("\n[dim]Please wait...Generating growth loop definition...[/dim]")
         console.print("")
@@ -1285,6 +1297,8 @@ async def _build_async(
             plan_path=plan.resolve(),
             codebase_path=Path.cwd(),
             run_target=run_target,
+            features=features if features else None,
+            bias_feature_name=bias_feature,
         )
 
         # Extract loop_id and name from generated definition (in case LLM changed them)
@@ -1407,6 +1421,9 @@ async def _build_async(
             console.print(f"[yellow]Prompt saved to:[/yellow] {prompt_file}")
             console.print("[dim]You can run Claude manually with the saved prompt file.[/dim]\n")
             raise typer.Exit(1)
+
+
+app.add_typer(features_app, name="features")
 
 
 @app.command()
@@ -1623,6 +1640,7 @@ def skene_entry_point():
     skene_app.command()(status)
     skene_app.command()(deploy)
     skene_app.command()(build)
+    skene_app.add_typer(features_app, name="features")
     skene_app.command()(config)
 
     # Add callback to handle default case (no subcommand) - launches chat
