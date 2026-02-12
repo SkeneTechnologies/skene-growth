@@ -9,7 +9,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from rich.console import Console
 
@@ -182,6 +182,7 @@ async def generate_loop_definition_with_llm(
     technical_execution: dict[str, str],
     plan_path: Path,
     codebase_path: Path,
+    run_target: Literal["skene_cloud", "supabase"] = "supabase",
 ) -> dict[str, Any]:
     """
     Generate a complete growth loop definition using LLM.
@@ -229,6 +230,49 @@ async def generate_loop_definition_with_llm(
     if schema_path.exists():
         schema_context = schema_path.read_text(encoding="utf-8")
 
+    # Telemetry instructions based on run target
+    if run_target == "skene_cloud":
+        _telemetry_backend = "Skene Cloud / action.skene.ai"
+        _telemetry_instructions = """
+- **CRITICAL: Include ONLY ONE telemetry event - the single most meaningful action for this loop**
+- Define a code location where the app MUST call the action.skene.ai API
+- The single telemetry item must have:
+  - `type` (string, required): "skene_cloud"
+  - `action_name` (string, required): Unique identifier (snake_case, e.g., "document_created")
+  - `endpoint` (string, required): "https://action.skene.ai" (or equivalent API base)
+  - `description` (string, required): What this action represents for growth measurement
+  - `properties` (array of strings, required): Payload keys to send (e.g., ["workspace_id", "id", "created_at"])
+  - `location` (object, required): Where in code to add the call:
+    - `file` (string): Path to the file (e.g., "src/api/documents.py")
+    - `context` (string): Where in the file (e.g., "after document save", "in create_document handler")
+- Implementation: HTTP POST to action.skene.ai with JSON payload {{action_name, ...properties}}
+- Example: `{{"type": "skene_cloud", "action_name": "document_created", "endpoint": "https://action.skene.ai",
+    "description": "Tracks when a new document is persisted — activation milestone",
+    "properties": ["workspace_id", "id", "created_at"],
+    "location": {{"file": "src/api/documents.py", "context": "after document save"}}}}`
+"""
+    else:
+        _telemetry_backend = "Supabase / database triggers"
+        _telemetry_instructions = """
+- **CRITICAL: Include ONLY ONE telemetry event - the single most meaningful action for this loop**
+- Pick the ONE data state change that best signals this loop is working
+- Focus on DATA STATE CHANGES in the database, NOT app-side event emission
+- Define telemetry as database triggers that fire on INSERT, UPDATE, or DELETE
+- Use the Database Schema above to identify which tables and columns matter
+- The single telemetry item must have:
+  - `type` (string, required): "supabase"
+  - `action_name` (string, required): Unique identifier (snake_case, e.g., "document_created")
+  - `table` (string, required): Database table where the change occurs
+  - `operation` (string, required): One of "INSERT", "UPDATE", "DELETE"
+  - `description` (string, required): What this data change represents for growth measurement
+  - `properties` (array of strings, required): Column names for the trigger payload
+- Implementation: PostgreSQL AFTER INSERT/UPDATE/DELETE trigger that writes to telemetry
+- Example: `{{"type": "supabase", "action_name": "document_created", "table": "documents", "operation": "INSERT",
+    "description": "Tracks when a new document is persisted — activation milestone",
+    "properties": ["workspace_id", "id", "created_at"]}}`
+"""
+    _telemetry_instructions += "\n- **Remember: Only ONE telemetry item. Choose the most important one.**"
+
     # Construct the LLM prompt
     prompt = (
         f"""You are a growth engineering expert. Generate a complete growth loop definition """
@@ -248,9 +292,7 @@ The output MUST be a valid JSON object with these REQUIRED fields:
     signature, logic (logic field is REQUIRED)
   - `integrations` (array): Integration requirements with type, description,
     verification
-  - `telemetry` (array): Data-state telemetry based on database triggers.
-    **MUST contain exactly ONE item** - the most meaningful action for this loop.
-    Item: action_name, table, operation, description, properties.
+  - `telemetry` (array): See TELEMETRY section below. **MUST contain exactly ONE item**.
 - `dependencies` (array of strings): Loop IDs this depends on (use empty array [] if none)
 - `verification_commands` (array of strings): Manual verification commands
 - `test_coverage` (object):
@@ -311,29 +353,8 @@ Analyze the technical execution context and generate a complete, actionable grow
 - Identify integration points (cli_flag, api_endpoint, ui_component, external_service)
 - Provide verification commands
 
-**For `requirements.telemetry`:**
-- **CRITICAL: Include ONLY ONE telemetry event - the single most meaningful action that represents success for this loop**
-- Pick the ONE data state change that best signals this loop is working (e.g., first activation, key conversion moment)
-- Focus on DATA STATE CHANGES in the database, NOT app-side event emission
-- Define telemetry as database triggers that fire on INSERT, UPDATE, or DELETE
-- Use the Database Schema above to identify which tables and columns matter
-- The single telemetry item must have:
-  - `action_name` (string, required): Unique identifier for the action
-    (snake_case, e.g., "document_created", "api_key_revoked")
-  - `table` (string, required): Database table where the change occurs
-    (must be a table from the schema)
-  - `operation` (string, required): One of "INSERT", "UPDATE", "DELETE"
-  - `description` (string, required): What this data change represents
-    for growth measurement (e.g., "First document created = activation milestone")
-  - `properties` (array of strings, required): Column names from the table
-    to include in the trigger payload (e.g., ["workspace_id", "id", "created_at"])
-- Implementation: PostgreSQL AFTER INSERT/UPDATE/DELETE trigger that writes
-  to a telemetry table or emits to the tracking pipeline
-- Example: `{{"action_name": "document_created", "table": "documents",
-    "operation": "INSERT",
-    "description": "Tracks when a new document is persisted — activation milestone",
-    "properties": ["workspace_id", "id", "created_at"]}}`
-- **Remember: Only ONE telemetry item. If you're tempted to add more, choose the most important one.**
+**For `requirements.telemetry` ({_telemetry_backend}):**
+{_telemetry_instructions}
 
 **For `verification_commands`:**
 - Provide concrete commands that can verify the implementation
@@ -397,6 +418,11 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
             loop_def["requirements"]["integrations"] = []
         if "telemetry" not in loop_def["requirements"]:
             loop_def["requirements"]["telemetry"] = []
+
+        # Ensure each telemetry item has correct type
+        for item in loop_def["requirements"]["telemetry"]:
+            if isinstance(item, dict) and "type" not in item:
+                item["type"] = run_target
 
         # Ensure other required fields with defaults
         if "dependencies" not in loop_def:
@@ -603,7 +629,14 @@ def format_growth_loops_summary(loops: list[dict[str, Any]]) -> str:
                 name = t.get("action_name", "unknown")
                 table = t.get("table", "")
                 op = t.get("operation", "")
-                suffix = f" ({table} {op})" if table else ""
+                loc = t.get("location", {})
+                if table:
+                    suffix = f" ({table} {op})"
+                elif loc:
+                    file = loc.get("file", "?")
+                    suffix = f" ({file})"
+                else:
+                    suffix = ""
                 labels.append(f"{name}{suffix}")
             lines.append(f"**Data Actions:** {', '.join(labels)}")
 

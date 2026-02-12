@@ -971,6 +971,103 @@ def status(
 
 
 @app.command()
+def deploy(
+    path: Path = typer.Argument(
+        ".",
+        help="Project root (output directory for supabase/)",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    context: Optional[Path] = typer.Option(
+        None,
+        "--context",
+        "-c",
+        help="Path to skene-context directory (auto-detected if omitted)",
+    ),
+    loop_id: Optional[str] = typer.Option(
+        None,
+        "--loop",
+        "-l",
+        help="Deploy only this loop (by loop_id); if omitted, deploys all loops with Supabase telemetry",
+    ),
+):
+    """
+    Build a Supabase migration from growth loop telemetry into /supabase.
+
+    Creates:
+    - supabase/migrations/<timestamp>_skene_growth_telemetry.sql: idempotent triggers
+      on telemetry-defined tables, invoking the edge function via pg_net
+    - supabase/functions/skene-growth-process/index.ts: edge function that
+      enriches payload (e.g. user_id -> email), creates action if event_seq %% 5 == 0,
+      and ensures each action has db_id
+
+    Examples:
+
+        skene deploy
+        skene deploy --loop skene_guard_activation_safety
+        skene deploy --context ./skene-context
+    """
+    from skene_growth.growth_loops.deploy import deploy_loops_to_supabase
+    from skene_growth.growth_loops.storage import load_existing_growth_loops
+
+    # Resolve context directory
+    if context is None:
+        candidates = [
+            path / "skene-context",
+            Path.cwd() / "skene-context",
+        ]
+        for candidate in candidates:
+            if (candidate / "growth-loops").is_dir():
+                context = candidate
+                break
+        if context is None:
+            console.print(
+                "[red]Could not find skene-context/growth-loops/ directory.[/red]\n"
+                "Use --context to specify the path explicitly."
+            )
+            raise typer.Exit(1)
+
+    loops = load_existing_growth_loops(context)
+    # Filter to loops with Supabase telemetry
+    from skene_growth.growth_loops.deploy import extract_supabase_telemetry
+
+    loops_with_telemetry = [
+        l for l in loops
+        if extract_supabase_telemetry(l)
+    ]
+    if loop_id:
+        loops_with_telemetry = [l for l in loops_with_telemetry if l.get("loop_id") == loop_id]
+        if not loops_with_telemetry:
+            console.print(f"[red]No loop with loop_id '{loop_id}' has Supabase telemetry.[/red]")
+            raise typer.Exit(1)
+
+    if not loops_with_telemetry:
+        console.print(
+            "[yellow]No growth loops with Supabase telemetry found.[/yellow]\n"
+            "Add telemetry with type 'supabase' (table, operation, properties) via skene build."
+        )
+        raise typer.Exit(1)
+
+    try:
+        migration_path, edge_path = deploy_loops_to_supabase(
+            loops_with_telemetry,
+            path,
+        )
+        console.print(f"[green]Migration:[/green] {migration_path}")
+        console.print(f"[green]Edge function:[/green] {edge_path}")
+        console.print(
+            "\n[dim]Configure app.settings in Postgres for pg_net:\n"
+            "  ALTER DATABASE postgres SET app.settings.supabase_url = 'https://YOUR_PROJECT.supabase.co';\n"
+            "  ALTER DATABASE postgres SET app.settings.supabase_anon_key = 'YOUR_ANON_KEY';[/dim]"
+        )
+    except Exception as e:
+        console.print(f"[red]Deploy failed:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
 def build(
     plan: Optional[Path] = typer.Option(
         None,
@@ -1012,8 +1109,9 @@ def build(
 
     Workflow:
     1. Extracts Technical Execution from growth plan
-    2. Uses LLM to generate intelligent, focused prompt
+    2. Builds and saves growth loop definition (Supabase telemetry)
     3. Asks where to send: Cursor, Claude, or Show
+    4. Generates implementation prompt with LLM and executes
 
     Examples:
 
@@ -1126,7 +1224,7 @@ async def _build_async(
         )
         raise typer.Exit(1)
 
-    # Create LLM client and generate prompt
+    # Create LLM client
     if model is None:
         model = config.get("model") or default_model_for_provider(provider)
 
@@ -1138,19 +1236,13 @@ async def _build_async(
         resolved_debug = debug or config.debug
         llm = create_llm_client(provider, SecretStr(api_key), model, debug=resolved_debug)
         console.print("")
-        console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
-
-        # Generate prompt with LLM
-        prompt = await build_prompt_with_llm(plan.resolve(), technical_execution, llm)
-
+        console.print(f"[dim]Using {provider} ({model})[/dim]\n")
     except Exception as e:
-        console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
-        console.print("[dim]Falling back to template...[/dim]\n")
-        prompt = build_prompt_from_template(plan.resolve(), technical_execution)
+        console.print(f"[red]Error:[/red] Failed to create LLM client: {e}")
+        raise typer.Exit(1)
 
     # Display the technical execution context
-    console.print(f"\n[bold blue]Building prompt from Technical Execution:[/bold blue] {plan}\n")
-
+    console.print(f"[bold blue]Technical Execution:[/bold blue] {plan}\n")
     if technical_execution.get("next_build"):
         console.print(
             Panel(
@@ -1161,65 +1253,10 @@ async def _build_async(
             )
         )
 
-    # Show the prompt preview
-    console.print("\n[bold]Generated Prompt Preview:[/bold]")
-    preview = prompt if len(prompt) <= 200 else prompt[:200] + "..."
-    console.print(f"[dim]{preview}[/dim]\n")
+    # Run loop in: always Supabase for now (Skene Cloud option disabled)
+    run_target = "supabase"
 
-    # Always ask where to send the prompt
-    console.print("[bold cyan]Where do you want to send this prompt?[/bold cyan]")
-
-    # Use questionary for arrow key selection (with fallback)
-    target = None
-    try:
-        import questionary
-
-        choices_list = [
-            questionary.Choice("Cursor (open via deep link)", value="cursor"),
-            questionary.Choice("Claude (open in terminal)", value="claude"),
-            questionary.Choice("Show full prompt", value="show"),
-            questionary.Choice("Cancel", value="cancel"),
-        ]
-
-        selection = questionary.select(
-            "",
-            choices=choices_list,
-            use_arrow_keys=True,
-            use_shortcuts=True,
-            instruction="(Use arrow keys to navigate, Enter to select)",
-        ).ask()
-
-        if selection == "cancel" or selection is None:
-            console.print("\n[dim]Cancelled.[/dim]")
-            return
-
-        target = selection
-
-    except ImportError:
-        # Fallback to numbered menu if questionary not installed
-        choices = [
-            "1. Cursor (open via deep link)",
-            "2. Claude (open in terminal)",
-            "3. Show full prompt",
-            "4. Cancel",
-        ]
-        for choice in choices:
-            console.print(f"  {choice}")
-
-        console.print()
-        selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
-
-        if selection == "1":
-            target = "cursor"
-        elif selection == "2":
-            target = "claude"
-        elif selection == "3":
-            target = "show"
-        elif selection == "4":
-            console.print("[dim]Cancelled.[/dim]")
-            return
-
-    # Save growth loop definition (only if not cancelled)
+    # 2. Loop build
     try:
         from skene_growth.growth_loops.storage import (
             derive_loop_id,
@@ -1239,14 +1276,15 @@ async def _build_async(
         else:
             base_output_dir = Path(config.output_dir)
 
-        # Generate loop definition with LLM
-        console.print("\n[dim]Please wait...Finalising the prompt and generating growth loop definition...[/dim]")
+        # Generate loop definition with LLM (telemetry format depends on run_target)
+        console.print("\n[dim]Please wait...Generating growth loop definition...[/dim]")
         console.print("")
         loop_definition = await generate_loop_definition_with_llm(
             llm=llm,
             technical_execution=technical_execution,
             plan_path=plan.resolve(),
             codebase_path=Path.cwd(),
+            run_target=run_target,
         )
 
         # Extract loop_id and name from generated definition (in case LLM changed them)
@@ -1256,12 +1294,11 @@ async def _build_async(
         # Generate filename using final loop_id
         timestamped_filename = generate_timestamped_filename(loop_id)
 
-        # Add metadata for tracking
+        loop_definition["run_target"] = run_target
         loop_definition["_metadata"] = {
             "source_plan_path": str(plan.resolve()),
             "saved_at": datetime.now().isoformat(),
-            "target": target,
-            "prompt": prompt,
+            "run_target": run_target,
         }
 
         # Write to file
@@ -1280,6 +1317,62 @@ async def _build_async(
             import traceback
 
             console.print(traceback.format_exc())
+
+    # 3. Ask build location (where to send the prompt)
+    console.print("[bold cyan]Where do you want to send the implementation prompt?[/bold cyan]")
+    target: str | None = None
+    try:
+        import questionary
+
+        choices_list = [
+            questionary.Choice("Cursor (open via deep link)", value="cursor"),
+            questionary.Choice("Claude (open in terminal)", value="claude"),
+            questionary.Choice("Show full prompt", value="show"),
+            questionary.Choice("Cancel", value="cancel"),
+        ]
+        selection = questionary.select(
+            "",
+            choices=choices_list,
+            use_arrow_keys=True,
+            use_shortcuts=True,
+            instruction="(Use arrow keys to navigate, Enter to select)",
+        ).ask()
+
+        if selection == "cancel" or selection is None:
+            console.print("\n[dim]Cancelled.[/dim]")
+            return
+        target = selection
+    except ImportError:
+        choices = [
+            "1. Cursor (open via deep link)",
+            "2. Claude (open in terminal)",
+            "3. Show full prompt",
+            "4. Cancel",
+        ]
+        for choice in choices:
+            console.print(f"  {choice}")
+        console.print()
+        selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
+        if selection == "1":
+            target = "cursor"
+        elif selection == "2":
+            target = "claude"
+        elif selection == "3":
+            target = "show"
+        elif selection == "4":
+            console.print("[dim]Cancelled.[/dim]")
+            return
+        else:
+            target = "cursor"
+
+    # 4. Prompt build
+    console.print("\n[dim]Generating implementation prompt...[/dim]\n")
+    try:
+        prompt = await build_prompt_with_llm(plan.resolve(), technical_execution, llm)
+    except Exception as e:
+        console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
+        console.print("[dim]Falling back to template...[/dim]\n")
+        prompt = build_prompt_from_template(plan.resolve(), technical_execution)
 
     # Save prompt to a file for cross-platform consumption
     prompt_output_dir = plan.parent if plan else Path(config.output_dir)
@@ -1528,6 +1621,7 @@ def skene_entry_point():
     skene_app.command()(chat)
     skene_app.command()(validate)
     skene_app.command()(status)
+    skene_app.command()(deploy)
     skene_app.command()(build)
     skene_app.command()(config)
 
