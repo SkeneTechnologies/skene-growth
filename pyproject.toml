@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "PLG analysis toolkit for codebases - analyze code, detect growth opportunities, generate documentation"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.11"
+requires-python = ">=3.11,<4"
 authors = [
     { name = "Skene Technologies" }
 ]
@@ -53,7 +53,7 @@ skene = "skene_growth.cli.main:skene_entry_point"
 
 [project.urls]
 Homepage = "https://www.skene.ai"
-Documentation = "https://github.com/SkeneTechnologies/skene-growth#readme"
+Documentation = "https://www.skene.ai/resources/docs/skene-growth"
 Repository = "https://github.com/SkeneTechnologies/skene-growth"
 
 [build-system]
