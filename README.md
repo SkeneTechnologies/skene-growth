@@ -230,7 +230,7 @@ uvx skene-growth build --debug
 **Growth Loop Storage:**
 - Growth loop definitions are automatically saved as JSON files when using the `build` command
 - Files are stored in `./skene-context/growth-loops/` directory (or custom `output_dir` if specified)
-- Filename format: `<loop_id>_YYYYMMDD_HHMMSS.json` (e.g., `share_flag_20240204_143022.json`)
+- Filename format: `YYYYMMDD_HHMMSS_<loop_id>.json` (e.g., `20240204_143022_share_flag.json`)
 
 - Existing growth loops are automatically loaded and referenced in subsequent analyses to avoid duplicates
 

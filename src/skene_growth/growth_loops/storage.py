@@ -164,16 +164,16 @@ def generate_timestamped_filename(loop_id: str) -> str:
     """
     Generate a timestamped filename for the loop.
 
-    Format: <loop_id>_YYYYMMDD_HHMMSS.json
+    Format: YYYYMMDD_HHMMSS_<loop_id>.json
 
     Args:
         loop_id: Snake_case loop identifier (already sanitized)
 
     Returns:
-        Filename with timestamp suffix
+        Filename with timestamp prefix
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{loop_id}_{timestamp}.json"
+    return f"{timestamp}_{loop_id}.json"
 
 
 async def generate_loop_definition_with_llm(
@@ -538,9 +538,9 @@ def load_existing_growth_loops(base_dir: Path) -> list[dict[str, Any]]:
             loop_data = json.loads(content)
 
             # Extract timestamp from filename for sorting
-            # Expected format: <loop_id>_YYYYMMDD_HHMMSS.json
+            # Expected format: YYYYMMDD_HHMMSS_<loop_id>.json
             filename = json_file.stem  # Without .json extension
-            timestamp_match = re.search(r"_(\d{8}_\d{6})$", filename)
+            timestamp_match = re.match(r"^(\d{8}_\d{6})_", filename)
             if timestamp_match:
                 timestamp_str = timestamp_match.group(1)
                 try:
