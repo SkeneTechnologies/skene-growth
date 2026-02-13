@@ -3,6 +3,7 @@ Multi-step analysis strategy.
 """
 
 from loguru import logger
+from rich.console import Console
 
 from skene_growth.codebase import CodebaseExplorer
 from skene_growth.llm import LLMClient
@@ -13,6 +14,8 @@ from skene_growth.strategies.base import (
 )
 from skene_growth.strategies.context import AnalysisContext
 from skene_growth.strategies.steps.base import AnalysisStep
+
+console = Console()
 
 
 class MultiStepStrategy(AnalysisStrategy):
@@ -108,7 +111,7 @@ class MultiStepStrategy(AnalysisStrategy):
                 metadata=context.metadata,
             )
 
-        logger.info(f"Starting MultiStepStrategy with {total_steps} steps")
+        console.print(f"Starting MultiStepStrategy with {total_steps} steps")
 
         # Execute each step
         for i, step in enumerate(self.steps):
@@ -120,7 +123,7 @@ class MultiStepStrategy(AnalysisStrategy):
                 progress = (i / total_steps) * 100
                 on_progress(f"Step {step_num}/{total_steps}: {step_name}", progress)
 
-            logger.info(f"Executing step {step_num}/{total_steps}: {step_name}")
+            console.print(f"Executing step {step_num}/{total_steps}: {step_name}")
 
             try:
                 # Execute the step
@@ -139,7 +142,7 @@ class MultiStepStrategy(AnalysisStrategy):
                         metadata=context.metadata,
                     )
 
-                logger.debug(f"Step {step_name} completed successfully")
+                console.print(f"Step {step_name} completed successfully")
 
             except Exception as e:
                 logger.exception(f"Step {step_name} raised exception: {e}")
@@ -154,7 +157,7 @@ class MultiStepStrategy(AnalysisStrategy):
         if on_progress:
             on_progress("Complete", 100.0)
 
-        logger.info(
+        console.print(
             f"MultiStepStrategy completed successfully. "
             f"Files read: {len(context.metadata.files_read)}, "
             f"Tokens used: {context.metadata.tokens_used}"

@@ -19,11 +19,12 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 from pydantic import SecretStr
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
@@ -148,12 +149,6 @@ def analyze(
         "--verbose",
         help="Enable verbose output",
     ),
-    business_type: Optional[str] = typer.Option(
-        None,
-        "--business-type",
-        "-b",
-        help="Business type for growth template (e.g., 'design-agency', 'b2b-saas'). LLM will infer if not provided.",
-    ),
     product_docs: bool = typer.Option(
         False,
         "--product-docs",
@@ -199,9 +194,6 @@ def analyze(
 
         # With API key
         uvx skene analyze . --api-key "your-key"
-
-        # Specify business type for custom growth template
-        uvx skene analyze . --business-type "design-agency"
 
         # Generate product documentation
         uvx skene analyze . --product-docs
@@ -311,7 +303,6 @@ def analyze(
             llm,
             verbose,
             product_docs,
-            business_type,
             exclude_folders=exclude_folders if exclude_folders else None,
         )
 
@@ -325,7 +316,6 @@ def analyze(
         template_data = await write_growth_template(
             llm,
             manifest_data,
-            business_type,
             resolved_output,
         )
 
@@ -337,54 +327,6 @@ def analyze(
             show_analysis_summary(result.data, template_data)
 
     asyncio.run(execute_analysis())
-
-
-@app.command()
-def audit(
-    path: Path = typer.Argument(
-        ".",
-        help="Path to codebase to audit",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        resolve_path=True,
-    ),
-    output: Optional[Path] = typer.Option(
-        None,
-        "-o",
-        "--output",
-        help="Output path (not used in sample mode)",
-    ),
-    exclude: Optional[list[str]] = typer.Option(
-        None,
-        "--exclude",
-        "-e",
-        help="Folder names to exclude (not used in sample mode)",
-    ),
-):
-    """
-    Show sample growth analysis preview (no API key).
-
-    Displays a preview of the strategic insights and recommendations available
-    with full API-powered analysis. This gives you a sense of:
-    - Growth opportunity identification
-    - Strategic recommendations
-    - Implementation roadmaps
-    - Technical growth infrastructure
-
-    For full codebase-specific analysis, configure an API key.
-
-    Examples:
-
-        # Show sample growth analysis
-        uvx skene audit .
-        # Or: uvx skene-growth audit .
-
-        # Analyze with full AI insights (requires API key)
-        uvx skene analyze . --api-key YOUR_KEY
-    """
-    # Always show sample report
-    show_sample_report(path, output, exclude_folders=exclude if exclude else None)
 
 
 @app.command(deprecated=True, hidden=True)
@@ -463,10 +405,15 @@ def plan(
         "--verbose",
         help="Enable verbose output",
     ),
-    onboarding: bool = typer.Option(
+    activation: bool = typer.Option(
         False,
-        "--onboarding",
-        help="Generate onboarding-focused plan using Senior Onboarding Engineer perspective",
+        "--activation",
+        help="Generate activation-focused plan using Senior Activation Engineer perspective",
+    ),
+    prompt: Optional[str] = typer.Option(
+        None,
+        "--prompt",
+        help="Additional user prompt to influence the plan generation",
     ),
     debug: bool = typer.Option(
         False,
@@ -493,8 +440,11 @@ def plan(
         # Override context file paths
         uvx skene plan --manifest ./manifest.json --template ./template.json
 
-        # Generate onboarding-focused plan
-        uvx skene plan --onboarding --api-key "your-key"
+        # Generate activation-focused plan
+        uvx skene plan --activation --api-key "your-key"
+
+        # Generate plan with additional user context
+        uvx skene plan --prompt "Focus on enterprise customers" --api-key "your-key"
     """
     # Load config with fallbacks
     config = load_config()
@@ -599,7 +549,7 @@ def plan(
     # Ensure final path is absolute (should already be, but double-check)
     resolved_output = resolved_output.resolve()
 
-    plan_type = "onboarding plan" if onboarding else "growth plan"
+    plan_type = "activation plan" if activation else "growth plan"
     console.print(
         Panel.fit(
             f"[bold blue]Generating {plan_type}[/bold blue]\n"
@@ -643,8 +593,9 @@ def plan(
             provider=resolved_provider,
             model=resolved_model,
             verbose=verbose,
-            onboarding=onboarding,
+            activation=activation,
             context_dir=context_dir_for_loops,
+            user_prompt=prompt,
             debug=resolved_debug,
         )
 
@@ -656,11 +607,11 @@ def plan(
         # Print the report to terminal
         if memo_content:
             console.print()
-            console.print(memo_content)
+            console.print(Markdown(memo_content))
 
         # Display implementation todo list
         if todo_data:
-            todo_summary, todo_list = todo_data if isinstance(todo_data, tuple) else (None, todo_data)
+            executive_summary, todo_summary, todo_list = todo_data
 
             if todo_list:
                 console.print("\n")
@@ -677,9 +628,14 @@ def plan(
                 todo_table.add_column("", style="dim", width=3)
                 todo_table.add_column("Task", style="white")
 
-                # Add summary as first row if available
+                # Add executive summary as first row if available
+                if executive_summary:
+                    todo_table.add_row("", f"[bold]{executive_summary}[/bold]")
+                    todo_table.add_row("", "")  # Empty row for spacing
+
+                # Add todo summary as second row if available
                 if todo_summary:
-                    todo_table.add_row("", f"[dim]{todo_summary}[/dim]")
+                    todo_table.add_row("", f"[bold]{todo_summary}[/bold]")
                     todo_table.add_row("", "")  # Empty row for spacing
 
                 for todo in sorted_todos:
@@ -848,6 +804,166 @@ def validate(
     except Exception as e:
         console.print(f"[red]Validation failed:[/red] {e}")
         raise typer.Exit(1)
+
+
+@app.command()
+def status(
+    path: Path = typer.Argument(
+        ".",
+        help="Path to the project root",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    context: Optional[Path] = typer.Option(
+        None,
+        "--context",
+        "-c",
+        help="Path to skene-context directory (auto-detected if omitted)",
+    ),
+    find_alternatives: bool = typer.Option(
+        False,
+        "--find-alternatives",
+        help="Use LLM to find existing functions that might fulfill missing requirements (requires API key)",
+    ),
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM provider (required for --find-alternatives)",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider: openai, gemini, anthropic, ollama (uses config if not provided)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model (uses provider default if not provided)",
+    ),
+):
+    """
+    Show implementation status of growth loop requirements.
+
+    Loads all growth loop JSON definitions from skene-context/growth-loops/
+    and uses AST parsing to verify that required files, functions, and
+    patterns are implemented. Displays a report showing which requirements
+    are met and which are missing.
+
+    With --find-alternatives, uses LLM to search for existing functions that
+    might fulfill missing requirements, helping discover duplicate implementations.
+
+    Examples:
+
+        skene status
+        skene status ./my-project --context ./my-project/skene-context
+        skene status --find-alternatives --api-key "your-key"
+    """
+    from skene_growth.validators.loop_validator import (
+        ValidationEvent,
+        clear_event_listeners,
+        print_validation_report,
+        register_event_listener,
+        validate_all_loops,
+    )
+
+    # Resolve the context directory
+    if context is None:
+        # Auto-detect: look for skene-context relative to path
+        candidates = [
+            path / "skene-context",
+            Path.cwd() / "skene-context",
+        ]
+        for candidate in candidates:
+            if (candidate / "growth-loops").is_dir():
+                context = candidate
+                break
+        if context is None:
+            console.print(
+                "[red]Could not find skene-context/growth-loops/ directory.[/red]\n"
+                "Use --context to specify the path explicitly."
+            )
+            raise typer.Exit(1)
+
+    loops_dir = context / "growth-loops"
+    if not loops_dir.is_dir():
+        console.print(f"[red]Growth loops directory not found:[/red] {loops_dir}")
+        raise typer.Exit(1)
+
+    # Setup LLM client if find_alternatives is enabled
+    llm_client = None
+    if find_alternatives:
+        from skene_growth.config import load_config
+        from skene_growth.llm.factory import create_llm_client
+
+        config = load_config()
+        resolved_api_key = api_key or config.api_key
+        resolved_provider = provider or config.provider
+        resolved_model = model or config.model
+
+        if not resolved_api_key:
+            console.print(
+                "[yellow]Warning:[/yellow] --find-alternatives requires an API key.\n"
+                "Provide --api-key or set SKENE_API_KEY environment variable."
+            )
+            raise typer.Exit(1)
+
+        try:
+            llm_client = create_llm_client(
+                provider=resolved_provider,
+                api_key=SecretStr(resolved_api_key),
+                model_name=resolved_model,
+            )
+            console.print("[dim]💡 Semantic matching enabled (finding alternative implementations)[/dim]")
+        except Exception as exc:
+            console.print(f"[red]Failed to initialize LLM client:[/red] {exc}")
+            raise typer.Exit(1)
+
+    console.print(f"[dim]Project root:[/dim] {path}")
+    console.print(f"[dim]Context dir:[/dim]  {context}")
+    console.print(f"[dim]Loops dir:[/dim]    {loops_dir}")
+    console.print()
+
+    # Register event listener for simple text output
+    def event_listener(event: ValidationEvent, payload: dict[str, Any]) -> None:
+        """Display validation events as simple text messages."""
+        if event == ValidationEvent.LOOP_VALIDATION_STARTED:
+            loop_name = payload.get("loop_name", "Unknown Loop")
+            console.print(f"Validating {loop_name}...")
+        elif event == ValidationEvent.REQUIREMENT_MET:
+            req_type = payload.get("type", "")
+            if req_type == "file":
+                file_path = payload.get("path", "")
+                console.print(f"  File requirement met: {file_path}...")
+            elif req_type == "function":
+                func_name = payload.get("name", "")
+                console.print(f"  Function requirement met: {func_name}...")
+        elif event == ValidationEvent.LOOP_COMPLETED:
+            loop_name = payload.get("loop_name", "Unknown Loop")
+            console.print(f"Loop complete: {loop_name}...")
+        # Skip VALIDATION_TIME event - not user-facing
+
+    register_event_listener(event_listener)
+
+    async def _run_status() -> list:
+        return await validate_all_loops(
+            context_dir=context,
+            project_root=path,
+            llm_client=llm_client,
+            find_alternatives=find_alternatives,
+        )
+
+    try:
+        results = asyncio.run(_run_status())
+    finally:
+        clear_event_listeners()
+
+    console.print()
+    print_validation_report(results)
 
 
 @app.command()
@@ -1404,10 +1520,10 @@ def skene_entry_point():
     # Add all commands from the main app as subcommands FIRST
     # This ensures subcommands are recognized before the callback
     skene_app.command()(analyze)
-    skene_app.command()(audit)
     skene_app.command()(plan)
     skene_app.command()(chat)
     skene_app.command()(validate)
+    skene_app.command()(status)
     skene_app.command()(build)
     skene_app.command()(config)
 

@@ -8,11 +8,14 @@ from typing import Any, Type
 
 from loguru import logger
 from pydantic import BaseModel
+from rich.console import Console
 
 from skene_growth.codebase import CodebaseExplorer
 from skene_growth.llm import LLMClient
 from skene_growth.strategies.context import AnalysisContext, StepResult
 from skene_growth.strategies.steps.base import AnalysisStep
+
+console = Console()
 
 
 class AnalyzeStep(AnalysisStep):
@@ -79,7 +82,7 @@ class AnalyzeStep(AnalysisStep):
             # Parse response
             parsed = self._parse_response(response)
 
-            logger.info(f"AnalyzeStep completed with {len(parsed)} keys in result")
+            console.print(f"AnalyzeStep completed with {len(parsed)} keys in result")
 
             return StepResult(
                 step_name=self.name,

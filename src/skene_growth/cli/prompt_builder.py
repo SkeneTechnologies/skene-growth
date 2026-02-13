@@ -14,8 +14,32 @@ from rich.console import Console
 console = Console()
 
 
-def extract_ceo_next_action(memo_content: str) -> str | None:
-    """Extract the CEO's Next Action or NEXT ACTION section from the memo.
+def extract_executive_summary(memo_content: str) -> str | None:
+    """Extract the Executive Summary section from the memo.
+
+    Args:
+        memo_content: Full memo markdown content
+
+    Returns:
+        Extracted executive summary text or None if not found
+    """
+    # Look for Executive Summary section (flexible patterns)
+    pattern = r"##?\s*Executive\s+Summary.*?\n+(.*?)(?=\n\n###|\n\n##|\Z)"
+    match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
+
+    if match:
+        summary = match.group(1).strip()
+        # Clean up markdown formatting
+        summary = re.sub(r"\*\*", "", summary)  # Remove bold markers
+        summary = re.sub(r"\[.*?\]", "", summary)  # Remove markdown links
+        summary = re.sub(r"\n\n+", "\n\n", summary)  # Normalize line breaks
+        return summary
+
+    return None
+
+
+def extract_next_action(memo_content: str) -> str | None:
+    """Extract "The Next Action" section from the planner memo.
 
     Args:
         memo_content: Full memo markdown content
@@ -23,36 +47,17 @@ def extract_ceo_next_action(memo_content: str) -> str | None:
     Returns:
         Extracted next action text or None if not found
     """
-    # Look for the CEO's Next Action section (flexible patterns)
-    pattern = (
-        r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?(?:CEO'?s?\s+)?Next\s+Action.*?\n\n"
-        r"\*\*(.*?):\*\*\s*(.*?)(?=\n\n###|\n\n##|\Z)"
-    )
+    # Look for "### 1. The Next Action" section (planner format)
+    pattern = r"###\s*1\.\s*The\s+Next\s+Action.*?\n+(.*?)(?=\n\n###|\n\n##|\Z)"
     match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
 
     if match:
-        intro = match.group(1).strip()  # e.g., "Within 24 hours", "Ship in 24 Hours"
-        action = match.group(2).strip()
-
-        # Combine intro and action for context
-        full_action = f"{intro}: {action}" if intro else action
-
-        # Clean up markdown and extra formatting
-        full_action = re.sub(r"\[.*?\]", "", full_action)  # Remove markdown links
-        full_action = re.sub(r"\n\n+", "\n\n", full_action)  # Normalize line breaks
-        return full_action
-
-    # Fallback: Look for any text after CEO's Next Action or NEXT ACTION heading
-    pattern2 = r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?(?:CEO'?s?\s+)?NEXT\s+ACTION.*?\n+(.*?)(?=\n\n###|\n\n##|\Z)"
-    match2 = re.search(pattern2, memo_content, re.IGNORECASE | re.DOTALL)
-
-    if match2:
-        action = match2.group(1).strip()
+        action = match.group(1).strip()
         # Clean up markdown formatting
         action = re.sub(r"\[.*?\]", "", action)  # Remove markdown links
         action = re.sub(r"\n\n+", "\n\n", action)  # Normalize line breaks
-        # Remove the bold markers if present
-        action = re.sub(r"\*\*", "", action)
+        # Remove bold markers but keep content
+        action = re.sub(r"\*\*([^*]+)\*\*", r"\1", action)  # Remove bold but keep text
         return action
 
     return None
