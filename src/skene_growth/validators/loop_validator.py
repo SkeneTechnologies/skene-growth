@@ -14,7 +14,6 @@ Designed for modular integration into a CLI ``watch`` command.
 from __future__ import annotations
 
 import ast
-import asyncio
 import json
 import re
 import time
@@ -474,7 +473,7 @@ _LEGACY_CHECK_RE = re.compile(
 )
 
 _LEGACY_TYPE_MAP = {
-    "contains_pattern": "contains",
+    "contains_pattern": "contains_regex",
     "contains_logic": "contains",
     "function_exists": "function_exists",
     "defines_class": "class_exists",
@@ -486,7 +485,7 @@ _LEGACY_TYPE_MAP = {
 @dataclass
 class NormalisedCheck:
     """A check normalised from either dict or string format."""
-    check_type: str  # contains | function_exists | class_exists | import_exists
+    check_type: str  # contains | contains_regex | function_exists | class_exists | import_exists
     pattern: str
     description: str
 
@@ -534,15 +533,32 @@ def normalise_check(raw: dict | str) -> NormalisedCheck:
 def _run_contains_check(
     file_path: Path, pattern: str, description: str,
 ) -> CheckResult:
-    """Check whether *file_path* contains a literal or regex *pattern*."""
+    """Check whether *file_path* contains a literal substring *pattern*."""
     try:
         content = file_path.read_text(encoding="utf-8")
     except OSError as exc:
         return CheckResult("contains", pattern, description, CheckStatus.FAILED, str(exc))
 
-    if pattern in content or re.search(pattern, content):
+    if pattern in content:
         return CheckResult("contains", pattern, description, CheckStatus.PASSED)
     return CheckResult("contains", pattern, description, CheckStatus.FAILED, "Pattern not found in file")
+
+
+def _run_contains_regex_check(
+    file_path: Path, pattern: str, description: str,
+) -> CheckResult:
+    """Check whether *file_path* matches a regex *pattern*."""
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return CheckResult("contains_regex", pattern, description, CheckStatus.FAILED, str(exc))
+
+    try:
+        if re.search(pattern, content):
+            return CheckResult("contains_regex", pattern, description, CheckStatus.PASSED)
+        return CheckResult("contains_regex", pattern, description, CheckStatus.FAILED, "Regex did not match")
+    except re.error as exc:
+        return CheckResult("contains_regex", pattern, description, CheckStatus.FAILED, f"Invalid regex: {exc}")
 
 
 def _run_function_exists_check(
@@ -585,6 +601,7 @@ def _run_import_exists_check(
 
 _CHECK_RUNNERS = {
     "contains": lambda fp, tree, pat, desc: _run_contains_check(fp, pat, desc),
+    "contains_regex": lambda fp, tree, pat, desc: _run_contains_regex_check(fp, pat, desc),
     "function_exists": lambda fp, tree, pat, desc: _run_function_exists_check(tree, pat, desc),
     "class_exists": lambda fp, tree, pat, desc: _run_class_exists_check(tree, pat, desc),
     "import_exists": lambda fp, tree, pat, desc: _run_import_exists_check(tree, pat, desc),
@@ -647,7 +664,7 @@ def validate_file_requirement(
     return result
 
 
-def validate_function_requirement(
+async def validate_function_requirement(
     func_req: dict[str, Any],
     project_root: Path,
     all_functions: list[FunctionInfo] | None = None,
@@ -690,7 +707,7 @@ def validate_function_requirement(
     # If function not found, try to find semantic matches in the entire codebase
     if not found and all_functions and llm_client:
         try:
-            alternatives = asyncio.run(find_semantic_matches(func_req, all_functions, llm_client))
+            alternatives = await find_semantic_matches(func_req, all_functions, llm_client)
         except Exception as exc:
             logger.debug("Failed to find semantic matches: {}", exc)
 
@@ -701,7 +718,7 @@ def validate_function_requirement(
     )
 
 
-def validate_growth_loop(
+async def validate_growth_loop(
     loop_data: dict[str, Any],
     project_root: Path,
     all_functions: list[FunctionInfo] | None = None,
@@ -743,7 +760,7 @@ def validate_growth_loop(
 
     # --- Function requirements ---
     for func_req in requirements.get("functions", []):
-        fv = validate_function_requirement(func_req, project_root, all_functions, llm_client)
+        fv = await validate_function_requirement(func_req, project_root, all_functions, llm_client)
         result.function_results.append(fv)
         if fv.passed:
             _emit(ValidationEvent.REQUIREMENT_MET, {
@@ -771,7 +788,7 @@ def validate_growth_loop(
     return result
 
 
-def validate_all_loops(
+async def validate_all_loops(
     context_dir: Path,
     project_root: Path,
     llm_client: Any | None = None,
@@ -801,7 +818,7 @@ def validate_all_loops(
 
     results: list[LoopValidationResult] = []
     for loop_data in loops:
-        result = validate_growth_loop(loop_data, project_root, all_functions, llm_client)
+        result = await validate_growth_loop(loop_data, project_root, all_functions, llm_client)
         results.append(result)
 
     return results

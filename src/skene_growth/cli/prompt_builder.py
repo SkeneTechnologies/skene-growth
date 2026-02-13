@@ -63,50 +63,6 @@ def extract_next_action(memo_content: str) -> str | None:
     return None
 
 
-def extract_ceo_next_action(memo_content: str) -> str | None:
-    """Extract the CEO's Next Action or NEXT ACTION section from the memo.
-
-    Args:
-        memo_content: Full memo markdown content
-
-    Returns:
-        Extracted next action text or None if not found
-    """
-    # Look for the CEO's Next Action section (flexible patterns)
-    pattern = (
-        r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?(?:CEO'?s?\s+)?Next\s+Action.*?\n\n"
-        r"\*\*(.*?):\*\*\s*(.*?)(?=\n\n###|\n\n##|\Z)"
-    )
-    match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
-
-    if match:
-        intro = match.group(1).strip()  # e.g., "Within 24 hours", "Ship in 24 Hours"
-        action = match.group(2).strip()
-
-        # Combine intro and action for context
-        full_action = f"{intro}: {action}" if intro else action
-
-        # Clean up markdown and extra formatting
-        full_action = re.sub(r"\[.*?\]", "", full_action)  # Remove markdown links
-        full_action = re.sub(r"\n\n+", "\n\n", full_action)  # Normalize line breaks
-        return full_action
-
-    # Fallback: Look for any text after CEO's Next Action or NEXT ACTION heading
-    pattern2 = r"##?\s*(?:1|2|7)?\.\s*(?:THE\s+)?(?:CEO'?s?\s+)?NEXT\s+ACTION.*?\n+(.*?)(?=\n\n###|\n\n##|\Z)"
-    match2 = re.search(pattern2, memo_content, re.IGNORECASE | re.DOTALL)
-
-    if match2:
-        action = match2.group(1).strip()
-        # Clean up markdown formatting
-        action = re.sub(r"\[.*?\]", "", action)  # Remove markdown links
-        action = re.sub(r"\n\n+", "\n\n", action)  # Normalize line breaks
-        # Remove the bold markers if present
-        action = re.sub(r"\*\*", "", action)
-        return action
-
-    return None
-
-
 def extract_technical_execution(plan_content: str) -> dict[str, str] | None:
     """Extract the Technical Execution section from the growth plan.
 
