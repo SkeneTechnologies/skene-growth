@@ -196,7 +196,7 @@ async def generate_todo_list(
     memo_content: str,
     manifest_data: dict[str, Any],
     template_data: dict[str, Any] | None = None,
-) -> tuple[str | None, list[dict[str, str]] | None]:
+) -> list[dict[str, str]] | None:
     """Generate an implementation todo list using the structured plan context.
 
     Extracts the Technical Execution section from the memo and combines it
@@ -210,9 +210,7 @@ async def generate_todo_list(
         template_data: Growth template data (optional)
 
     Returns:
-        Tuple of (summary, todo_list) where summary is a brief description of what
-        the tasks accomplish, and todo_list is a list of items with 'task' and
-        'priority' keys. Returns (None, None) on failure.
+        List of items with 'task' and 'priority' keys, or None on failure.
     """
     import re as _re
 
@@ -256,9 +254,8 @@ async def generate_todo_list(
 ## Technical Execution Plan
 {tech_exec_block}
 
-Based on the Technical Execution plan above, produce:
-1. A brief summary (1-2 sentences) explaining what these implementation tasks accomplish
-2. A focused, ordered todo list of engineering tasks to implement this
+Based on the Technical Execution plan above, produce a focused, ordered todo list
+of engineering tasks to implement this.
 
 Rules for tasks:
 - Each task must be a concrete engineering action (e.g. "Create middleware X in src/...",
@@ -271,7 +268,6 @@ Rules for tasks:
 
 Return ONLY a valid JSON object:
 {{
-  "summary": "Brief 1-2 sentence summary of what these tasks accomplish",
   "todos": [
     {{"task": "...", "priority": "high"}},
     {{"task": "...", "priority": "medium"}}
@@ -289,9 +285,7 @@ priority is "high", "medium", or "low". Return only the JSON object, nothing els
             try:
                 result = json.loads(json_match.group(0))
                 if isinstance(result, dict):
-                    summary = result.get("summary", "").strip()
                     todo_items = result.get("todos", [])
-
                     if isinstance(todo_items, list):
                         validated = [
                             {
@@ -302,14 +296,14 @@ priority is "high", "medium", or "low". Return only the JSON object, nothing els
                             if isinstance(item, dict) and "task" in item
                         ]
                         if validated:
-                            return (summary if summary else None, validated)
+                            return validated
             except json.JSONDecodeError:
                 pass
 
-        return (None, None)
+        return None
 
     except Exception:
-        return (None, None)
+        return None
 
 
 async def run_cycle(
@@ -439,17 +433,15 @@ async def run_cycle(
 
             # Generate todo list from memo + structured project context
             progress.update(task, description="Generating todo list...")
-            todo_summary, todo_list = await generate_todo_list(llm, memo_content, manifest_data, template_data)
+            todo_list = await generate_todo_list(llm, memo_content, manifest_data, template_data)
 
-            # Extract executive summary from memo; use LLM-generated todo_summary,
-            # falling back to memo's "Next Action" when the LLM didn't return one
             from skene_growth.cli.prompt_builder import (
                 extract_executive_summary,
                 extract_next_action,
             )
 
             executive_summary = extract_executive_summary(memo_content)
-            todo_summary = todo_summary or extract_next_action(memo_content)
+            todo_summary = extract_next_action(memo_content)
 
             return memo_content, (executive_summary, todo_summary, todo_list)
 
