@@ -41,14 +41,13 @@ def write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
 
 
 async def write_growth_template(
-    llm, manifest_data: dict, business_type: str | None = None, manifest_path: Path | None = None
+    llm, manifest_data: dict, manifest_path: Path | None = None
 ) -> dict | None:
     """Generate and save the growth template JSON output.
 
     Args:
         llm: LLM client
         manifest_data: Manifest data
-        business_type: Optional business type
         manifest_path: Path to the manifest file (template will be saved to same directory)
 
     Returns:
@@ -57,7 +56,7 @@ async def write_growth_template(
     from skene_growth.templates import generate_growth_template, write_growth_template_outputs
 
     try:
-        template_data = await generate_growth_template(llm, manifest_data, business_type)
+        template_data = await generate_growth_template(llm, manifest_data)
         # Save template to the same directory as the manifest
         if manifest_path:
             output_dir = manifest_path.parent

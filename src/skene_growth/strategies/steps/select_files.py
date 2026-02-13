@@ -6,11 +6,14 @@ import json
 import re
 
 from loguru import logger
+from rich.console import Console
 
 from skene_growth.codebase import CodebaseExplorer
 from skene_growth.llm import LLMClient
 from skene_growth.strategies.context import AnalysisContext, StepResult
 from skene_growth.strategies.steps.base import AnalysisStep
+
+console = Console()
 
 
 class SelectFilesStep(AnalysisStep):
@@ -95,7 +98,7 @@ class SelectFilesStep(AnalysisStep):
             # Limit to max_files
             selected_files = selected_files[: self.max_files]
 
-            logger.info(f"SelectFilesStep selected {len(selected_files)} files")
+            console.print(f"SelectFilesStep selected {len(selected_files)} files")
 
             return StepResult(
                 step_name=self.name,
@@ -217,7 +220,7 @@ class SelectFilesStep(AnalysisStep):
                 if not codebase.should_exclude(full_path):
                     filtered.append(file_path)
                 else:
-                    logger.debug(f"Excluding file: {file_path}")
+                    console.print(f"Excluding file: {file_path}")
             except Exception as e:
                 # If path resolution fails, log and skip
                 logger.warning(f"Could not check exclusion for {file_path}: {e}")
