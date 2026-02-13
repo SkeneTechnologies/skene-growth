@@ -611,13 +611,7 @@ def plan(
 
         # Display implementation todo list
         if todo_data:
-            # Handle both old format (2-tuple) and new format (3-tuple)
-            if isinstance(todo_data, tuple) and len(todo_data) == 3:
-                executive_summary, todo_summary, todo_list = todo_data
-            elif isinstance(todo_data, tuple) and len(todo_data) == 2:
-                executive_summary, todo_summary, todo_list = None, todo_data[0], todo_data[1]
-            else:
-                executive_summary, todo_summary, todo_list = None, None, todo_data
+            executive_summary, todo_summary, todo_list = todo_data
 
             if todo_list:
                 console.print("\n")
@@ -955,15 +949,17 @@ def status(
 
     register_event_listener(event_listener)
 
-    try:
-        results = validate_all_loops(
+    async def _run_status() -> list:
+        return await validate_all_loops(
             context_dir=context,
             project_root=path,
             llm_client=llm_client,
             find_alternatives=find_alternatives,
         )
+
+    try:
+        results = asyncio.run(_run_status())
     finally:
-        # Clean up event listener
         clear_event_listeners()
 
     console.print()

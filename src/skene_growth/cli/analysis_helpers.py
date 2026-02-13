@@ -441,14 +441,15 @@ async def run_cycle(
             progress.update(task, description="Generating todo list...")
             todo_summary, todo_list = await generate_todo_list(llm, memo_content, manifest_data, template_data)
 
-            # Extract executive summary and next action from memo
+            # Extract executive summary from memo; use LLM-generated todo_summary,
+            # falling back to memo's "Next Action" when the LLM didn't return one
             from skene_growth.cli.prompt_builder import (
                 extract_executive_summary,
                 extract_next_action,
             )
 
             executive_summary = extract_executive_summary(memo_content)
-            todo_summary = extract_next_action(memo_content)
+            todo_summary = todo_summary or extract_next_action(memo_content)
 
             return memo_content, (executive_summary, todo_summary, todo_list)
 
