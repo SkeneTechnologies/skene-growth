@@ -93,6 +93,11 @@ This command:
 
 The prompt is also saved to a file in `./skene-context/` for later use.
 
+> **Tip:** Use `--target` to skip the interactive menu. This is useful for scripting:
+> ```bash
+> uvx skene-growth build --target file   # Just save the prompt, no interaction
+> ```
+
 ## What you get
 
 After running all five steps, your `./skene-context/` directory contains:

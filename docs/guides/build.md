@@ -47,6 +47,7 @@ uvx skene-growth build --context ./my-context
 | `--provider TEXT` | `-p` | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | Model name (uses provider default if not provided) |
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` |
+| `--target TEXT` | `-t` | Skip the interactive menu and send the prompt directly. Options: `cursor`, `claude`, `show`, `file`. |
 
 ## How it works
 
@@ -99,6 +100,8 @@ Where do you want to send this prompt?
 
 Use arrow keys to navigate and Enter to select. If the `questionary` package is not installed, the command falls back to a numbered menu.
 
+If `--target` is provided, this step is skipped entirely and the command proceeds directly to the specified destination.
+
 ### Step 5: Generate a growth loop definition
 
 Regardless of which destination you choose, the command also generates a **growth loop definition** -- a structured JSON file that captures the implementation requirements. This runs in parallel with the destination action.
@@ -118,6 +121,10 @@ Selecting **Claude** launches the Claude CLI (`claude`) in your current terminal
 ### Show
 
 Selecting **Show** prints the full prompt to the terminal inside a formatted panel. The prompt is also saved to a file so you can copy and use it with any tool.
+
+### File
+
+Selecting **File** (only available via `--target file`) saves the prompt to a file and exits immediately without opening any editor or printing the full prompt. This is the recommended target for scripting and CI/CD pipelines.
 
 In all cases, the prompt is saved to `.skene-build-prompt.md` in the plan's parent directory (or the configured output directory).
 

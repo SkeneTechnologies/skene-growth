@@ -1002,6 +1002,12 @@ def build(
         "--debug",
         help="Log all LLM input/output to .skene-growth/debug/",
     ),
+    target: Optional[str] = typer.Option(
+        None,
+        "--target",
+        "-t",
+        help="Where to send the prompt (skip interactive menu). Options: cursor, claude, show, file",
+    ),
 ):
     """
     Build an AI prompt from your growth plan using LLM, then choose where to send it.
@@ -1011,10 +1017,20 @@ def build(
     2. Uses LLM to generate intelligent, focused prompt
     3. Asks where to send: Cursor, Claude, or Show
 
+    Use --target to skip the interactive menu (useful for scripting):
+
+        skene build --target file    # Just save prompt to file, no interaction
+        skene build --target show    # Print prompt to stdout
+        skene build --target cursor  # Open in Cursor
+        skene build --target claude  # Open in Claude
+
     Examples:
 
         # Uses config for LLM, then asks where to send
         skene build
+
+        # Non-interactive: just generate and save the prompt file
+        skene build --target file
 
         # Override LLM settings from config
         skene build --api-key "your-key" --provider gemini
@@ -1028,8 +1044,17 @@ def build(
     Configuration:
         Set api_key and provider in .skene-growth.config or ~/.config/skene-growth/config
     """
+    # Validate --target value if provided
+    valid_targets = {"cursor", "claude", "show", "file"}
+    if target is not None and target not in valid_targets:
+        console.print(
+            f"[red]Error:[/red] Invalid target '{target}'. "
+            f"Valid options: {', '.join(sorted(valid_targets))}"
+        )
+        raise typer.Exit(1)
+
     # Run async logic
-    asyncio.run(_build_async(plan, context, api_key, provider, model, debug))
+    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target))
 
 
 async def _build_async(
@@ -1039,6 +1064,7 @@ async def _build_async(
     provider: Optional[str],
     model: Optional[str],
     debug: bool = False,
+    target: Optional[str] = None,
 ):
     """Async implementation of build command."""
     # Load config to get LLM settings
@@ -1162,58 +1188,59 @@ async def _build_async(
     preview = prompt if len(prompt) <= 200 else prompt[:200] + "..."
     console.print(f"[dim]{preview}[/dim]\n")
 
-    # Always ask where to send the prompt
-    console.print("[bold cyan]Where do you want to send this prompt?[/bold cyan]")
+    # If --target was provided, skip the interactive menu
+    if target is None:
+        # Interactive mode: ask where to send the prompt
+        console.print("[bold cyan]Where do you want to send this prompt?[/bold cyan]")
 
-    # Use questionary for arrow key selection (with fallback)
-    target = None
-    try:
-        import questionary
+        # Use questionary for arrow key selection (with fallback)
+        try:
+            import questionary
 
-        choices_list = [
-            questionary.Choice("Cursor (open via deep link)", value="cursor"),
-            questionary.Choice("Claude (open in terminal)", value="claude"),
-            questionary.Choice("Show full prompt", value="show"),
-            questionary.Choice("Cancel", value="cancel"),
-        ]
+            choices_list = [
+                questionary.Choice("Cursor (open via deep link)", value="cursor"),
+                questionary.Choice("Claude (open in terminal)", value="claude"),
+                questionary.Choice("Show full prompt", value="show"),
+                questionary.Choice("Cancel", value="cancel"),
+            ]
 
-        selection = questionary.select(
-            "",
-            choices=choices_list,
-            use_arrow_keys=True,
-            use_shortcuts=True,
-            instruction="(Use arrow keys to navigate, Enter to select)",
-        ).ask()
+            selection = questionary.select(
+                "",
+                choices=choices_list,
+                use_arrow_keys=True,
+                use_shortcuts=True,
+                instruction="(Use arrow keys to navigate, Enter to select)",
+            ).ask()
 
-        if selection == "cancel" or selection is None:
-            console.print("\n[dim]Cancelled.[/dim]")
-            return
+            if selection == "cancel" or selection is None:
+                console.print("\n[dim]Cancelled.[/dim]")
+                return
 
-        target = selection
+            target = selection
 
-    except ImportError:
-        # Fallback to numbered menu if questionary not installed
-        choices = [
-            "1. Cursor (open via deep link)",
-            "2. Claude (open in terminal)",
-            "3. Show full prompt",
-            "4. Cancel",
-        ]
-        for choice in choices:
-            console.print(f"  {choice}")
+        except ImportError:
+            # Fallback to numbered menu if questionary not installed
+            choices = [
+                "1. Cursor (open via deep link)",
+                "2. Claude (open in terminal)",
+                "3. Show full prompt",
+                "4. Cancel",
+            ]
+            for choice in choices:
+                console.print(f"  {choice}")
 
-        console.print()
-        selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
+            console.print()
+            selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
 
-        if selection == "1":
-            target = "cursor"
-        elif selection == "2":
-            target = "claude"
-        elif selection == "3":
-            target = "show"
-        elif selection == "4":
-            console.print("[dim]Cancelled.[/dim]")
-            return
+            if selection == "1":
+                target = "cursor"
+            elif selection == "2":
+                target = "claude"
+            elif selection == "3":
+                target = "show"
+            elif selection == "4":
+                console.print("[dim]Cancelled.[/dim]")
+                return
 
     # Save growth loop definition (only if not cancelled)
     try:
@@ -1283,7 +1310,11 @@ async def _build_async(
     console.print(f"[dim]Prompt saved to: {prompt_file}[/dim]")
 
     # Execute based on target
-    if target == "show":
+    if target == "file":
+        # Non-interactive: just save the prompt file and exit
+        console.print(f"\n[green]✓[/green] Prompt saved to: {prompt_file}")
+
+    elif target == "show":
         console.print("\n")
         console.print(Panel(prompt, title="[bold]Full Prompt[/bold]", border_style="blue", padding=(1, 2)))
         console.print(f"\n[green]✓[/green] Prompt saved to: {prompt_file}")
