@@ -8,6 +8,7 @@ A CLI toolkit for analyzing codebases through the lens of Product-Led Growth (PL
 - **Generates a growth manifest** — structured JSON output documenting your product's growth surface area
 - **Creates growth plans** — a Council of Growth Engineers produces 3-5 high-impact growth loops
 - **Builds implementation prompts** that you can send directly to Cursor, Claude, or display in your terminal
+- **Validates growth loop implementation** — AST-based checks verify that required files and functions are present in your codebase
 - **Provides an MCP server** exposing 12 tools for AI assistants
 - **Supports multiple LLM providers**: OpenAI, Gemini, Anthropic, LM Studio, Ollama, and any OpenAI-compatible endpoint
 
@@ -52,6 +53,7 @@ uvx skene-growth build
 - [Analyze](guides/analyze.md) — The analyze command in depth
 - [Plan](guides/plan.md) — Generating growth plans
 - [Build](guides/build.md) — Building implementation prompts
+- [Status](guides/status.md) — Checking growth loop implementation status
 - [Chat](guides/chat.md) — Interactive terminal chat
 - [LLM providers](guides/llm-providers.md) — Configuring OpenAI, Gemini, Claude, local LLMs
 - [Configuration](guides/configuration.md) — Config files, env vars, and priority

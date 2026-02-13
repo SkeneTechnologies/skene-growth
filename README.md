@@ -14,6 +14,7 @@ uvx skene-growth config          # Set provider, model, API key
 uvx skene-growth analyze .       # Analyze your codebase
 uvx skene-growth plan            # Generate a growth plan
 uvx skene-growth build           # Build an implementation prompt
+uvx skene-growth status          # Check loop implementation status
 ```
 
 ## What It Does
@@ -23,6 +24,7 @@ uvx skene-growth build           # Build an implementation prompt
 - **Revenue leakage analysis** -- spots missing monetization and weak pricing tiers
 - **Growth plan generation** -- produces prioritized growth loops with implementation roadmaps
 - **Implementation prompts** -- builds ready-to-use prompts for Cursor, Claude, or other AI tools
+- **Loop validation** -- AST-based checks verify that growth loop requirements are implemented
 - **Interactive chat** -- ask questions about your codebase in the terminal
 
 Supports OpenAI, Gemini, Claude, LM Studio, Ollama, and any OpenAI-compatible endpoint. Free local audit available with no API key required.
