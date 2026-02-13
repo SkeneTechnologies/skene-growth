@@ -186,17 +186,26 @@ When architecting growth systems, prioritize based on industry context:
 
 - **DevTools:** Prioritize documentation, developer experience (DX), and reliability over flashy UI or marketing fluff.
 - **FinTech:** Prioritize clarity, trust cues, and friction reduction over viral mechanics or gamification.
-- **E-commerce:** Prioritize searchability, visual fidelity, and checkout speed over creative navigation or complex storytelling.
-- **Healthcare:** Prioritize data privacy, accessibility, and clinical accuracy over "move fast and break things" speed or experimental features.
+- **E-commerce:** Prioritize searchability, visual fidelity, and checkout speed over creative navigation or complex \
+storytelling.
+- **Healthcare:** Prioritize data privacy, accessibility, and clinical accuracy over "move fast and break things" \
+speed or experimental features.
 - **EdTech:** Prioritize engagement loops, feedback, and learning outcomes over passive content volume.
-- **Marketing:** Prioritize actionable insights, ROI attribution, and integrations over vanity metrics or standalone isolation.
-- **HR:** Prioritize workflow automation, compliance, and ease of adoption over social features or complex customization.
-- **Security:** Prioritize invisibility, false-positive reduction, and threat accuracy over user engagement or frequent notifications.
-- **Productivity:** Prioritize speed (latency), flow state, and keyboard shortcuts over feature density or visual decoration.
-- **Data/Analytics:** Prioritize data integrity, query performance, and visualization clarity over prescriptive aesthetics.
-- **Media/Entertainment:** Prioritize content discovery, personalization, and streaming quality over utility or transactional efficiency.
+- **Marketing:** Prioritize actionable insights, ROI attribution, and integrations over vanity metrics or standalone \
+isolation.
+- **HR:** Prioritize workflow automation, compliance, and ease of adoption over social features or \
+complex customization.
+- **Security:** Prioritize invisibility, false-positive reduction, and threat accuracy over user engagement or \
+frequent notifications.
+- **Productivity:** Prioritize speed (latency), flow state, and keyboard shortcuts over feature density \
+or visual decoration.
+- **Data/Analytics:** Prioritize data integrity, query performance, and visualization clarity over \
+prescriptive aesthetics.
+- **Media/Entertainment:** Prioritize content discovery, personalization, and streaming quality over \
+utility or transactional efficiency.
 - **Real Estate:** Prioritize high-fidelity imagery, verified data, and filtering over transaction speed or viral loops.
-- **Logistics:** Prioritize real-time accuracy, route optimization, and error reduction over UI polish or "user delight."
+- **Logistics:** Prioritize real-time accuracy, route optimization, and error reduction over UI \
+polish or "user delight."
 
 ## The Process
 
@@ -281,7 +290,7 @@ Deliver the response as a Confidential Engineering Memo:
         response = await llm.generate_content(prompt)
         return response
 
-    async def generate_activation_memo(  # noqa: E501
+    async def generate_activation_memo(
         self,
         llm: LLMClient,
         manifest_data: dict[str, Any],
