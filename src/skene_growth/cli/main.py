@@ -972,6 +972,34 @@ def status(
 
 
 @app.command()
+def init(
+    path: Path = typer.Argument(
+        ".",
+        help="Project root (output directory for supabase/)",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+):
+    """
+    Create skene_growth base schema migration if missing.
+
+    Writes supabase/migrations/20260201000000_skene_growth_schema.sql with
+    event_log, growth_loops, loop_executions, attribution, failed_events.
+    Safe to run repeatedly; skips if migration already exists.
+    """
+    from skene_growth.growth_loops.deploy import ensure_base_schema_migration
+
+    written = ensure_base_schema_migration(path.resolve())
+    if written:
+        console.print(f"[green]Created schema migration:[/green] {written}")
+        console.print("[dim]Run supabase db push to apply.[/dim]")
+    else:
+        console.print("[dim]Base schema migration already exists.[/dim]")
+
+
+@app.command()
 def deploy(
     path: Path = typer.Argument(
         ".",
@@ -1059,9 +1087,11 @@ def deploy(
         console.print(f"[green]Migration:[/green] {migration_path}")
         console.print(f"[green]Edge function:[/green] {edge_path}")
         console.print(
-            "\n[dim]Configure app.settings in Postgres for pg_net:\n"
+            "\n[dim]Configure app.settings for processor (pg_net):\n"
             "  ALTER DATABASE postgres SET app.settings.supabase_url = 'https://YOUR_PROJECT.supabase.co';\n"
-            "  ALTER DATABASE postgres SET app.settings.supabase_anon_key = 'YOUR_ANON_KEY';[/dim]"
+            "  ALTER DATABASE postgres SET app.settings.supabase_service_role_key = 'YOUR_SERVICE_ROLE_KEY';\n"
+            "  -- or supabase_anon_key\n\n"
+            "Schedule processor: SELECT cron.schedule('skene_process', '* * * * *', 'SELECT skene_growth.process_events()');[/dim]"
         )
     except Exception as e:
         console.print(f"[red]Deploy failed:[/red] {e}")

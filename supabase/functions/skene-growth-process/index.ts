@@ -1,84 +1,47 @@
-// Skene Growth: process loop events from DB triggers
-// Auto-generated – enriches payload and creates actions (min: every 5th event)
+// Skene Growth: Cloud action executor (called by processor via pg_net)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-interface TriggerPayload {
-  loop_id: string;
-  action_name: string;
-  table: string;
-  operation: string;
-  event_seq: number;
-  db_id: string;
-  payload: Record<string, unknown>;
+interface ProcessorPayload {
+  source: string;
+  event_log_id: number;
+  loop_key: string;
+  idempotency_key: string;
+  recipient: string;
+  enriched_payload: Record<string, unknown>;
+  action_type: string;
+  action_config: Record<string, unknown>;
 }
 
 Deno.serve(async (req) => {
   try {
-    const event: TriggerPayload = await req.json();
-    const { loop_id, action_name, event_seq, db_id, payload } = event;
-
-    // Minimum logic: create action if event_seq is divisible by 5
-    const shouldCreateAction = event_seq % 5 === 0;
-
-    if (!shouldCreateAction) {
-      return new Response(JSON.stringify({ skipped: true, event_seq }), {
+    const body: ProcessorPayload = await req.json();
+    if (body.source !== "processor") {
+      return new Response(JSON.stringify({ error: "Expected source=processor" }), {
         headers: { "Content-Type": "application/json" },
-        status: 200,
+        status: 400,
       });
     }
 
-    // Enrich: resolve user/workspace to email etc
+    const { loop_key, idempotency_key, recipient, enriched_payload, action_type } = body;
+    if (!recipient) {
+      return new Response(JSON.stringify({ error: "Missing recipient" }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const enriched: Record<string, unknown> = { ...payload, db_id };
-
-    // If payload has workspace_id, try to resolve owner email
-    const workspaceId = payload?.workspace_id ?? payload?.workspaceId;
-    if (workspaceId) {
-      const { data: ws } = await supabase
-        .from("workspaces")
-        .select("owner_id")
-        .eq("id", workspaceId)
-        .single();
-      if (ws?.owner_id) {
-        const { data: user } = await supabase.auth.admin.getUserById(ws.owner_id);
-        if (user?.user?.email) {
-          enriched.email = user.user.email;
-          enriched.user_id = ws.owner_id;
-        }
-      }
+    if (action_type === "email") {
+      // MVP: log only. Integrate Resend/SendGrid when ready.
+      console.log("[skene] would send email to", recipient, "loop:", loop_key);
     }
 
-    // If payload has user_id directly
-    const userId = payload?.user_id ?? payload?.owner_id;
-    if (userId && !enriched.email) {
-      const { data: user } = await supabase.auth.admin.getUserById(userId);
-      if (user?.user?.email) {
-        enriched.email = user.user.email;
-        enriched.user_id = userId;
-      }
-    }
-
-    // Insert action with db_id (required)
-    const { error } = await supabase.schema("skene_growth").from("actions").insert({
-      loop_id,
-      action_name,
-      db_id,
-      enriched_payload: enriched,
-    });
-
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        headers: { "Content-Type": "application/json" },
-        status: 500,
-      });
-    }
-
-    return new Response(JSON.stringify({ created: true, db_id, loop_id }), {
+    return new Response(JSON.stringify({ ok: true, loop_key }), {
       headers: { "Content-Type": "application/json" },
       status: 200,
     });
