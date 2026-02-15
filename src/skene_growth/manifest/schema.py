@@ -25,7 +25,7 @@ class TechStack(BaseModel):
     )
     database: str | None = Field(
         default=None,
-        description="Database technology (e.g., 'PostgreSQL', 'MongoDB')",
+        description="Database technology (e.g., 'PostgreSQL', 'MongoDB', 'Supabase')",
     )
     auth: str | None = Field(
         default=None,
@@ -38,6 +38,22 @@ class TechStack(BaseModel):
     package_manager: str | None = Field(
         default=None,
         description="Package manager (e.g., 'npm', 'poetry', 'cargo')",
+    )
+    hosting: str | None = Field(
+        default=None,
+        description="Hosting/deployment platform (e.g., 'vercel', 'netlify', 'aws')",
+    )
+    billing: str | None = Field(
+        default=None,
+        description="Billing/payment provider (e.g., 'stripe', 'paddle')",
+    )
+    email: str | None = Field(
+        default=None,
+        description="Email service provider (e.g., 'resend', 'sendgrid', 'postmark')",
+    )
+    analytics: str | None = Field(
+        default=None,
+        description="Analytics provider (e.g., 'posthog', 'mixpanel', 'amplitude')",
     )
     services: list[str] = Field(
         default_factory=list,
@@ -126,6 +142,196 @@ class Feature(BaseModel):
     )
 
 
+class CodeSmell(BaseModel):
+    """A code quality issue or technical debt indicator."""
+
+    name: str = Field(
+        description="Type of code smell (e.g., 'Long Function', 'Deep Nesting')",
+    )
+    severity: Literal["high", "medium", "low"] = Field(
+        description="Severity of the issue",
+    )
+    file_path: str = Field(
+        description="File where this issue exists",
+    )
+    line_number: int | None = Field(
+        default=None,
+        description="Line number where issue starts",
+    )
+    description: str = Field(
+        description="Clear explanation of the issue",
+    )
+    refactoring_effort: Literal["quick", "moderate", "major"] = Field(
+        description="Estimated effort to fix",
+    )
+    auto_fixable: bool = Field(
+        description="Whether an automated agent can safely fix this",
+    )
+
+
+class ArchitectureViolation(BaseModel):
+    """An architectural issue or pattern violation."""
+
+    type: str = Field(
+        description="Type of violation (e.g., 'Circular Dependency', 'Layer Violation')",
+    )
+    description: str = Field(
+        description="Description of the violation",
+    )
+    files: list[str] = Field(
+        default_factory=list,
+        description="Files involved in the violation",
+    )
+
+
+class DependencyHealth(BaseModel):
+    """Health status of project dependencies."""
+
+    outdated_count: int = Field(
+        default=0,
+        description="Number of outdated packages",
+    )
+    vulnerabilities: int = Field(
+        default=0,
+        description="Number of known security vulnerabilities",
+    )
+    unmaintained: list[str] = Field(
+        default_factory=list,
+        description="List of unmaintained dependencies",
+    )
+
+
+class TechDebtReport(BaseModel):
+    """Technical debt analysis report."""
+
+    total_debt_score: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="Overall debt score (0-100, higher = more debt)",
+    )
+    code_smells: list[CodeSmell] = Field(
+        default_factory=list,
+        description="Detected code smells and quality issues",
+    )
+    architecture_violations: list[ArchitectureViolation] = Field(
+        default_factory=list,
+        description="Architectural issues and violations",
+    )
+    dependency_health: DependencyHealth = Field(
+        default_factory=DependencyHealth,
+        description="Health status of dependencies",
+    )
+    test_coverage_gaps: list[str] = Field(
+        default_factory=list,
+        description="Areas lacking test coverage",
+    )
+    refactoring_priority: list[str] = Field(
+        default_factory=list,
+        description="Files that should be refactored first",
+    )
+
+
+class DeadCodeFinding(BaseModel):
+    """A finding of unused or dead code."""
+
+    file_path: str = Field(
+        description="File containing dead code",
+    )
+    symbol_name: str = Field(
+        description="Name of the unused symbol",
+    )
+    symbol_type: Literal["function", "class", "variable", "import"] = Field(
+        description="Type of symbol",
+    )
+    lines: tuple[int, int] = Field(
+        description="Start and end line numbers",
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence that this is truly unused (0-1)",
+    )
+    reason: str = Field(
+        description="Why this code appears to be dead",
+    )
+    suggestion: str = Field(
+        description="Recommended action",
+    )
+    auto_removable: bool = Field(
+        description="Whether this can be safely auto-removed",
+    )
+
+
+class DeadCodeReport(BaseModel):
+    """Dead code detection report."""
+
+    total_unreachable: int = Field(
+        default=0,
+        description="Total count of unreachable code findings",
+    )
+    unreachable_code: list[DeadCodeFinding] = Field(
+        default_factory=list,
+        description="Unreachable code blocks",
+    )
+    unused_imports: list[DeadCodeFinding] = Field(
+        default_factory=list,
+        description="Unused import statements",
+    )
+    unused_exports: list[DeadCodeFinding] = Field(
+        default_factory=list,
+        description="Unused exports",
+    )
+    orphaned_functions: list[DeadCodeFinding] = Field(
+        default_factory=list,
+        description="Functions that are never called",
+    )
+    estimated_lines_removed: int = Field(
+        default=0,
+        description="Estimated lines that could be removed",
+    )
+
+
+class TechnicalHealthReport(BaseModel):
+    """Complete technical health assessment of the codebase."""
+
+    overall_health_score: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="Overall codebase health (0-100)",
+    )
+    tech_debt_score: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="Technical debt score",
+    )
+    entropy_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Structural entropy score (0-1, lower is better)",
+    )
+    complexity_score: float | None = Field(
+        default=None,
+        description="Average complexity score",
+    )
+    debt_report: TechDebtReport | None = Field(
+        default=None,
+        description="Detailed technical debt report",
+    )
+    dead_code_report: DeadCodeReport | None = Field(
+        default=None,
+        description="Dead code detection report",
+    )
+    recommendations: list[str] = Field(
+        default_factory=list,
+        description="Recommended actions to improve codebase health",
+    )
+    priority_actions: list[dict] = Field(
+        default_factory=list,
+        description="High-priority actions with details",
+    )
+
+
 class GrowthManifest(BaseModel):
     """
     Complete growth manifest for a project.
@@ -155,6 +361,10 @@ class GrowthManifest(BaseModel):
     gtm_gaps: list[GTMGap] = Field(
         default_factory=list,
         description="Go-to-market gaps to address",
+    )
+    technical_health: TechnicalHealthReport | None = Field(
+        default=None,
+        description="Technical health and debt analysis",
     )
     generated_at: datetime = Field(
         default_factory=datetime.now,

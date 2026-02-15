@@ -6,12 +6,19 @@ the primary output of PLG analysis.
 """
 
 from skene_growth.manifest.schema import (
+    ArchitectureViolation,
+    CodeSmell,
+    DeadCodeFinding,
+    DeadCodeReport,
+    DependencyHealth,
     DocsManifest,
     Feature,
     GrowthHub,
     GrowthManifest,
     GTMGap,
     ProductOverview,
+    TechDebtReport,
+    TechnicalHealthReport,
     TechStack,
 )
 
@@ -23,4 +30,11 @@ __all__ = [
     "ProductOverview",
     "Feature",
     "DocsManifest",
+    "CodeSmell",
+    "ArchitectureViolation",
+    "DependencyHealth",
+    "TechDebtReport",
+    "TechnicalHealthReport",
+    "DeadCodeFinding",
+    "DeadCodeReport",
 ]
