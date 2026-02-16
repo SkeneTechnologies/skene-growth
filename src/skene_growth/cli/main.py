@@ -1525,5 +1525,123 @@ def daily_logs(
         raise typer.Exit(1)
 
 
+@app.command()
+def chat(
+    path: Path = typer.Argument(
+        ".",
+        help="Path to codebase (default: current directory)",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        envvar="SKENE_API_KEY",
+        help="API key for LLM provider (or set SKENE_API_KEY env var)",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider to use (openai, gemini, anthropic, ollama)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="LLM model name (e.g., claude-3-5-sonnet-20241022)",
+    ),
+    max_steps: int = typer.Option(
+        4,
+        "--max-steps",
+        help="Maximum agentic steps per response",
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Enable debug logging",
+    ),
+):
+    """
+    Start an interactive chat session about your codebase.
+
+    Ask questions about your code, growth features, architecture, and more.
+    The chat uses the growth-manifest.json (if available) and can explore
+    your codebase to answer questions.
+
+    Examples:
+
+        # Start chat in current directory
+        uvx skene-growth chat
+
+        # Chat about a specific project
+        uvx skene-growth chat ./my-project
+
+        # With specific provider and model
+        uvx skene-growth chat --provider anthropic --model claude-3-5-sonnet-20241022
+
+        # With API key
+        uvx skene-growth chat --api-key "your-key"
+    """
+    from skene_growth.chat import ChatSession
+    from skene_growth.config import default_model_for_provider
+
+    # Load config with fallbacks
+    config = load_config()
+
+    # Apply config defaults
+    resolved_api_key = api_key or config.api_key
+    resolved_provider = provider or config.provider
+    if model:
+        resolved_model = model
+    else:
+        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
+
+    # LM Studio and Ollama don't require an API key (local servers)
+    is_local_provider = resolved_provider.lower() in (
+        "lmstudio",
+        "lm-studio",
+        "lm_studio",
+        "ollama",
+    )
+
+    if not resolved_api_key:
+        if is_local_provider:
+            resolved_api_key = resolved_provider  # Dummy key for local server
+        else:
+            console.print(
+                "[yellow]Warning:[/yellow] No API key provided. "
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
+            )
+            console.print("\nTo get an API key, visit: https://aistudio.google.com/apikey")
+            raise typer.Exit(1)
+
+    try:
+        # Create and start chat session
+        session = ChatSession(
+            path=path,
+            api_key=resolved_api_key,
+            provider=resolved_provider,
+            model=resolved_model,
+            max_steps=max_steps,
+            debug=debug,
+        )
+
+        # Run async chat loop
+        asyncio.run(session.start())
+
+    except KeyboardInterrupt:
+        console.print("\n[dim]Chat session ended.[/dim]")
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        if debug:
+            import traceback
+
+            console.print(traceback.format_exc())
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

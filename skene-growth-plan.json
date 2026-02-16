@@ -1,0 +1,319 @@
+{
+  "version": "1.0",
+  "project_name": "Skene",
+  "generated_at": "2026-02-16T10:47:12.918025",
+  "manifest_summary": "AI-powered Product-Led Growth orchestration platform with deterministic state machines that replaces fragmented SaaS tools with a unified, context-aware fabric for business operations.",
+  "loop_plans": [
+    {
+      "loop_id": "user-invites",
+      "loop_name": "User Invites",
+      "priority": 10,
+      "estimated_complexity": "medium",
+      "code_changes": [
+        {
+          "file_path": "packages/billing-gateway/src/gateway.ts",
+          "change_type": "modify",
+          "description": "Integrate User Invites into Subscription Management & Billing Gateway",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/engine.ts",
+          "change_type": "modify",
+          "description": "Integrate User Invites into Gamification Engine",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/points.ts",
+          "change_type": "modify",
+          "description": "Integrate User Invites into Points and Badge Systems",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/lifecycle-tracker/src/tracker.ts",
+          "change_type": "modify",
+          "description": "Integrate User Invites into Journey Tracker",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/smart-email/lib/email-sender.ts",
+          "change_type": "modify",
+          "description": "Integrate User Invites into Smart Email System",
+          "code_snippet": null,
+          "dependencies": []
+        }
+      ],
+      "new_dependencies": [],
+      "testing_notes": "Test the integration manually after implementation."
+    },
+    {
+      "loop_id": "usage-streaks",
+      "loop_name": "Usage Streaks",
+      "priority": 10,
+      "estimated_complexity": "medium",
+      "code_changes": [
+        {
+          "file_path": "packages/subscription-gating/src/gate.ts",
+          "change_type": "modify",
+          "description": "Integrate Usage Streaks into Subscription Tier Gating System",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/engine.ts",
+          "change_type": "modify",
+          "description": "Integrate Usage Streaks into Gamification Engine",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/points.ts",
+          "change_type": "modify",
+          "description": "Integrate Usage Streaks into Points and Badge Systems",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/lifecycle-tracker/src/tracker.ts",
+          "change_type": "modify",
+          "description": "Integrate Usage Streaks into Journey Tracker",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/trigger-engine/src/engine.ts",
+          "change_type": "modify",
+          "description": "Integrate Usage Streaks into Trigger Engine",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/smart-email/lib/email-sender.ts",
+          "change_type": "modify",
+          "description": "Integrate Usage Streaks into Smart Email System",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/sidecar-daemon/src/webhook-manager.ts",
+          "change_type": "modify",
+          "description": "Integrate Usage Streaks into Webhook Management System",
+          "code_snippet": null,
+          "dependencies": []
+        }
+      ],
+      "new_dependencies": [],
+      "testing_notes": "Test the integration manually after implementation."
+    },
+    {
+      "loop_id": "upgrade-prompts",
+      "loop_name": "Upgrade Prompts",
+      "priority": 10,
+      "estimated_complexity": "medium",
+      "code_changes": [
+        {
+          "file_path": "packages/billing-gateway/src/gateway.ts",
+          "change_type": "modify",
+          "description": "Integrate Upgrade Prompts into Subscription Management & Billing Gateway",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/billing-gateway/src/adaptive-billing.ts",
+          "change_type": "modify",
+          "description": "Integrate Upgrade Prompts into Adaptive Billing Engine",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/subscription-gating/src/gate.ts",
+          "change_type": "modify",
+          "description": "Integrate Upgrade Prompts into Subscription Tier Gating System",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/points.ts",
+          "change_type": "modify",
+          "description": "Integrate Upgrade Prompts into Points and Badge Systems",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/skills/stripe/src/index.ts",
+          "change_type": "modify",
+          "description": "Integrate Upgrade Prompts into Skills Marketplace Integration",
+          "code_snippet": null,
+          "dependencies": []
+        }
+      ],
+      "new_dependencies": [],
+      "testing_notes": "Test the integration manually after implementation."
+    },
+    {
+      "loop_id": "notification-reengagement",
+      "loop_name": "Re-engagement Notifications",
+      "priority": 10,
+      "estimated_complexity": "medium",
+      "code_changes": [
+        {
+          "file_path": "packages/subscription-gating/src/gate.ts",
+          "change_type": "modify",
+          "description": "Integrate Re-engagement Notifications into Subscription Tier Gating System",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/engine.ts",
+          "change_type": "modify",
+          "description": "Integrate Re-engagement Notifications into Gamification Engine",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/points.ts",
+          "change_type": "modify",
+          "description": "Integrate Re-engagement Notifications into Points and Badge Systems",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/lifecycle-tracker/src/tracker.ts",
+          "change_type": "modify",
+          "description": "Integrate Re-engagement Notifications into Journey Tracker",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/trigger-engine/src/engine.ts",
+          "change_type": "modify",
+          "description": "Integrate Re-engagement Notifications into Trigger Engine",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/smart-email/lib/email-sender.ts",
+          "change_type": "modify",
+          "description": "Integrate Re-engagement Notifications into Smart Email System",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/sidecar-daemon/src/webhook-manager.ts",
+          "change_type": "modify",
+          "description": "Integrate Re-engagement Notifications into Webhook Management System",
+          "code_snippet": null,
+          "dependencies": []
+        }
+      ],
+      "new_dependencies": [],
+      "testing_notes": "Test the integration manually after implementation."
+    },
+    {
+      "loop_id": "social-sharing",
+      "loop_name": "Social Sharing",
+      "priority": 6,
+      "estimated_complexity": "medium",
+      "code_changes": [
+        {
+          "file_path": "packages/subscription-gating/src/gate.ts",
+          "change_type": "modify",
+          "description": "Integrate Social Sharing into Subscription Tier Gating System",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/engine.ts",
+          "change_type": "modify",
+          "description": "Integrate Social Sharing into Gamification Engine",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/points.ts",
+          "change_type": "modify",
+          "description": "Integrate Social Sharing into Points and Badge Systems",
+          "code_snippet": null,
+          "dependencies": []
+        }
+      ],
+      "new_dependencies": [],
+      "testing_notes": "Test the integration manually after implementation."
+    },
+    {
+      "loop_id": "onboarding-completion",
+      "loop_name": "Onboarding Completion",
+      "priority": 6,
+      "estimated_complexity": "medium",
+      "code_changes": [
+        {
+          "file_path": "packages/gamification/src/points.ts",
+          "change_type": "modify",
+          "description": "Integrate Onboarding Completion into Points and Badge Systems",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/lifecycle-tracker/src/tracker.ts",
+          "change_type": "modify",
+          "description": "Integrate Onboarding Completion into Journey Tracker",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/smart-email/lib/email-sender.ts",
+          "change_type": "modify",
+          "description": "Integrate Onboarding Completion into Smart Email System",
+          "code_snippet": null,
+          "dependencies": []
+        }
+      ],
+      "new_dependencies": [],
+      "testing_notes": "Test the integration manually after implementation."
+    },
+    {
+      "loop_id": "content-ugc",
+      "loop_name": "User-Generated Content",
+      "priority": 6,
+      "estimated_complexity": "medium",
+      "code_changes": [
+        {
+          "file_path": "packages/subscription-gating/src/gate.ts",
+          "change_type": "modify",
+          "description": "Integrate User-Generated Content into Subscription Tier Gating System",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/engine.ts",
+          "change_type": "modify",
+          "description": "Integrate User-Generated Content into Gamification Engine",
+          "code_snippet": null,
+          "dependencies": []
+        },
+        {
+          "file_path": "packages/gamification/src/points.ts",
+          "change_type": "modify",
+          "description": "Integrate User-Generated Content into Points and Badge Systems",
+          "code_snippet": null,
+          "dependencies": []
+        }
+      ],
+      "new_dependencies": [],
+      "testing_notes": "Test the integration manually after implementation."
+    }
+  ],
+  "shared_infrastructure": [],
+  "implementation_order": [
+    "user-invites",
+    "usage-streaks",
+    "upgrade-prompts",
+    "notification-reengagement",
+    "social-sharing",
+    "onboarding-completion",
+    "content-ugc"
+  ]
+}
