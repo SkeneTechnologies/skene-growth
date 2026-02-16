@@ -76,6 +76,29 @@ def _check_json_valid(output_dir: Path, relative_path: str) -> StructuralCheck:
         )
 
 
+def _check_template_schema(output_dir: Path) -> StructuralCheck:
+    """Validate growth-template.json using the codebase's own validation function."""
+    template_path = output_dir / "growth-template.json"
+    if not template_path.exists():
+        return StructuralCheck(
+            check_name="template_schema",
+            passed=False,
+            detail="growth-template.json does not exist",
+        )
+    try:
+        data = json.loads(template_path.read_text())
+        from skene_growth.templates.growth_template import _validate_template_structure
+
+        _validate_template_structure(data)
+        return StructuralCheck(check_name="template_schema", passed=True)
+    except Exception as e:
+        return StructuralCheck(
+            check_name="template_schema",
+            passed=False,
+            detail=str(e)[:200],
+        )
+
+
 def _check_manifest_schema(output_dir: Path) -> StructuralCheck:
     """Validate growth-manifest.json against the GrowthManifest pydantic model."""
     manifest_path = output_dir / "growth-manifest.json"
@@ -145,6 +168,7 @@ def evaluate_structural(result: PipelineResult) -> StructuralEvaluation:
 
     # Schema conformance
     checks.append(_check_manifest_schema(output_dir))
+    checks.append(_check_template_schema(output_dir))
 
     # Markdown length
     checks.append(_check_markdown_length(output_dir, "growth-plan.md", 500))
