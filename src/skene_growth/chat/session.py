@@ -42,7 +42,7 @@ class ChatSession:
         self.conversation_history = []
 
         # Load configuration
-        config = load_config(path)
+        config = load_config()
 
         # Resolve API key
         self.api_key = api_key or config.get("api_key")
