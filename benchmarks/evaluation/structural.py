@@ -122,6 +122,64 @@ def _check_manifest_schema(output_dir: Path) -> StructuralCheck:
         )
 
 
+def _check_growth_loop_schema(output_dir: Path) -> list[StructuralCheck]:
+    """Validate each growth loop JSON file against the expected schema."""
+    loops_dir = output_dir / "growth-loops"
+    if not loops_dir.exists():
+        return [StructuralCheck(check_name="growth_loop_schema", passed=False, detail="growth-loops/ not found")]
+
+    loop_files = sorted(loops_dir.glob("*.json"))
+    if not loop_files:
+        return [StructuralCheck(check_name="growth_loop_schema", passed=False, detail="No JSON files in growth-loops/")]
+
+    import re
+
+    checks: list[StructuralCheck] = []
+    required_top = ["loop_id", "name", "description", "requirements", "dependencies",
+                     "verification_commands", "test_coverage", "metrics"]
+    required_reqs = ["files", "functions", "integrations", "telemetry"]
+
+    for loop_file in loop_files:
+        fname = loop_file.name
+        try:
+            data = json.loads(loop_file.read_text())
+        except json.JSONDecodeError as e:
+            checks.append(StructuralCheck(
+                check_name=f"growth_loop_schema:{fname}", passed=False, detail=f"Invalid JSON: {e}",
+            ))
+            continue
+
+        missing_top = [f for f in required_top if f not in data]
+        if missing_top:
+            checks.append(StructuralCheck(
+                check_name=f"growth_loop_schema:{fname}", passed=False,
+                detail=f"Missing fields: {', '.join(missing_top)}",
+            ))
+            continue
+
+        # Validate loop_id format
+        if not re.match(r"^[a-z0-9_]+$", data["loop_id"]):
+            checks.append(StructuralCheck(
+                check_name=f"growth_loop_schema:{fname}", passed=False,
+                detail=f"Invalid loop_id format: {data['loop_id']}",
+            ))
+            continue
+
+        # Validate requirements sub-keys
+        reqs = data["requirements"]
+        missing_reqs = [f for f in required_reqs if f not in reqs]
+        if missing_reqs:
+            checks.append(StructuralCheck(
+                check_name=f"growth_loop_schema:{fname}", passed=False,
+                detail=f"requirements missing: {', '.join(missing_reqs)}",
+            ))
+            continue
+
+        checks.append(StructuralCheck(check_name=f"growth_loop_schema:{fname}", passed=True))
+
+    return checks
+
+
 def _check_markdown_length(output_dir: Path, relative_path: str, min_chars: int) -> StructuralCheck:
     """Check that a markdown file meets a minimum character length."""
     full_path = output_dir / relative_path
@@ -169,6 +227,9 @@ def evaluate_structural(result: PipelineResult) -> StructuralEvaluation:
     # Schema conformance
     checks.append(_check_manifest_schema(output_dir))
     checks.append(_check_template_schema(output_dir))
+
+    # Growth loop schema
+    checks.extend(_check_growth_loop_schema(output_dir))
 
     # Markdown length
     checks.append(_check_markdown_length(output_dir, "growth-plan.md", 500))
