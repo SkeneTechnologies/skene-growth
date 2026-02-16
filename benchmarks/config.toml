@@ -1,0 +1,105 @@
+[settings]
+# Provider/model used for LLM-as-judge evaluation (future feature)
+judge_provider = "anthropic"
+judge_model = "claude-sonnet-4-5"
+judge_api_key_env = "ANTHROPIC_API_KEY"
+
+# How many times to run each (codebase, model) combo
+runs_per_combo = 1
+
+# Default config uses the sample repo fixture for quick testing.
+# Add your own codebases below or in a custom config file.
+
+[[codebases]]
+name = "skene-dashboard"
+path = "/Users/miche/skene/skene-dashboard"
+
+#################
+# OpenAI Models #
+#################
+
+[[models]]
+name = "gpt-5.2"
+provider = "openai"
+model = "gpt-5.2"
+api_key_env = "OPENAI_API_KEY"
+
+[[models]]
+name = "gpt-4o"
+provider = "openai"
+model = "gpt-4o"
+api_key_env = "OPENAI_API_KEY"
+
+[[models]]
+name = "gpt-4o-mini"
+provider = "openai"
+model = "gpt-4o-mini"
+api_key_env = "OPENAI_API_KEY"
+
+[[models]]
+name = "gpt-4-turbo"
+provider = "openai"
+model = "gpt-4-turbo"
+api_key_env = "OPENAI_API_KEY"
+
+[[models]]
+name = "gpt-4"
+provider = "openai"
+model = "gpt-4"
+api_key_env = "OPENAI_API_KEY"
+
+#################
+# Gemini Models #
+#################
+
+[[models]]
+name = "gemini-3-flash-preview"
+provider = "gemini"
+model = "gemini-3-flash-preview"
+api_key_env = "GEMINI_API_KEY"
+
+[[models]]
+name = "gemini-3-pro-preview"
+provider = "gemini"
+model = "gemini-3-pro-preview"
+api_key_env = "GEMINI_API_KEY"
+
+[[models]]
+name = "gemini-2.5-flash"
+provider = "gemini"
+model = "gemini-2.5-flash"
+api_key_env = "GEMINI_API_KEY"
+
+[[models]]
+name = "gemini-2.5-pro"
+provider = "gemini"
+model = "gemini-2.5-pro"
+api_key_env = "GEMINI_API_KEY"
+
+#################
+# Claude Models #
+#################
+
+[[models]]
+name = "claude-opus-4-6"
+provider = "anthropic"
+model = "claude-opus-4-6"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[[models]]
+name = "claude-opus-4-5"
+provider = "anthropic"
+model = "claude-opus-4-5"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[[models]]
+name = "claude-sonnet-4-5"
+provider = "anthropic"
+model = "claude-sonnet-4-5"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[[models]]
+name = "claude-haiku-4-5"
+provider = "anthropic"
+model = "claude-haiku-4-5"
+api_key_env = "ANTHROPIC_API_KEY"
