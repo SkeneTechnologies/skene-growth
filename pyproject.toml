@@ -1,5 +1,5 @@
 [project]
-name = "skene-growth"
+name = "skene-growth-stack"
 version = "0.1.7.3"
 description = "PLG analysis toolkit for codebases - analyze code, detect growth opportunities, generate documentation"
 readme = "README.md"
@@ -44,13 +44,13 @@ mcp = [
 ]
 
 [project.scripts]
-skene-growth = "skene_growth.cli.main:app"
-skene-growth-mcp = "skene_growth.mcp:main"
+skene-growth-stack = "skene_growth.cli.main:app"
+skene-growth-stack-mcp = "skene_growth.mcp:main"
 
 [project.urls]
 Homepage = "https://www.skene.ai"
-Documentation = "https://github.com/SkeneTechnologies/skene-growth#readme"
-Repository = "https://github.com/SkeneTechnologies/skene-growth"
+Documentation = "https://github.com/SkeneTechnologies/skene#readme"
+Repository = "https://github.com/SkeneTechnologies/skene"
 
 [build-system]
 requires = ["hatchling"]
