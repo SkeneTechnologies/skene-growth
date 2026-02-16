@@ -40,9 +40,9 @@ def get_provider_models(provider: str) -> list[str]:
             "gemini-3-pro-preview",  # v1beta API (Flagship - King of Versatility)
             "gemini-2.5-flash",  # Legacy/Stable
             "gemini-2.5-pro",  # Legacy/Stable
-            "gemini-3-nano-preview",  # Legacy
         ],
         "anthropic": [
+            "claude-opus-4-6",
             "claude-opus-4-5",
             "claude-sonnet-4-5",
             "claude-haiku-4-5",
