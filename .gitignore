@@ -87,3 +87,9 @@ htmlcov/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+
+# Benchmarks
+benchmarks/results/
+!benchmarks/results/.keep
+benchmarks/codebases/
+!benchmarks/codebases/README.md
