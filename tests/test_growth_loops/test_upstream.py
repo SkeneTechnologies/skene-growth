@@ -45,6 +45,24 @@ class TestCollectArtifacts:
         assert "migrations/other.sql" not in paths
         assert "functions/skene-growth-process/index.ts" in paths
 
+    def test_collects_growth_loops_from_context(self, tmp_path: Path):
+        (tmp_path / "skene-context" / "growth-loops").mkdir(parents=True)
+        (tmp_path / "skene-context" / "growth-loops" / "loop1.json").write_text('{"loop_id": "loop1"}')
+        (tmp_path / "skene-context" / "growth-loops" / "loop2.json").write_text('{"loop_id": "loop2"}')
+
+        artifacts = _collect_artifacts(tmp_path)
+        paths = [a["path"] for a in artifacts]
+        assert "growth-loops/loop1.json" in paths
+        assert "growth-loops/loop2.json" in paths
+
+    def test_collects_growth_loops_from_explicit_loops_dir(self, tmp_path: Path):
+        (tmp_path / "custom" / "growth-loops").mkdir(parents=True)
+        (tmp_path / "custom" / "growth-loops" / "loop1.json").write_text('{"loop_id": "loop1"}')
+
+        artifacts = _collect_artifacts(tmp_path, loops_dir=tmp_path / "custom" / "growth-loops")
+        paths = [a["path"] for a in artifacts]
+        assert "growth-loops/loop1.json" in paths
+
 
 class TestBuildDeployManifest:
     def test_manifest_structure(self, tmp_path: Path):

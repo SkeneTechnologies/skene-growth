@@ -1153,20 +1153,42 @@ def deploy(
                 ]
 
         if resolved_upstream:
+            if push_only:
+                migrations_dir = path / "supabase" / "migrations"
+                for p in sorted(migrations_dir.glob("*.sql")):
+                    if "skene_growth" in p.name.lower():
+                        console.print(f"[green]Migration:[/green] {p}")
+                edge_path = path / "supabase" / "functions" / "skene-growth-process" / "index.ts"
+                if edge_path.exists():
+                    console.print(f"[green]Edge function:[/green] {edge_path}")
             if not resolved_token:
                 console.print(
                     "[yellow]No token. Run skene login to authenticate.[/yellow]"
                 )
             else:
+                loops_dir = (context / "growth-loops") if context else None
+                if loops_dir and loops_dir.exists():
+                    console.print(f"[green]Growth loops:[/green] {loops_dir}")
                 result = push_deploy_to_upstream(
                     project_root=path,
                     upstream_url=resolved_upstream,
                     token=resolved_token,
                     loops=loops_with_telemetry,
+                    context=context,
                 )
                 if result.get("ok"):
+                    loops_dir = (context / "growth-loops") if context else None
+                    growth_loops_count = (
+                        len(list(loops_dir.glob("*.json")))
+                        if loops_dir and loops_dir.exists()
+                        else 0
+                    )
+                    sent_parts = ["migrations", "edge function"]
+                    if growth_loops_count:
+                        sent_parts.append(f"growth-loops ({growth_loops_count} file{'s' if growth_loops_count != 1 else ''})")
                     console.print(
-                        f"[green]Pushed to upstream[/green] commit_hash={result.get('commit_hash', '?')}"
+                        f"[green]Pushed to upstream[/green] commit_hash={result.get('commit_hash', '?')} "
+                        f"({', '.join(sent_parts)})"
                     )
                 else:
                     msg = result.get("message", "Push failed.")

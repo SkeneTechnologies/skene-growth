@@ -62,10 +62,14 @@ def validate_token(api_base: str, token: str) -> bool:
         return False
 
 
-def _collect_artifacts(project_root: Path) -> list[dict[str, str]]:
+def _collect_artifacts(
+    project_root: Path,
+    loops_dir: Path | None = None,
+) -> list[dict[str, str]]:
     """
-    Collect deploy artifacts: migrations and edge function.
-    Returns list of {path, content} with paths relative to project (migrations/..., functions/...).
+    Collect deploy artifacts: migrations, edge function, and growth-loops.
+    Returns list of {path, content} with paths relative to project
+    (migrations/..., functions/..., growth-loops/...).
     """
     artifacts: list[dict[str, str]] = []
     migrations_dir = project_root / "supabase" / "migrations"
@@ -79,6 +83,12 @@ def _collect_artifacts(project_root: Path) -> list[dict[str, str]]:
     )
     if edge_path.exists():
         artifacts.append({"path": EDGE_FUNCTION_PATH, "content": edge_path.read_text(encoding="utf-8")})
+    # Collect growth-loops folder
+    resolved_loops_dir = loops_dir or project_root / "skene-context" / "growth-loops"
+    if resolved_loops_dir.exists() and resolved_loops_dir.is_dir():
+        for p in sorted(resolved_loops_dir.glob("*.json")):
+            rel = f"growth-loops/{p.name}"
+            artifacts.append({"path": rel, "content": p.read_text(encoding="utf-8")})
     return artifacts
 
 
@@ -87,11 +97,12 @@ def build_deploy_manifest(
     workspace_slug: str,
     trigger_events: list[str],
     loops_count: int = 1,
+    loops_dir: Path | None = None,
 ) -> dict[str, Any]:
     """
     Build deploy manifest (metadata only, no artifact content).
     """
-    artifacts = _collect_artifacts(project_root)
+    artifacts = _collect_artifacts(project_root, loops_dir=loops_dir)
     artifact_entries = [
         {"path": a["path"], "checksum": f"sha256:{_sha256_checksum(a['content'])}"}
         for a in artifacts
@@ -112,6 +123,7 @@ def push_to_upstream(
     token: str,
     trigger_events: list[str],
     loops_count: int = 1,
+    loops_dir: Path | None = None,
 ) -> dict[str, Any]:
     """
     Push deploy artifacts to upstream API.
@@ -120,7 +132,7 @@ def push_to_upstream(
     """
     api_base = _api_base_from_upstream(upstream_url)
     workspace_slug = _workspace_slug_from_url(upstream_url)
-    artifacts = _collect_artifacts(project_root)
+    artifacts = _collect_artifacts(project_root, loops_dir=loops_dir)
     artifact_entries = [
         {"path": a["path"], "checksum": f"sha256:{_sha256_checksum(a['content'])}"}
         for a in artifacts

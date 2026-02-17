@@ -389,13 +389,15 @@ def push_deploy_to_upstream(
     upstream_url: str,
     token: str,
     loops: list[dict[str, Any]],
+    context: Path | None = None,
 ) -> dict[str, Any] | None:
     """
-    Push deploy artifacts to upstream.
+    Push deploy artifacts to upstream (migrations, edge function, growth-loops folder).
     Returns response dict on success, None on failure.
     """
     from skene_growth.growth_loops.upstream import push_to_upstream
 
+    loops_dir = (context / "growth-loops") if context else None
     trigger_events = _trigger_events_from_loops(loops)
     return push_to_upstream(
         project_root=project_root,
@@ -403,6 +405,7 @@ def push_deploy_to_upstream(
         token=token,
         trigger_events=trigger_events,
         loops_count=len(loops),
+        loops_dir=loops_dir,
     )
 
 
