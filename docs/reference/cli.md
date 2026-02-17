@@ -169,6 +169,52 @@ See the [build guide](../guides/build.md) for detailed usage.
 
 ---
 
+## `status`
+
+Show implementation status of growth loop requirements.
+
+Loads all growth loop JSON definitions from `skene-context/growth-loops/` and uses AST parsing to verify that required files, functions, and patterns are implemented. Displays a report showing which requirements are met and which are missing.
+
+```
+skene-growth status [PATH] [OPTIONS]
+```
+
+### Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `PATH` | `.` | Path to the project root directory (must exist) |
+
+### Options
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--context PATH` | `-c` | auto-detected | Path to `skene-context` directory. Auto-detected from `<PATH>/skene-context/` or `./skene-context/`. |
+| `--find-alternatives` | | `false` | Use LLM to search for existing functions that might fulfill missing requirements |
+| `--api-key TEXT` | | `$SKENE_API_KEY` or config | API key for the LLM provider. Required when `--find-alternatives` is set. |
+| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`, `ollama` |
+| `--model TEXT` | `-m` | provider default | LLM model name |
+
+### Context auto-detection
+
+When `--context` is not specified, the command checks these paths in order:
+
+1. `<PATH>/skene-context/` (where `PATH` is the positional argument)
+2. `./skene-context/`
+
+The directory must contain a `growth-loops/` subdirectory with at least one JSON file.
+
+### Behavior notes
+
+- Validates every growth loop JSON file found in `<context>/growth-loops/`.
+- Uses Python AST parsing to verify function and class definitions, import statements, and content patterns.
+- With `--find-alternatives`, extracts all functions from the codebase and uses the LLM to find semantic matches for missing requirements (confidence threshold: 60%).
+- Does not require an API key unless `--find-alternatives` is enabled.
+
+See the [status guide](../guides/status.md) for detailed usage.
+
+---
+
 ## `chat`
 
 Interactive terminal chat with access to skene-growth analysis tools.
@@ -282,7 +328,7 @@ The command prints a deprecation warning and exits with code 1.
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
-| `SKENE_API_KEY` | `analyze`, `plan`, `build`, `chat` | API key for the LLM provider. Equivalent to `--api-key`. |
+| `SKENE_API_KEY` | `analyze`, `plan`, `build`, `chat`, `status` | API key for the LLM provider. Equivalent to `--api-key`. |
 | `SKENE_BASE_URL` | `analyze` | Base URL for OpenAI-compatible endpoints. Equivalent to `--base-url`. |
 | `SKENE_PROVIDER` | config loading | LLM provider override at the environment level. |
 
@@ -324,6 +370,12 @@ uvx skene-growth validate ./skene-context/growth-manifest.json
 
 # Interactive chat
 uvx skene-growth chat . -p openai -m gpt-4o
+
+# Check growth loop implementation status
+uvx skene-growth status
+
+# Check status with LLM-powered alternative matching
+uvx skene-growth status --find-alternatives --api-key "YOUR_KEY"
 
 # Quick preview (no API key)
 uvx skene-growth audit .
