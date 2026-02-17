@@ -15,6 +15,7 @@ def create_llm_client(
     model_name: str,
     base_url: Optional[str] = None,
     debug: bool = False,
+    no_fallback: bool = False,
 ) -> LLMClient:
     """
     Factory function to create an LLM client based on provider.
@@ -25,6 +26,7 @@ def create_llm_client(
         model_name: Model name to use
         base_url: Optional base URL for the API endpoint (required for "generic" provider)
         debug: When True, wrap the client with DebugLLMClient to log all LLM I/O
+        no_fallback: When True, disable model fallback on 429 errors and retry same model instead
 
     Returns:
         Instance of LLMClient implementation
@@ -53,15 +55,15 @@ def create_llm_client(
         case "gemini":
             from skene_growth.llm.providers.gemini import GoogleGeminiClient
 
-            client = GoogleGeminiClient(api_key=api_key, model_name=model_name)
+            client = GoogleGeminiClient(api_key=api_key, model_name=model_name, no_fallback=no_fallback)
         case "openai":
             from skene_growth.llm.providers.openai import OpenAIClient
 
-            client = OpenAIClient(api_key=api_key, model_name=model_name)
+            client = OpenAIClient(api_key=api_key, model_name=model_name, no_fallback=no_fallback)
         case "anthropic" | "claude":
             from skene_growth.llm.providers.anthropic import AnthropicClient
 
-            client = AnthropicClient(api_key=api_key, model_name=model_name)
+            client = AnthropicClient(api_key=api_key, model_name=model_name, no_fallback=no_fallback)
         case "lmstudio" | "lm-studio" | "lm_studio":
             from skene_growth.llm.providers.lmstudio import LMStudioClient
 

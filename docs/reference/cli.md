@@ -47,6 +47,7 @@ skene-growth analyze [PATH] [OPTIONS]
 | `--product-docs` | | `false` | Also generate `product-docs.md` with user-facing feature documentation |
 | `--exclude TEXT` | `-e` | config value | Folder names to exclude from analysis. Repeatable: `--exclude tests --exclude vendor`. Merged with `exclude_folders` from config. |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | `false` | Disable model fallback on rate limits (429). Retries the same model with exponential backoff instead of switching to a cheaper model. |
 
 ### Behavior notes
 
@@ -110,6 +111,7 @@ skene-growth plan [OPTIONS]
 | `--verbose` | `-v` | `false` | Enable verbose output |
 | `--onboarding` | | `false` | Generate an onboarding-focused plan using a Senior Onboarding Engineer perspective |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | `false` | Disable model fallback on rate limits (429). Retries the same model with exponential backoff instead of switching to a cheaper model. |
 
 ### Auto-detection order
 
@@ -145,6 +147,7 @@ skene-growth build [OPTIONS]
 | `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | provider default | LLM model name |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | `false` | Disable model fallback on rate limits (429). Retries the same model with exponential backoff instead of switching to a cheaper model. |
 | `--target TEXT` | `-t` | interactive | Skip the interactive menu and send the prompt directly. Options: `cursor`, `claude`, `show`, `file`. |
 
 ### Delivery targets

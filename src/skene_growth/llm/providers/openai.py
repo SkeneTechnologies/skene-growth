@@ -2,6 +2,7 @@
 OpenAI LLM client implementation.
 """
 
+import asyncio
 from typing import AsyncGenerator, Optional
 
 from loguru import logger
@@ -11,6 +12,9 @@ from skene_growth.llm.providers.openai_compat import OpenAICompatibleClient
 
 # Default fallback model for rate limiting (429 errors)
 DEFAULT_FALLBACK_MODEL = "gpt-4o-mini"
+
+# Retry delays in seconds for no-fallback mode (exponential-ish backoff)
+RETRY_DELAYS = [5, 15, 30]
 
 
 class OpenAIClient(OpenAICompatibleClient):
@@ -33,6 +37,7 @@ class OpenAIClient(OpenAICompatibleClient):
         api_key: SecretStr,
         model_name: str,
         fallback_model: Optional[str] = None,
+        no_fallback: bool = False,
     ):
         """
         Initialize the OpenAI client.
@@ -41,9 +46,11 @@ class OpenAIClient(OpenAICompatibleClient):
             api_key: OpenAI API key (wrapped in SecretStr for security)
             model_name: Primary model to use (e.g., "gpt-4o", "gpt-4o-mini")
             fallback_model: Model to use when rate limited (default: gpt-4o-mini)
+            no_fallback: When True, retry same model on 429 instead of falling back
         """
         super().__init__(api_key=api_key, model_name=model_name)
         self.fallback_model = fallback_model or DEFAULT_FALLBACK_MODEL
+        self.no_fallback = no_fallback
 
     async def generate_content(
         self,
@@ -75,6 +82,8 @@ class OpenAIClient(OpenAICompatibleClient):
             )
             return response.choices[0].message.content.strip()
         except RateLimitError:
+            if self.no_fallback:
+                return await self._retry_with_backoff(prompt)
             logger.warning(f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}")
             try:
                 response = await self.client.chat.completions.create(
@@ -124,6 +133,10 @@ class OpenAIClient(OpenAICompatibleClient):
                     yield chunk.choices[0].delta.content
 
         except RateLimitError:
+            if self.no_fallback:
+                async for chunk in self._retry_stream_with_backoff(prompt):
+                    yield chunk
+                return
             if model_to_use == self.model_name:
                 logger.warning(
                     f"Rate limit (429) hit on model {self.model_name} during streaming, "
@@ -147,6 +160,64 @@ class OpenAIClient(OpenAICompatibleClient):
                 raise RuntimeError(f"Rate limit error in streaming generation: {model_to_use}")
         except Exception as e:
             raise RuntimeError(f"Error in streaming generation: {e}")
+
+    async def _retry_with_backoff(self, prompt: str) -> str:
+        """Retry the same model with exponential backoff on rate limit errors."""
+        try:
+            from openai import RateLimitError
+        except ImportError:
+            RateLimitError = Exception
+
+        for attempt, delay in enumerate(RETRY_DELAYS, 1):
+            logger.warning(
+                f"Rate limit (429) on {self.model_name}, "
+                f"retry {attempt}/{len(RETRY_DELAYS)} in {delay}s"
+            )
+            await asyncio.sleep(delay)
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                return response.choices[0].message.content.strip()
+            except RateLimitError:
+                continue
+            except Exception as retry_error:
+                raise RuntimeError(f"Error calling OpenAI: {retry_error}")
+        raise RuntimeError(
+            f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries"
+        )
+
+    async def _retry_stream_with_backoff(self, prompt: str) -> AsyncGenerator[str, None]:
+        """Retry streaming with the same model using exponential backoff."""
+        try:
+            from openai import RateLimitError
+        except ImportError:
+            RateLimitError = Exception
+
+        for attempt, delay in enumerate(RETRY_DELAYS, 1):
+            logger.warning(
+                f"Rate limit (429) on {self.model_name} during streaming, "
+                f"retry {attempt}/{len(RETRY_DELAYS)} in {delay}s"
+            )
+            await asyncio.sleep(delay)
+            try:
+                stream = await self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=True,
+                )
+                async for chunk in stream:
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        yield chunk.choices[0].delta.content
+                return
+            except RateLimitError:
+                continue
+            except Exception as retry_error:
+                raise RuntimeError(f"Error in streaming generation: {retry_error}")
+        raise RuntimeError(
+            f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries"
+        )
 
     def get_provider_name(self) -> str:
         """Return the provider name."""
