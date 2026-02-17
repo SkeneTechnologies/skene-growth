@@ -60,7 +60,13 @@ uvx skene-growth validate ./growth-manifest.json
 ### Option 2: pip install
 
 ```bash
-pip install skene-growth
+pip install skene-growth-stack
+```
+
+With MCP server support:
+
+```bash
+pip install skene-growth-stack[mcp]
 ```
 
 ## How to use?
@@ -579,16 +585,24 @@ ollama serve
 
 ## MCP Server
 
-skene-growth includes an MCP server for integration with AI assistants.
+skene-growth includes an MCP server for integration with AI assistants like Claude Code.
 
-Add this to your AI assistant configuration file:
+### Installation
+
+```bash
+pip install skene-growth-stack[mcp]
+```
+
+### Configuration
+
+Add this to your AI assistant configuration file (e.g., `~/.claude/settings.json` for Claude Code):
 
 ```json
 {
   "mcpServers": {
     "skene-growth": {
       "command": "uvx",
-      "args": ["--from", "skene-growth[mcp]", "skene-growth-mcp"],
+      "args": ["skene-growth-stack[mcp]"],
       "env": {
         "SKENE_API_KEY": "your-openai-api-key"
       }
@@ -596,6 +610,37 @@ Add this to your AI assistant configuration file:
   }
 }
 ```
+
+Or if installed via pip:
+
+```json
+{
+  "mcpServers": {
+    "skene-growth": {
+      "command": "skene-growth-stack-mcp",
+      "env": {
+        "SKENE_API_KEY": "your-openai-api-key"
+      }
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+Once configured, you'll have access to 11 tools in your AI assistant:
+
+- `analyze_codebase` - Full codebase analysis
+- `analyze_growth_hubs` - Detect growth-ready features
+- `analyze_tech_stack` - Technology stack detection
+- `generate_daily_log` - Daily metrics tracking
+- `generate_documentation` - Auto-generate docs
+- `detect_billing_opportunities` - Revenue optimization
+- `detect_dead_code` - Code cleanup opportunities
+- `estimate_tech_debt` - Technical debt scoring
+- `scan_entropy` - Code complexity analysis
+- `get_manifest` - Retrieve growth manifest
+- `refresh_manifest` - Update cached manifest
 
 See [docs/mcp-server.md](docs/mcp-server.md) for more detailed instructions.
 
