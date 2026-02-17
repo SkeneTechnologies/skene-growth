@@ -46,6 +46,7 @@ If no API key is configured and you are not using a local provider, the command 
 | `--exclude TEXT` | `-e` | Folder names to exclude from analysis (repeatable). Also configurable in `.skene-growth.config` as `exclude_folders`. |
 | `--verbose` | `-v` | Enable verbose output |
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | Disable model fallback on rate limits. Retries the same model with exponential backoff instead of switching to a cheaper model. |
 
 ## Output files
 

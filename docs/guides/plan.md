@@ -51,6 +51,7 @@ uvx skene-growth plan --onboarding
 | `--verbose` | `-v` | Enable verbose output |
 | `--onboarding` | | Generate onboarding-focused plan using Senior Onboarding Engineer perspective |
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | Disable model fallback on rate limits. Retries the same model with exponential backoff instead of switching to a cheaper model. |
 
 ## How it works: the Council of Growth Engineers
 
