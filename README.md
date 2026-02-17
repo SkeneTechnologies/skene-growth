@@ -60,13 +60,13 @@ uvx skene-growth validate ./growth-manifest.json
 ### Option 2: pip install
 
 ```bash
-pip install skene-growth-stack
+pip install skene-growth
 ```
 
 With MCP server support:
 
 ```bash
-pip install skene-growth-stack[mcp]
+pip install skene-growth[mcp]
 ```
 
 ## How to use?
@@ -590,7 +590,7 @@ skene-growth includes an MCP server for integration with AI assistants like Clau
 ### Installation
 
 ```bash
-pip install skene-growth-stack[mcp]
+pip install skene-growth[mcp]
 ```
 
 ### Configuration
@@ -602,7 +602,7 @@ Add this to your AI assistant configuration file (e.g., `~/.claude/settings.json
   "mcpServers": {
     "skene-growth": {
       "command": "uvx",
-      "args": ["skene-growth-stack[mcp]"],
+      "args": ["skene-growth[mcp]"],
       "env": {
         "SKENE_API_KEY": "your-openai-api-key"
       }
@@ -617,7 +617,7 @@ Or if installed via pip:
 {
   "mcpServers": {
     "skene-growth": {
-      "command": "skene-growth-stack-mcp",
+      "command": "skene-growth-mcp",
       "env": {
         "SKENE_API_KEY": "your-openai-api-key"
       }
