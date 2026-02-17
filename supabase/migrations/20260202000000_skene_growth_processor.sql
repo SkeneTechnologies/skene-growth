@@ -1,6 +1,3 @@
-"""Shadow Mirror processor: PL/pgSQL that reads event_log, enriches, evaluates, calls Cloud."""
-
-PROCESSOR_SQL = """
 -- Skene Growth: Processor (reads event_log -> enrich -> evaluate condition_config -> call edge function proxy)
 -- Edge function forwards to centralized cloud API with HMAC signature for secure orchestration.
 -- Run via pg_cron: SELECT cron.schedule('skene_process', '* * * * *', 'SELECT skene_growth.process_events()');
@@ -165,4 +162,3 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'pg_cron scheduling skipped: %', SQLERRM;
 END $$;
-""".strip()

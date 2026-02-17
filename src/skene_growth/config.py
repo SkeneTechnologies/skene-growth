@@ -103,6 +103,17 @@ class Config:
         """Get base URL for OpenAI-compatible providers."""
         return self.get("base_url")
 
+    @property
+    def upstream(self) -> str | None:
+        """Get upstream URL for deploy push (e.g. https://skene.ai/workspace/my-app)."""
+        url = self.get("upstream")
+        return url if url else None
+
+    @property
+    def upstream_token(self) -> str | None:
+        """Get upstream API token. Precedence: SKENE_UPSTREAM_TOKEN env > config > credentials file."""
+        return self.get("upstream_token")
+
 
 def find_project_config() -> Path | None:
     """Find project-level config file (.skene-growth.config)."""
@@ -131,6 +142,33 @@ def find_user_config() -> Path | None:
         return config_path
 
     return None
+
+
+def get_credentials_path() -> Path:
+    """Return path to user-level credentials file (for upstream token)."""
+    config_home = os.environ.get("XDG_CONFIG_HOME")
+    if config_home:
+        return Path(config_home) / "skene-growth" / "credentials"
+    return Path.home() / ".config" / "skene-growth" / "credentials"
+
+
+def resolve_upstream_token(config: Config) -> str | None:
+    """
+    Resolve upstream token in precedence order:
+    1. SKENE_UPSTREAM_TOKEN env (already in config)
+    2. Config file upstream_token
+    3. Credentials file (~/.config/skene-growth/credentials)
+    """
+    token = config.upstream_token
+    if not token:
+        cred_path = get_credentials_path()
+        if cred_path.exists():
+            try:
+                data = load_toml(cred_path)
+                token = data.get("token") or data.get("upstream_token")
+            except Exception:
+                pass
+    return token.strip() if isinstance(token, str) and token else None
 
 
 def load_toml(path: Path) -> dict[str, Any]:
@@ -180,5 +218,7 @@ def load_config() -> Config:
         config.set("base_url", base_url)
     if os.environ.get("SKENE_DEBUG", "").lower() in ("1", "true", "yes"):
         config.set("debug", True)
+    if upstream_token := os.environ.get("SKENE_UPSTREAM_TOKEN"):
+        config.set("upstream_token", upstream_token.strip() if upstream_token else None)
 
     return config

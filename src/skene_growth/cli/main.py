@@ -50,9 +50,10 @@ from skene_growth.cli.prompt_builder import (
     run_claude,
     save_prompt_to_file,
 )
+from skene_growth.cli.auth import cmd_login, cmd_logout
 from skene_growth.cli.features import features_app
 from skene_growth.cli.sample_report import show_sample_report
-from skene_growth.config import default_model_for_provider, load_config
+from skene_growth.config import default_model_for_provider, load_config, resolve_upstream_token
 
 app = typer.Typer(
     name="skene-growth",
@@ -972,6 +973,39 @@ def status(
 
 
 @app.command()
+def login(
+    upstream: Optional[str] = typer.Option(
+        None,
+        "--upstream",
+        "-u",
+        help="Upstream workspace URL (e.g. https://skene.ai/workspace/my-app)",
+    ),
+):
+    """
+    Log in to upstream for deploy push.
+
+    Prompts for API token (masked), validates it, saves to credentials file.
+    Create tokens at https://skene.ai/settings/tokens
+
+    Examples:
+
+        skene login
+        skene login --upstream https://skene.ai/workspace/my-project
+    """
+    cmd_login(upstream_url=upstream)
+
+
+@app.command()
+def logout():
+    """
+    Log out from upstream (remove saved token).
+
+    Does not invalidate the token server-side.
+    """
+    cmd_logout()
+
+
+@app.command()
 def init(
     path: Path = typer.Argument(
         ".",
@@ -1021,6 +1055,17 @@ def deploy(
         "-l",
         help="Deploy only this loop (by loop_id); if omitted, deploys all loops with Supabase telemetry",
     ),
+    upstream: Optional[str] = typer.Option(
+        None,
+        "--upstream",
+        "-u",
+        help="Upstream workspace URL for push (e.g. https://skene.ai/workspace/my-app)",
+    ),
+    push_only: bool = typer.Option(
+        False,
+        "--push-only",
+        help="Re-push current deploy output without regenerating",
+    ),
 ):
     """
     Build a Supabase migration from growth loop telemetry into /supabase.
@@ -1032,14 +1077,26 @@ def deploy(
       enriches payload (e.g. user_id -> email), creates action if event_seq %% 5 == 0,
       and ensures each action has db_id
 
+    With --upstream: pushes artifacts to remote for backup/versioning.
+    Use `skene login` to authenticate.
+
     Examples:
 
         skene deploy
+        skene deploy --upstream https://skene.ai/workspace/my-app
         skene deploy --loop skene_guard_activation_safety
         skene deploy --context ./skene-context
     """
-    from skene_growth.growth_loops.deploy import deploy_loops_to_supabase
+    from skene_growth.growth_loops.deploy import (
+        deploy_loops_to_supabase,
+        extract_supabase_telemetry,
+        push_deploy_to_upstream,
+    )
     from skene_growth.growth_loops.storage import load_existing_growth_loops
+
+    config = load_config()
+    resolved_upstream = upstream or config.upstream
+    resolved_token = resolve_upstream_token(config) if resolved_upstream else None
 
     # Resolve context directory
     if context is None:
@@ -1051,48 +1108,81 @@ def deploy(
             if (candidate / "growth-loops").is_dir():
                 context = candidate
                 break
-        if context is None:
+        if context is None and not push_only:
             console.print(
                 "[red]Could not find skene-context/growth-loops/ directory.[/red]\n"
                 "Use --context to specify the path explicitly."
             )
             raise typer.Exit(1)
+    if push_only and context is None:
+        context = path / "skene-context"
+        if not (context / "growth-loops").is_dir():
+            context = Path.cwd() / "skene-context"
 
-    loops = load_existing_growth_loops(context)
-    # Filter to loops with Supabase telemetry
-    from skene_growth.growth_loops.deploy import extract_supabase_telemetry
-
-    loops_with_telemetry = [
-        l for l in loops
-        if extract_supabase_telemetry(l)
-    ]
-    if loop_id:
-        loops_with_telemetry = [l for l in loops_with_telemetry if l.get("loop_id") == loop_id]
+    loops_with_telemetry: list[dict[str, Any]] = []
+    if not push_only:
+        loops = load_existing_growth_loops(context)
+        loops_with_telemetry = [l for l in loops if extract_supabase_telemetry(l)]
+        if loop_id:
+            loops_with_telemetry = [l for l in loops_with_telemetry if l.get("loop_id") == loop_id]
+            if not loops_with_telemetry:
+                console.print(f"[red]No loop with loop_id '{loop_id}' has Supabase telemetry.[/red]")
+                raise typer.Exit(1)
         if not loops_with_telemetry:
-            console.print(f"[red]No loop with loop_id '{loop_id}' has Supabase telemetry.[/red]")
+            console.print(
+                "[yellow]No growth loops with Supabase telemetry found.[/yellow]\n"
+                "Add telemetry with type 'supabase' (table, operation, properties) via skene build."
+            )
             raise typer.Exit(1)
 
-    if not loops_with_telemetry:
-        console.print(
-            "[yellow]No growth loops with Supabase telemetry found.[/yellow]\n"
-            "Add telemetry with type 'supabase' (table, operation, properties) via skene build."
-        )
-        raise typer.Exit(1)
-
     try:
-        migration_path, edge_path = deploy_loops_to_supabase(
-            loops_with_telemetry,
-            path,
-        )
-        console.print(f"[green]Migration:[/green] {migration_path}")
-        console.print(f"[green]Edge function:[/green] {edge_path}")
-        console.print(
-            "\n[dim]Configure app.settings for processor (pg_net):\n"
-            "  ALTER DATABASE postgres SET app.settings.supabase_url = 'https://YOUR_PROJECT.supabase.co';\n"
-            "  ALTER DATABASE postgres SET app.settings.supabase_service_role_key = 'YOUR_SERVICE_ROLE_KEY';\n"
-            "  -- or supabase_anon_key\n\n"
-            "Schedule processor: SELECT cron.schedule('skene_process', '* * * * *', 'SELECT skene_growth.process_events()');[/dim]"
-        )
+        if not push_only:
+            migration_path, edge_path = deploy_loops_to_supabase(
+                loops_with_telemetry,
+                path,
+            )
+            console.print(f"[green]Migration:[/green] {migration_path}")
+            console.print(f"[green]Edge function:[/green] {edge_path}")
+        else:
+            ctx = context or path / "skene-context"
+            if (ctx / "growth-loops").is_dir():
+                loops_with_telemetry = [
+                    l
+                    for l in load_existing_growth_loops(ctx)
+                    if extract_supabase_telemetry(l)
+                ]
+
+        if resolved_upstream:
+            if not resolved_token:
+                console.print(
+                    "[yellow]No token. Run skene login to authenticate.[/yellow]"
+                )
+            else:
+                result = push_deploy_to_upstream(
+                    project_root=path,
+                    upstream_url=resolved_upstream,
+                    token=resolved_token,
+                    loops=loops_with_telemetry,
+                )
+                if result.get("ok"):
+                    console.print(
+                        f"[green]Pushed to upstream[/green] commit_hash={result.get('commit_hash', '?')}"
+                    )
+                else:
+                    msg = result.get("message", "Push failed.")
+                    if result.get("error") == "auth":
+                        console.print(f"[red]{msg}[/red]")
+                    else:
+                        console.print(f"[yellow]{msg}[/yellow]")
+
+        if not push_only:
+            console.print(
+                "\n[dim]Two-stage deploy (handled by upstream service):\n"
+                "  pg_cron and pg_net must be enabled in the Supabase dashboard.\n"
+                "  Configure secrets via the upstream service dashboard.\n"
+                "  Deployment step 1: Upstream service sets app.settings (supabase_url, keys) from the upstream project secrets.\n"
+                "  Deployment step 2: Upstream service runs schema, processor, and telemetry migrations.[/dim]\n\n"
+            )
     except Exception as e:
         console.print(f"[red]Deploy failed:[/red] {e}")
         raise typer.Exit(1)
@@ -1668,6 +1758,8 @@ def skene_entry_point():
     skene_app.command()(chat)
     skene_app.command()(validate)
     skene_app.command()(status)
+    skene_app.command()(login)
+    skene_app.command()(logout)
     skene_app.command()(deploy)
     skene_app.command()(build)
     skene_app.add_typer(features_app, name="features")

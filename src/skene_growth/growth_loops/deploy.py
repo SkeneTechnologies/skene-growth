@@ -4,10 +4,11 @@ Deploy utilities for building Supabase migrations from growth loop telemetry.
 Builds migration files that create:
 - Base schema (event_log, growth_loops, etc.) via init
 - Allowlisted triggers that INSERT into event_log (Shadow Mirror)
-- Edge function (for future processor/Cloud integration)
+- Edge function proxy (forwards to centralized cloud API with HMAC signature)
 
 Triggers do not call pg_net. Events land in event_log; the processor (Phase 3)
-reads from there, enriches, evaluates condition_config, then calls Cloud.
+reads from there, enriches, evaluates condition_config, then calls the edge function
+proxy which forwards to the centralized cloud API for execution.
 """
 
 import re
@@ -52,7 +53,8 @@ def _build_trigger_function_sql(
     Build SQL for the trigger function that INSERTs into event_log.
 
     Shadow Mirror: events land in event_log first. Processor (Phase 3) reads
-    from there, enriches, evaluates condition_config, then calls Cloud.
+    from there, enriches, evaluates condition_config, then calls edge function
+    proxy which forwards to centralized cloud API.
     """
     fn_name = _function_name(table, operation, loop_id)
     row_var = "NEW" if operation in ("INSERT", "UPDATE") else "OLD"
@@ -221,11 +223,7 @@ VALUES ('{safe_key}', '{safe_event}', '{{}}', 'email', '{{}}', 'email', true)
 ON CONFLICT (loop_key) DO UPDATE SET trigger_event = EXCLUDED.trigger_event, enabled = EXCLUDED.enabled;
 """
 
-    migration += """
-
--- Schedule processor via pg_cron (optional):
--- SELECT cron.schedule('skene_process', '* * * * *', 'SELECT skene_growth.process_events()');
-"""
+    migration += "\n"
 
     return migration.strip()
 
@@ -234,10 +232,14 @@ def build_edge_function_index_ts(loops: list[dict[str, Any]]) -> str:
     """
     Build the skene-growth-process edge function.
 
-    Accepts processor payload (source=processor): recipient, enriched_payload,
-    action_type. For action_type=email, logs/stubs the send (MVP).
+    Acts as a secure proxy that forwards processor payloads to the centralized
+    Skene Growth cloud API. Signs requests with HMAC for verification.
+    Keeps logic centralized for instant updates without redeploying edge functions.
     """
-    return '''// Skene Growth: Cloud action executor (called by processor via pg_net)
+    return '''// Skene Growth: Secure proxy to centralized cloud API (called by processor via pg_net)
+
+import { HmacSha256 } from "https://deno.land/std@0.224.0/crypto/crypto.ts";
+import { encodeHex } from "https://deno.land/std@0.224.0/encoding/hex.ts";
 
 interface ProcessorPayload {
   source: string;
@@ -250,9 +252,24 @@ interface ProcessorPayload {
   action_config: Record<string, unknown>;
 }
 
+async function signPayload(payload: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  return encodeHex(new Uint8Array(signature));
+}
+
 Deno.serve(async (req) => {
   try {
     const body: ProcessorPayload = await req.json();
+    
     if (body.source !== "processor") {
       return new Response(JSON.stringify({ error: "Expected source=processor" }), {
         headers: { "Content-Type": "application/json" },
@@ -260,24 +277,67 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { loop_key, idempotency_key, recipient, enriched_payload, action_type } = body;
-    if (!recipient) {
+    if (!body.recipient) {
       return new Response(JSON.stringify({ error: "Missing recipient" }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
       });
     }
 
-    if (action_type === "email") {
-      // MVP: log only. Integrate Resend/SendGrid when ready.
-      console.log("[skene] would send email to", recipient, "loop:", loop_key);
+    // Get configuration from environment
+    const SKENE_PROXY_SECRET = Deno.env.get("SKENE_PROXY_SECRET");
+    const SKENE_CLOUD_ENDPOINT = Deno.env.get("SKENE_CLOUD_ENDPOINT") || "https://skene.ai/api/v1/cloud";
+    const SUPABASE_PROJECT_REF = Deno.env.get("SUPABASE_PROJECT_REF") || "unknown";
+
+    if (!SKENE_PROXY_SECRET) {
+      console.error("[skene] SKENE_PROXY_SECRET not set. Deployment service must configure this secret.");
+      return new Response(JSON.stringify({ error: "Configuration error" }), {
+        headers: { "Content-Type": "application/json" },
+        status: 500,
+      });
     }
 
-    return new Response(JSON.stringify({ ok: true, loop_key }), {
+    // Sign the payload for verification by cloud API
+    const timestamp = Date.now().toString();
+    const payloadString = JSON.stringify(body);
+    const signaturePayload = `${timestamp}.${payloadString}`;
+    const signature = await signPayload(signaturePayload, SKENE_PROXY_SECRET);
+
+    // Forward to centralized cloud API
+    const cloudResponse = await fetch(SKENE_CLOUD_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Skene-Signature": signature,
+        "X-Skene-Timestamp": timestamp,
+        "X-Skene-Project-Ref": SUPABASE_PROJECT_REF,
+      },
+      body: payloadString,
+    });
+
+    if (!cloudResponse.ok) {
+      const errorText = await cloudResponse.text();
+      console.error("[skene] Cloud API error:", cloudResponse.status, errorText);
+      return new Response(
+        JSON.stringify({ 
+          error: "Cloud execution failed", 
+          status: cloudResponse.status 
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: cloudResponse.status,
+        }
+      );
+    }
+
+    const result = await cloudResponse.json();
+    return new Response(JSON.stringify(result), {
       headers: { "Content-Type": "application/json" },
       status: 200,
     });
+
   } catch (err) {
+    console.error("[skene] Proxy error:", err);
     return new Response(JSON.stringify({ error: String(err) }), {
       headers: { "Content-Type": "application/json" },
       status: 500,
@@ -310,6 +370,40 @@ def write_edge_function(index_ts: str, output_dir: Path) -> Path:
     path = fn_dir / "index.ts"
     path.write_text(index_ts, encoding="utf-8")
     return path
+
+
+def _trigger_events_from_loops(loops: list[dict[str, Any]]) -> list[str]:
+    """Extract trigger events (table.operation) from loop telemetry."""
+    events: list[str] = []
+    for loop_def in loops:
+        for t in extract_supabase_telemetry(loop_def):
+            table = t.get("table")
+            op = (t.get("operation") or "INSERT").lower()
+            if table:
+                events.append(f"{table.lower()}.{op}")
+    return list(dict.fromkeys(events))
+
+
+def push_deploy_to_upstream(
+    project_root: Path,
+    upstream_url: str,
+    token: str,
+    loops: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """
+    Push deploy artifacts to upstream.
+    Returns response dict on success, None on failure.
+    """
+    from skene_growth.growth_loops.upstream import push_to_upstream
+
+    trigger_events = _trigger_events_from_loops(loops)
+    return push_to_upstream(
+        project_root=project_root,
+        upstream_url=upstream_url,
+        token=token,
+        trigger_events=trigger_events,
+        loops_count=len(loops),
+    )
 
 
 def deploy_loops_to_supabase(

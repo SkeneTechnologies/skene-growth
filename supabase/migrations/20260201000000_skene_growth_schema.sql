@@ -1,6 +1,3 @@
-"""Shadow Mirror base schema for skene_growth. All DDL is idempotent."""
-
-BASE_SCHEMA_SQL = """
 -- Skene Growth: Shadow Mirror base schema (event_log, growth_loops, loop_executions, attribution, failed_events)
 -- Idempotent: safe to run on init or every deploy
 
@@ -76,4 +73,3 @@ CHECK (status IN ('pending', 'sent', 'failed', 'retrying', 'archived'));
 --     ALTER TABLE skene_growth.event_log ADD COLUMN version text DEFAULT '1.0';
 --   END IF;
 -- END $$;
-""".strip()
