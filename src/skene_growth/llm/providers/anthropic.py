@@ -176,10 +176,7 @@ class AnthropicClient(LLMClient):
             RateLimitError = Exception
 
         for attempt, delay in enumerate(RETRY_DELAYS, 1):
-            logger.warning(
-                f"Rate limit (429) on {self.model_name}, "
-                f"retry {attempt}/{len(RETRY_DELAYS)} in {delay}s"
-            )
+            logger.warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
             await asyncio.sleep(delay)
             try:
                 response = await self.client.messages.create(
@@ -192,9 +189,7 @@ class AnthropicClient(LLMClient):
                 continue
             except Exception as retry_error:
                 raise RuntimeError(f"Error calling Anthropic: {retry_error}")
-        raise RuntimeError(
-            f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries"
-        )
+        raise RuntimeError(f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries")
 
     async def _retry_stream_with_backoff(self, prompt: str) -> AsyncGenerator[str, None]:
         """Retry streaming with the same model using exponential backoff."""
@@ -222,9 +217,7 @@ class AnthropicClient(LLMClient):
                 continue
             except Exception as retry_error:
                 raise RuntimeError(f"Error in streaming generation: {retry_error}")
-        raise RuntimeError(
-            f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries"
-        )
+        raise RuntimeError(f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries")
 
     def get_model_name(self) -> str:
         """Return the primary model name."""

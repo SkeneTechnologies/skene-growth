@@ -222,10 +222,7 @@ class GoogleGeminiClient(LLMClient):
     async def _retry_with_backoff(self, prompt: str, stream: bool = False) -> str:
         """Retry the same model with exponential backoff on rate limit errors."""
         for attempt, delay in enumerate(RETRY_DELAYS, 1):
-            logger.warning(
-                f"Rate limit (429) on {self.model_name}, "
-                f"retry {attempt}/{len(RETRY_DELAYS)} in {delay}s"
-            )
+            logger.warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
             await asyncio.sleep(delay)
             try:
                 loop = asyncio.get_event_loop()
@@ -242,9 +239,7 @@ class GoogleGeminiClient(LLMClient):
                 if not self._is_rate_limit_error(retry_error):
                     raise RuntimeError(f"Error calling Google Gemini: {retry_error}")
                 continue
-        raise RuntimeError(
-            f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries"
-        )
+        raise RuntimeError(f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries")
 
     async def _retry_stream_with_backoff(self, prompt: str) -> AsyncGenerator[str, None]:
         """Retry streaming with the same model using exponential backoff."""
@@ -282,9 +277,7 @@ class GoogleGeminiClient(LLMClient):
                 if not self._is_rate_limit_error(retry_error):
                     raise RuntimeError(f"Error in streaming generation: {retry_error}")
                 continue
-        raise RuntimeError(
-            f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries"
-        )
+        raise RuntimeError(f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries")
 
     def get_model_name(self) -> str:
         """Return the primary model name."""
