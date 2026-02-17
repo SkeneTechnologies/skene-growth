@@ -14,7 +14,7 @@ from skene_growth.llm.base import LLMClient
 DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5"
 
 # Retry delays in seconds for no-fallback mode (exponential-ish backoff)
-RETRY_DELAYS = [5, 15, 30]
+RETRY_DELAYS = [5, 15, 30, 90]
 
 
 class AnthropicClient(LLMClient):
@@ -37,7 +37,7 @@ class AnthropicClient(LLMClient):
         api_key: SecretStr,
         model_name: str,
         fallback_model: Optional[str] = None,
-        no_fallback: bool = False,
+        no_fallback: Optional[bool] = False,
     ):
         """
         Initialize the Anthropic client.

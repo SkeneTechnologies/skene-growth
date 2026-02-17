@@ -318,7 +318,7 @@ async def run_cycle(
     context_dir: Path | None = None,
     user_prompt: str | None = None,
     debug: bool = False,
-    no_fallback: bool = False,
+    no_fallback: bool | None = False,
 ):
     """Run cycle generation using Council of Growth Engineers."""
     from pydantic import SecretStr

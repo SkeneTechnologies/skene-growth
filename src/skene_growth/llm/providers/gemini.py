@@ -16,7 +16,7 @@ from skene_growth.llm.base import LLMClient
 DEFAULT_FALLBACK_MODEL = "gemini-2.5-flash"
 
 # Retry delays in seconds for no-fallback mode (exponential-ish backoff)
-RETRY_DELAYS = [5, 15, 30]
+RETRY_DELAYS = [5, 15, 30, 90]
 
 
 class GoogleGeminiClient(LLMClient):
@@ -39,7 +39,7 @@ class GoogleGeminiClient(LLMClient):
         api_key: SecretStr,
         model_name: str,
         fallback_model: Optional[str] = None,
-        no_fallback: bool = False,
+        no_fallback: Optional[bool] = False,
     ):
         """
         Initialize the Gemini client.

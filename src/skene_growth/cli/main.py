@@ -1082,7 +1082,7 @@ async def _build_async(
     model: Optional[str],
     debug: bool = False,
     target: Optional[str] = None,
-    no_fallback: bool = False,
+    no_fallback: Optional[bool]= False,
 ):
     """Async implementation of build command."""
     # Load config to get LLM settings

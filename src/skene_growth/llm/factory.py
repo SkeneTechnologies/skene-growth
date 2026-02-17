@@ -15,7 +15,7 @@ def create_llm_client(
     model_name: str,
     base_url: Optional[str] = None,
     debug: bool = False,
-    no_fallback: bool = False,
+    no_fallback: Optional[bool] = False,
 ) -> LLMClient:
     """
     Factory function to create an LLM client based on provider.

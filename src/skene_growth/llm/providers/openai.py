@@ -14,7 +14,7 @@ from skene_growth.llm.providers.openai_compat import OpenAICompatibleClient
 DEFAULT_FALLBACK_MODEL = "gpt-4o-mini"
 
 # Retry delays in seconds for no-fallback mode (exponential-ish backoff)
-RETRY_DELAYS = [5, 15, 30]
+RETRY_DELAYS = [5, 15, 30, 90]
 
 
 class OpenAIClient(OpenAICompatibleClient):
