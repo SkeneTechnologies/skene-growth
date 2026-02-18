@@ -23,8 +23,11 @@ jobs:
     - name: Install ruff
       run: pip install ruff
 
-    - name: Run ruff
+    - name: Run ruff check
       run: ruff check .
+
+    - name: Run ruff format check
+      run: ruff format --check .
 
   test:
     runs-on: ubuntu-latest
