@@ -75,6 +75,7 @@ node_modules/
 .env.production
 .env.development
 .skene-growth.config
+.skene-upstream
 
 # Test coverage
 .coverage

@@ -318,12 +318,16 @@ def show_config_status(cfg, project_cfg, user_cfg):
     values_table.add_row("output_dir", cfg.output_dir, "config/default")
     values_table.add_row("verbose", str(cfg.verbose), "config/default")
 
-    upstream_val = cfg.upstream or "[dim]Not set[/dim]"
-    values_table.add_row("upstream", upstream_val, "config/env")
-    token = cfg.upstream_token or resolve_upstream_token(cfg)
+    from skene_growth.config import load_project_upstream
+
+    project = load_project_upstream()
+    upstream_val = (project.get("upstream") if project else None) or cfg.upstream or "[dim]Not set[/dim]"
+    source = ".skene-upstream" if (project and project.get("upstream")) else "config/env"
+    values_table.add_row("upstream", upstream_val, source)
+    token = resolve_upstream_token(cfg)
     if token:
         masked = token[:4] + "..." + token[-4:] if len(token) > 8 else "***"
-        values_table.add_row("upstream_token", masked, "config/env/credentials")
+        values_table.add_row("upstream_token", masked, "credentials")
     else:
         values_table.add_row("upstream_token", "[dim]Not set[/dim]", "-")
 
