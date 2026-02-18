@@ -1064,10 +1064,7 @@ def build(
     # Validate --target value if provided
     valid_targets = {"cursor", "claude", "show", "file"}
     if target is not None and target not in valid_targets:
-        console.print(
-            f"[red]Error:[/red] Invalid target '{target}'. "
-            f"Valid options: {', '.join(sorted(valid_targets))}"
-        )
+        console.print(f"[red]Error:[/red] Invalid target '{target}'. Valid options: {', '.join(sorted(valid_targets))}")
         raise typer.Exit(1)
 
     # Run async logic
