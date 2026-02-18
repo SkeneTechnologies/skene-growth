@@ -46,6 +46,7 @@ uvx skene-growth build --context ./my-context
 | `--api-key TEXT` | | API key for LLM provider (or `SKENE_API_KEY` env var) |
 | `--provider TEXT` | `-p` | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | Model name (uses provider default if not provided) |
+| `--base-url TEXT` | | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. Also set via `SKENE_BASE_URL` env var or config. |
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` |
 | `--target TEXT` | `-t` | Skip the interactive menu and send the prompt directly. Options: `cursor`, `claude`, `show`, `file`. |
 
