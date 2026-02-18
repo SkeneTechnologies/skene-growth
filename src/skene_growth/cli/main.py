@@ -1014,6 +1014,12 @@ def build(
         "-m",
         help="LLM model (uses provider default if not provided)",
     ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        envvar="SKENE_BASE_URL",
+        help="Base URL for OpenAI-compatible API endpoint (required for generic provider)",
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
@@ -1068,7 +1074,7 @@ def build(
         raise typer.Exit(1)
 
     # Run async logic
-    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target))
+    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target, base_url))
 
 
 async def _build_async(
@@ -1079,12 +1085,20 @@ async def _build_async(
     model: Optional[str],
     debug: bool = False,
     target: Optional[str] = None,
+    base_url: Optional[str] = None,
 ):
     """Async implementation of build command."""
     # Load config to get LLM settings
     config = load_config()
     api_key = api_key or config.api_key
     provider = provider or config.provider
+    base_url = base_url or config.base_url
+
+    # Generic provider requires base_url
+    if provider and provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
+        if not base_url:
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            raise typer.Exit(1)
 
     # Validate LLM configuration
     if not api_key or not provider:
@@ -1172,7 +1186,7 @@ async def _build_async(
         from skene_growth.llm import create_llm_client
 
         resolved_debug = debug or config.debug
-        llm = create_llm_client(provider, SecretStr(api_key), model, debug=resolved_debug)
+        llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url, debug=resolved_debug)
         console.print("")
         console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
 
