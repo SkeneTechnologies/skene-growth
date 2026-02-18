@@ -318,6 +318,7 @@ async def run_cycle(
     context_dir: Path | None = None,
     user_prompt: str | None = None,
     debug: bool = False,
+    base_url: str | None = None,
 ):
     """Run cycle generation using Council of Growth Engineers."""
     from pydantic import SecretStr
@@ -383,7 +384,7 @@ async def run_cycle(
 
             # Connect to LLM
             progress.update(task, description="Connecting to LLM provider...")
-            llm = create_llm_client(provider, SecretStr(api_key), model, debug=debug)
+            llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url, debug=debug)
 
             # Generate memo
             memo_type = "activation memo" if activation else "Council memo"
