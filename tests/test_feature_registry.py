@@ -1,4 +1,4 @@
-"""Tests for feature registry (growth-features.json merge and export)."""
+"""Tests for feature registry (feature-registry.json merge and export)."""
 
 import json
 from datetime import datetime
@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from skene_growth.feature_registry import (
+    FEATURE_REGISTRY_FILENAME,
     compute_loop_ids_by_feature,
     derive_feature_id,
     export_registry_to_format,
@@ -167,7 +168,7 @@ class TestLoadWriteRegistry:
                 },
             ],
         }
-        path = tmp_path / "growth-features.json"
+        path = tmp_path / FEATURE_REGISTRY_FILENAME
         write_feature_registry(path, registry)
         loaded = load_feature_registry(path)
         assert loaded == registry
@@ -196,10 +197,45 @@ class TestMergeRegistryAndEnrichManifest:
             {"loop_id": "test_loop", "linked_feature_id": "test_feature", "linked_feature": "Test Feature"},
         ]
         merge_registry_and_enrich_manifest(manifest_data, loops, output_path)
-        registry_path = output_path.parent / "growth-features.json"
+        registry_path = output_path.parent / FEATURE_REGISTRY_FILENAME
         assert registry_path.exists()
         mf = manifest_data["current_growth_features"][0]
         assert mf["loop_ids"] == ["test_loop"]
+        reg = json.loads(registry_path.read_text())
+        assert "growth_loops" in reg
+        assert len(reg["growth_loops"]) == 1
+        assert reg["growth_loops"][0]["loop_id"] == "test_loop"
+        assert reg["growth_loops"][0]["linked_feature_id"] == "test_feature"
+
+    def test_infers_loop_feature_from_file_path(self, tmp_path):
+        output_path = tmp_path / "skene-context" / "growth-manifest.json"
+        output_path.parent.mkdir(parents=True)
+        manifest_data = {
+            "current_growth_features": [
+                {
+                    "feature_name": "Deploy Engine",
+                    "file_path": "src/skene_growth/growth_loops/deploy.py",
+                    "detected_intent": "Deploys telemetry",
+                    "confidence_score": 0.9,
+                    "entry_point": "skene deploy",
+                    "growth_potential": [],
+                },
+            ],
+        }
+        loops = [
+            {
+                "loop_id": "guard_ci",
+                "name": "Guard CI",
+                "requirements": {
+                    "files": [{"path": "src/skene_growth/growth_loops/deploy.py", "purpose": "deploy"}],
+                },
+            },
+        ]
+        merge_registry_and_enrich_manifest(manifest_data, loops, output_path)
+        reg = json.loads((output_path.parent / FEATURE_REGISTRY_FILENAME).read_text())
+        f = next(x for x in reg["features"] if x["feature_id"] == "deploy_engine")
+        assert "guard_ci" in f["loop_ids"]
+        assert any(g["loop_id"] == "guard_ci" and g["linked_feature_id"] == "deploy_engine" for g in reg["growth_loops"])
 
 
 class TestLoadFeaturesForBuild:
@@ -210,7 +246,7 @@ class TestLoadFeaturesForBuild:
                 {"feature_id": "f1", "feature_name": "F1", "status": "active"},
             ],
         }
-        (tmp_path / "growth-features.json").write_text(json.dumps(reg))
+        (tmp_path / FEATURE_REGISTRY_FILENAME).write_text(json.dumps(reg))
         result = load_features_for_build(tmp_path)
         assert len(result) == 1
         assert result[0]["feature_id"] == "f1"

@@ -130,6 +130,91 @@ async def run_analysis(
             return None, None
 
 
+async def run_features_analysis(
+    path: Path,
+    output: Path,
+    llm: LLMClient,
+    verbose: bool,
+    exclude_folders: Optional[list[str]] = None,
+):
+    """
+    Run growth features analysis only and create/update the feature registry.
+
+    Uses GrowthFeaturesAnalyzer to detect features, then merges into
+    feature-registry.json and maps growth-loops.
+    """
+    from skene_growth.analyzers import GrowthFeaturesAnalyzer
+    from skene_growth.codebase import CodebaseExplorer
+    from skene_growth.feature_registry import merge_registry_and_enrich_manifest
+    from skene_growth.growth_loops.storage import load_existing_growth_loops
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Initializing...", total=None)
+        try:
+            progress.update(task, description="Setting up codebase explorer...")
+            codebase = CodebaseExplorer(path, exclude_folders=exclude_folders)
+
+            progress.update(task, description="Loading growth loops...")
+            base_dir = output.parent if output.parent.name == "skene-context" else output.parent
+            existing_loops = load_existing_growth_loops(base_dir)
+
+            progress.update(task, description="Analyzing growth features...")
+            analyzer = GrowthFeaturesAnalyzer()
+            result = await analyzer.run(
+                codebase=codebase,
+                llm=llm,
+                request="Identify growth features in this codebase",
+                on_progress=lambda msg, pct: progress.update(task, description=msg),
+            )
+
+            if not result.success:
+                console.print("[red]Analysis failed[/red]")
+                if verbose and result.data:
+                    console.print(json.dumps(result.data, indent=2, default=json_serializer))
+                return None, None
+
+            raw = result.data.get("current_growth_features", [])
+            if isinstance(raw, list):
+                features = raw
+            elif isinstance(raw, dict):
+                features = raw.get("items", raw.get("current_growth_features", []))
+            else:
+                features = []
+            manifest_data = {"current_growth_features": features}
+
+            progress.update(task, description="Updating feature registry...")
+            merge_registry_and_enrich_manifest(manifest_data, existing_loops, output)
+
+            progress.update(task, description="Complete!")
+            return result, manifest_data
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+            if verbose:
+                import traceback
+
+                console.print(traceback.format_exc())
+            return None, None
+
+
+def show_features_summary(data: dict) -> None:
+    """Display a summary of feature registry analysis."""
+    console.print(f"\n")
+    features = data.get("current_growth_features", [])
+    table = Table(title="Feature Registry")
+    table.add_column("Features", style="cyan")
+    table.add_column("Details", style="white")
+    table.add_row("Detected", str(len(features)))
+    if features:
+        names = [f.get("feature_name", "?") for f in features[:5]]
+        table.add_row("Sample", ", ".join(names) + ("..." if len(features) > 5 else ""))
+    console.print(table)
+    console.print(f"\n")
+
+
 def show_analysis_summary(data: dict, template_data: dict | None = None):
     """Display a summary of the analysis results.
 

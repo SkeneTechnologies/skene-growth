@@ -49,7 +49,7 @@ def cmd_export(
     """
     Export the feature registry for use in other tools.
 
-    Reads skene-context/growth-features.json and outputs in the requested format.
+    Reads skene-context/feature-registry.json and outputs in the requested format.
     Use for docs, dashboards, planning integrations (Linear, Notion, etc.).
     """
     base_dir = context_dir if context_dir else path / "skene-context"

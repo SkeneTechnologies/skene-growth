@@ -17,6 +17,7 @@ Configuration files (optional):
 import asyncio
 import json
 import os
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -32,8 +33,10 @@ from rich.table import Table
 from skene_growth import __version__
 from skene_growth.cli.analysis_helpers import (
     run_analysis,
+    run_features_analysis,
     run_cycle,
     show_analysis_summary,
+    show_features_summary,
 )
 from skene_growth.cli.config_manager import (
     create_sample_config,
@@ -156,6 +159,11 @@ def analyze(
         "--product-docs",
         help="Generate product-docs.md with user-facing feature documentation",
     ),
+    features: bool = typer.Option(
+        False,
+        "--features",
+        help="Only analyze growth features and update feature-registry.json",
+    ),
     exclude: Optional[list[str]] = typer.Option(
         None,
         "--exclude",
@@ -185,6 +193,10 @@ def analyze(
     - Collects user-facing feature documentation from codebase
     - Generates product-docs.md: User-friendly documentation of features and roadmap
 
+    With --features flag:
+    - Only runs growth features analysis
+    - Updates skene-context/feature-registry.json (with growth-loops mapping)
+
     Examples:
 
         # Analyze current directory (uvx)
@@ -199,6 +211,9 @@ def analyze(
 
         # Generate product documentation
         uvx skene analyze . --product-docs
+
+        # Features only (registry update)
+        uvx skene analyze . --features
     """
     # Load config with fallbacks
     config = load_config()
@@ -250,8 +265,14 @@ def analyze(
             console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
             raise typer.Exit(1)
 
-    # If no API key and not using local provider, show sample report
+    # If no API key and not using local provider, show sample report or require key
     if not resolved_api_key and not is_local_provider:
+        if features:
+            console.print(
+                "[yellow]No API key provided.[/yellow] Feature analysis requires an LLM.\n"
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
+            )
+            raise typer.Exit(1)
         console.print(
             "[yellow]No API key provided.[/yellow] Showing sample growth analysis preview.\n"
             "For full AI-powered analysis, set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config\n"
@@ -263,8 +284,8 @@ def analyze(
         if is_local_provider:
             resolved_api_key = resolved_provider  # Dummy key for local server
 
-    # If product docs are requested, use docs mode to collect features
-    mode_str = "docs" if product_docs else "growth"
+    # If features only, use features mode
+    mode_str = "docs" if product_docs else ("features" if features else "growth")
     console.print(
         Panel.fit(
             f"[bold blue]Analyzing codebase[/bold blue]\n"
@@ -299,34 +320,49 @@ def analyze(
             debug=resolved_debug,
         )
 
-        result, manifest_data = await run_analysis(
-            path,
-            resolved_output,
-            llm,
-            verbose,
-            product_docs,
-            exclude_folders=exclude_folders if exclude_folders else None,
-        )
+        if features:
+            result, manifest_data = await run_features_analysis(
+                path,
+                resolved_output,
+                llm,
+                verbose,
+                exclude_folders=exclude_folders if exclude_folders else None,
+            )
+            registry_path = resolved_output.parent / "feature-registry.json"
+            if result is None:
+                raise typer.Exit(1)
+            console.print(f"\n[green]Success![/green] Feature registry updated: {registry_path}")
+            if manifest_data:
+                show_features_summary(manifest_data)
+        else:
+            result, manifest_data = await run_analysis(
+                path,
+                resolved_output,
+                llm,
+                verbose,
+                product_docs,
+                exclude_folders=exclude_folders if exclude_folders else None,
+            )
 
-        if result is None:
-            raise typer.Exit(1)
+            if result is None:
+                raise typer.Exit(1)
 
-        # Generate product docs if requested
-        if product_docs:
-            write_product_docs(manifest_data, resolved_output)
+            # Generate product docs if requested
+            if product_docs:
+                write_product_docs(manifest_data, resolved_output)
 
-        template_data = await write_growth_template(
-            llm,
-            manifest_data,
-            resolved_output,
-        )
+            template_data = await write_growth_template(
+                llm,
+                manifest_data,
+                resolved_output,
+            )
 
-        # Show summary
-        console.print(f"\n[green]Success![/green] Manifest saved to: {resolved_output}")
+            # Show summary
+            console.print(f"\n[green]Success![/green] Manifest saved to: {resolved_output}")
 
-        # Show quick stats if available
-        if result.data:
-            show_analysis_summary(result.data, template_data)
+            # Show quick stats if available
+            if result.data:
+                show_analysis_summary(result.data, template_data)
 
     asyncio.run(execute_analysis())
 
@@ -1066,6 +1102,11 @@ def deploy(
         "--push-only",
         help="Re-push current deploy output without regenerating",
     ),
+    commit_push: bool = typer.Option(
+        False,
+        "--commit-push",
+        help="Commit deploy artifacts and push to git remote after deploy",
+    ),
 ):
     """
     Build a Supabase migration from growth loop telemetry into /supabase.
@@ -1086,6 +1127,7 @@ def deploy(
         skene deploy --upstream https://skene.ai/workspace/my-app
         skene deploy --loop skene_guard_activation_safety
         skene deploy --context ./skene-context
+        skene deploy --upstream https://skene.ai/workspace/my-app --commit-push
     """
     from skene_growth.growth_loops.deploy import (
         deploy_loops_to_supabase,
@@ -1153,6 +1195,7 @@ def deploy(
                 ]
 
         if resolved_upstream:
+            ctx = context or path / "skene-context"
             if push_only:
                 migrations_dir = path / "supabase" / "migrations"
                 for p in sorted(migrations_dir.glob("*.sql")):
@@ -1161,14 +1204,20 @@ def deploy(
                 edge_path = path / "supabase" / "functions" / "skene-growth-process" / "index.ts"
                 if edge_path.exists():
                     console.print(f"[green]Edge function:[/green] {edge_path}")
+                registry_path = ctx / FEATURE_REGISTRY_FILENAME
+                if registry_path.exists():
+                    console.print(f"[green]Feature registry:[/green] {registry_path}")
             if not resolved_token:
                 console.print(
                     "[yellow]No token. Run skene login to authenticate.[/yellow]"
                 )
             else:
-                loops_dir = (context / "growth-loops") if context else None
+                loops_dir = ctx / "growth-loops" if ctx.exists() else None
                 if loops_dir and loops_dir.exists():
                     console.print(f"[green]Growth loops:[/green] {loops_dir}")
+                registry_path = ctx / FEATURE_REGISTRY_FILENAME
+                if registry_path.exists():
+                    console.print(f"[green]Feature registry:[/green] {registry_path}")
                 result = push_deploy_to_upstream(
                     project_root=path,
                     upstream_url=resolved_upstream,
@@ -1177,15 +1226,18 @@ def deploy(
                     context=context,
                 )
                 if result.get("ok"):
-                    loops_dir = (context / "growth-loops") if context else None
+                    loops_dir = ctx / "growth-loops" if ctx.exists() else None
                     growth_loops_count = (
                         len(list(loops_dir.glob("*.json")))
                         if loops_dir and loops_dir.exists()
                         else 0
                     )
+                    registry_path = ctx / FEATURE_REGISTRY_FILENAME
                     sent_parts = ["migrations", "edge function"]
                     if growth_loops_count:
                         sent_parts.append(f"growth-loops ({growth_loops_count} file{'s' if growth_loops_count != 1 else ''})")
+                    if registry_path.exists():
+                        sent_parts.append("feature-registry")
                     console.print(
                         f"[green]Pushed to upstream[/green] commit_hash={result.get('commit_hash', '?')} "
                         f"({', '.join(sent_parts)})"
