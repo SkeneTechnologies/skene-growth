@@ -29,6 +29,7 @@ The `skene` entry point defaults to the `chat` command, providing a convenient s
 | `--api-key` | | API key for LLM provider | `SKENE_API_KEY` env var |
 | `--provider` | `-p` | LLM provider | Config or `openai` |
 | `--model` | `-m` | LLM model name | Provider default |
+| `--base-url` | | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. | `SKENE_BASE_URL` env var |
 | `--max-steps` | | Maximum tool calls per user request | `4` |
 | `--tool-output-limit` | | Max tool output characters kept in context | `4000` |
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` | Off |

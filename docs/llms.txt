@@ -32,7 +32,7 @@ skene-growth status [PATH]
 
 skene-growth chat [PATH]
   Interactive terminal chat with function calling. LLM invokes skene-growth tools.
-  Flags: --api-key, -p/--provider, -m/--model, --max-steps, --tool-output-limit, --debug
+  Flags: --api-key, -p/--provider, -m/--model, --base-url, --max-steps, --tool-output-limit, --debug
 
 skene-growth config
   Manage configuration. --init creates config file, --show displays current values, no flags for interactive editing.

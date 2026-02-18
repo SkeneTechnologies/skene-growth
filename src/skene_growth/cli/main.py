@@ -702,6 +702,12 @@ def chat(
         "-m",
         help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
     ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        envvar="SKENE_BASE_URL",
+        help="Base URL for OpenAI-compatible API endpoint (required for generic provider)",
+    ),
     max_steps: int = typer.Option(
         4,
         "--max-steps",
@@ -731,6 +737,7 @@ def chat(
 
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
+    resolved_base_url = base_url or config.base_url
     if model:
         resolved_model = model
     else:
@@ -741,7 +748,16 @@ def chat(
         "lm-studio",
         "lm_studio",
         "ollama",
+        "generic",
+        "openai-compatible",
+        "openai_compatible",
     )
+
+    # Generic provider requires base_url
+    if resolved_provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
+        if not resolved_base_url:
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            raise typer.Exit(1)
 
     if not resolved_api_key:
         if is_local_provider:
@@ -767,6 +783,7 @@ def chat(
         max_steps=max_steps,
         tool_output_limit=tool_output_limit,
         debug=resolved_debug,
+        base_url=resolved_base_url,
     )
 
 
