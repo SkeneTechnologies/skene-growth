@@ -385,7 +385,9 @@ async def run_cycle(
 
             # Connect to LLM
             progress.update(task, description="Connecting to LLM provider...")
-            llm = create_llm_client(provider, SecretStr(api_key), model, debug=debug, base_url=base_url, no_fallback=no_fallback)
+            llm = create_llm_client(
+                provider, SecretStr(api_key), model, debug=debug, base_url=base_url, no_fallback=no_fallback
+            )
 
             # Generate memo
             memo_type = "activation memo" if activation else "Council memo"

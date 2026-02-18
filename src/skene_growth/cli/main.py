@@ -1221,7 +1221,9 @@ async def _build_async(
         from skene_growth.llm import create_llm_client
 
         resolved_debug = debug or config.debug
-        llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url, debug=resolved_debug, no_fallback=no_fallback)
+        llm = create_llm_client(
+            provider, SecretStr(api_key), model, base_url=base_url, debug=resolved_debug, no_fallback=no_fallback
+        )
         console.print("")
         console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
 
