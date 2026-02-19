@@ -169,6 +169,11 @@ def analyze(
         "--debug",
         help="Log all LLM input/output to .skene-growth/debug/",
     ),
+    no_fallback: bool = typer.Option(
+        False,
+        "--no-fallback",
+        help="Disable model fallback on rate limits; retry same model instead",
+    ),
 ):
     """
     Analyze a codebase and generate growth-manifest.json.
@@ -295,6 +300,7 @@ def analyze(
             resolved_model,
             base_url=resolved_base_url,
             debug=resolved_debug,
+            no_fallback=no_fallback,
         )
 
         result, manifest_data = await run_analysis(
@@ -425,6 +431,11 @@ def plan(
         False,
         "--debug",
         help="Log all LLM input/output to .skene-growth/debug/",
+    ),
+    no_fallback: bool = typer.Option(
+        False,
+        "--no-fallback",
+        help="Disable model fallback on rate limits; retry same model instead",
     ),
 ):
     """
@@ -614,6 +625,7 @@ def plan(
             user_prompt=prompt,
             debug=resolved_debug,
             base_url=resolved_base_url,
+            no_fallback=no_fallback,
         )
 
         if memo_content is None:
@@ -1042,6 +1054,11 @@ def build(
         "--debug",
         help="Log all LLM input/output to .skene-growth/debug/",
     ),
+    no_fallback: bool = typer.Option(
+        False,
+        "--no-fallback",
+        help="Disable model fallback on rate limits; retry same model instead",
+    ),
     target: Optional[str] = typer.Option(
         None,
         "--target",
@@ -1091,7 +1108,7 @@ def build(
         raise typer.Exit(1)
 
     # Run async logic
-    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target, base_url))
+    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target, base_url, no_fallback))
 
 
 async def _build_async(
@@ -1103,6 +1120,7 @@ async def _build_async(
     debug: bool = False,
     target: Optional[str] = None,
     base_url: Optional[str] = None,
+    no_fallback: Optional[bool] = False,
 ):
     """Async implementation of build command."""
     # Load config to get LLM settings
@@ -1203,7 +1221,9 @@ async def _build_async(
         from skene_growth.llm import create_llm_client
 
         resolved_debug = debug or config.debug
-        llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url, debug=resolved_debug)
+        llm = create_llm_client(
+            provider, SecretStr(api_key), model, base_url=base_url, debug=resolved_debug, no_fallback=no_fallback
+        )
         console.print("")
         console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
 

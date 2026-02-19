@@ -15,6 +15,9 @@ from skene_growth.llm.base import LLMClient
 # Using stable 2.5-flash as fallback (works with both v1 and v1beta APIs)
 DEFAULT_FALLBACK_MODEL = "gemini-2.5-flash"
 
+# Retry delays in seconds for no-fallback mode (exponential-ish backoff)
+RETRY_DELAYS = [5, 15, 30, 90]
+
 
 class GoogleGeminiClient(LLMClient):
     """
@@ -36,6 +39,7 @@ class GoogleGeminiClient(LLMClient):
         api_key: SecretStr,
         model_name: str,
         fallback_model: Optional[str] = None,
+        no_fallback: Optional[bool] = False,
     ):
         """
         Initialize the Gemini client.
@@ -44,6 +48,7 @@ class GoogleGeminiClient(LLMClient):
             api_key: Google API key (wrapped in SecretStr for security)
             model_name: Primary model to use (e.g., "gemini-3-flash-preview" for v1beta API)
             fallback_model: Model to use when rate limited (default: gemini-2.5-flash)
+            no_fallback: When True, retry same model on 429 instead of falling back
         """
         try:
             from google import genai
@@ -55,6 +60,7 @@ class GoogleGeminiClient(LLMClient):
         self.api_key = api_key.get_secret_value()
         self.model_name = model_name
         self.fallback_model = fallback_model or DEFAULT_FALLBACK_MODEL
+        self.no_fallback = no_fallback
         self.client = genai.Client(api_key=self.api_key)
 
     def _is_rate_limit_error(self, error: Exception) -> bool:
@@ -94,8 +100,10 @@ class GoogleGeminiClient(LLMClient):
 
             return response.text.strip()
         except Exception as e:
-            # If rate limit error, retry with fallback model
+            # If rate limit error, handle based on no_fallback setting
             if self._is_rate_limit_error(e):
+                if self.no_fallback:
+                    return await self._retry_with_backoff(prompt, stream=False)
                 logger.warning(
                     f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}"
                 )
@@ -167,6 +175,11 @@ class GoogleGeminiClient(LLMClient):
                     yield chunk.text
 
         except Exception as e:
+            # If rate limit error, handle based on no_fallback setting
+            if self._is_rate_limit_error(e) and self.no_fallback:
+                async for chunk in self._retry_stream_with_backoff(prompt):
+                    yield chunk
+                return
             # If rate limit error and haven't tried fallback yet, retry with fallback model
             if self._is_rate_limit_error(e) and model_to_use == self.model_name:
                 logger.warning(
@@ -205,6 +218,66 @@ class GoogleGeminiClient(LLMClient):
                     )
             else:
                 raise RuntimeError(f"Error in streaming generation: {e}")
+
+    async def _retry_with_backoff(self, prompt: str, stream: bool = False) -> str:
+        """Retry the same model with exponential backoff on rate limit errors."""
+        for attempt, delay in enumerate(RETRY_DELAYS, 1):
+            logger.warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
+            await asyncio.sleep(delay)
+            try:
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    partial(
+                        self.client.models.generate_content,
+                        model=self.model_name,
+                        contents=prompt,
+                    ),
+                )
+                return response.text.strip()
+            except Exception as retry_error:
+                if not self._is_rate_limit_error(retry_error):
+                    raise RuntimeError(f"Error calling Google Gemini: {retry_error}")
+                continue
+        raise RuntimeError(f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries")
+
+    async def _retry_stream_with_backoff(self, prompt: str) -> AsyncGenerator[str, None]:
+        """Retry streaming with the same model using exponential backoff."""
+        for attempt, delay in enumerate(RETRY_DELAYS, 1):
+            logger.warning(
+                f"Rate limit (429) on {self.model_name} during streaming, "
+                f"retry {attempt}/{len(RETRY_DELAYS)} in {delay}s"
+            )
+            await asyncio.sleep(delay)
+            try:
+                loop = asyncio.get_event_loop()
+                response_stream = await loop.run_in_executor(
+                    None,
+                    lambda: self.client.models.generate_content_stream(
+                        model=self.model_name,
+                        contents=prompt,
+                    ),
+                )
+
+                def get_next_chunk(iterator):
+                    try:
+                        return next(iterator), False
+                    except StopIteration:
+                        return None, True
+
+                chunk_iterator = iter(response_stream)
+                while True:
+                    chunk, done = await loop.run_in_executor(None, get_next_chunk, chunk_iterator)
+                    if done:
+                        break
+                    if chunk and hasattr(chunk, "text") and chunk.text:
+                        yield chunk.text
+                return
+            except Exception as retry_error:
+                if not self._is_rate_limit_error(retry_error):
+                    raise RuntimeError(f"Error in streaming generation: {retry_error}")
+                continue
+        raise RuntimeError(f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries")
 
     def get_model_name(self) -> str:
         """Return the primary model name."""

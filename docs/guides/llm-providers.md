@@ -145,6 +145,23 @@ uvx skene-growth analyze . --provider generic --base-url "http://localhost:8000/
 
 The provider also accepts `openai-compatible` and `openai_compatible` as aliases.
 
+## Rate limiting & fallback
+
+When an LLM provider returns a rate limit error, skene-growth automatically falls back to a cheaper model to keep the workflow moving.
+This is convenient for interactive use but can corrupt results during benchmarking or when you need guaranteed output from a specific model.
+
+### Disabling fallback
+
+Pass `--no-fallback` to disable model switching. Instead of falling back, the CLI retries the **same** model with exponential backoff and raises an error if all retries are exhausted:
+
+```bash
+uvx skene-growth analyze . --provider gemini --model gemini-3-flash-preview --no-fallback
+uvx skene-growth plan --no-fallback
+uvx skene-growth build --no-fallback
+```
+
+This flag is available on the `analyze`, `plan`, and `build` commands.
+
 ## Next steps
 
 - [Configuration](configuration.md) — Save provider settings to a config file

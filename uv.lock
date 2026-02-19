@@ -1177,7 +1177,7 @@ wheels = [
 
 [[package]]
 name = "skene-growth"
-version = "0.2.0"
+version = "0.2.1b1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },

@@ -48,6 +48,7 @@ uvx skene-growth build --context ./my-context
 | `--model TEXT` | `-m` | Model name (uses provider default if not provided) |
 | `--base-url TEXT` | | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. Also set via `SKENE_BASE_URL` env var or config. |
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | Disable model fallback on rate limits. Retries the same model with exponential backoff instead of switching to a cheaper model. |
 | `--target TEXT` | `-t` | Skip the interactive menu and send the prompt directly. Options: `cursor`, `claude`, `show`, `file`. |
 
 ## How it works
