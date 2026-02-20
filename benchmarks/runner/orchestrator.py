@@ -4,6 +4,7 @@ Combos are interleaved by provider to reduce the likelihood of hitting
 rate/quota limits from a single provider.
 """
 
+import time
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -100,5 +101,11 @@ def run_benchmark_matrix(
             logger.info(f"  -> Success ({sum(s.duration_seconds for s in result.steps):.1f}s total)")
         else:
             logger.warning(f"  -> Failed: {result.error_message}")
+
+        # Delay between calls to avoid hitting rate/quota limits
+        delay = config.settings.delay_between_calls
+        if delay > 0 and i < total:
+            logger.info(f"  Waiting {delay}s before next call...")
+            time.sleep(delay)
 
     return results

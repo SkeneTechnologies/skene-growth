@@ -13,6 +13,7 @@ class BenchmarkSettings(BaseModel):
     judge_model: str = "claude-sonnet-4-5"
     judge_api_key_env: str = "ANTHROPIC_API_KEY"
     runs_per_combo: int = 1
+    delay_between_calls: int = 0
 
 
 class CodebaseConfig(BaseModel):

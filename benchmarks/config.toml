@@ -7,6 +7,9 @@ judge_api_key_env = "ANTHROPIC_API_KEY"
 # How many times to run each (codebase, model) combo
 runs_per_combo = 1
 
+# Seconds to wait between pipeline runs (0 = no delay)
+delay_between_calls = 70
+
 # Default config uses the sample repo fixture for quick testing.
 # Add your own codebases below or in a custom config file.
 
