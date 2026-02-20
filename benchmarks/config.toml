@@ -81,11 +81,11 @@ path = "/Users/miche/skene/skene-dashboard"
 #model = "gpt-3.5-turbo-16k-0613"
 #api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-4.1-long-context"
-provider = "openai"
-model = "gpt-4.1-long-context"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-4.1-long-context"
+#provider = "openai"
+#model = "gpt-4.1-long-context"
+#api_key_env = "OPENAI_API_KEY"
 
 [[models]]
 name = "gpt-4.1-mini"
@@ -105,47 +105,47 @@ provider = "openai"
 model = "gpt-4o-mini-2024-07-18"
 api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-5-nano"
-provider = "openai"
-model = "gpt-5-nano-2025-08-07"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-5-nano"
+#provider = "openai"
+#model = "gpt-5-nano-2025-08-07"
+#api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-5.1-codex-mini"
-provider = "openai"
-model = "gpt-5.1-codex-mini"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-5.1-codex-mini"
+#provider = "openai"
+#model = "gpt-5.1-codex-mini"
+#api_key_env = "OPENAI_API_KEY"
 
 # 400k TPM Limit
 #===============
 
-[[models]]
-name = "gpt-4.1-mini-long-context"
-provider = "openai"
-model = "gpt-4.1-mini-long-context"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-4.1-mini-long-context"
+#provider = "openai"
+#model = "gpt-4.1-mini-long-context"
+#api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-4.1-nano-long-context"
-provider = "openai"
-model = "gpt-4.1-nano-long-context"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-4.1-nano-long-context"
+#provider = "openai"
+#model = "gpt-4.1-nano-long-context"
+#api_key_env = "OPENAI_API_KEY"
 
 # 500k TPM Limit
 #===============
 
-[[models]]
-name = "gpt-5"
-provider = "openai"
-model = "gpt-5-2025-08-07"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-5"
+#provider = "openai"
+#model = "gpt-5-2025-08-07"
+#api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-5-codex"
-provider = "openai"
-model = "gpt-5-codex"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-5-codex"
+#provider = "openai"
+#model = "gpt-5-codex"
+#api_key_env = "OPENAI_API_KEY"
 
 [[models]]
 name = "gpt-5-mini"
@@ -153,11 +153,11 @@ provider = "openai"
 model = "gpt-5-mini-2025-08-07"
 api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-5.1"
-provider = "openai"
-model = "gpt-5.1-2025-11-13"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-5.1"
+#provider = "openai"
+#model = "gpt-5.1-2025-11-13"
+#api_key_env = "OPENAI_API_KEY"
 
 [[models]]
 name = "gpt-5.1-codex"
@@ -165,11 +165,11 @@ provider = "openai"
 model = "gpt-5.1-codex"
 api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-5.1-codex-max"
-provider = "openai"
-model = "gpt-5.1-codex-max"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-5.1-codex-max"
+#provider = "openai"
+#model = "gpt-5.1-codex-max"
+#api_key_env = "OPENAI_API_KEY"
 
 [[models]]
 name = "gpt-5.2"
@@ -177,17 +177,17 @@ provider = "openai"
 model = "gpt-5.2-2025-12-11"
 api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-5.2-chat-latest"
-provider = "openai"
-model = "gpt-5.2-chat-latest"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-5.2-chat-latest"
+#provider = "openai"
+#model = "gpt-5.2-chat-latest"
+#api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-5.2-codex"
-provider = "openai"
-model = "gpt-5.2-codex"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]
+#name = "gpt-5.2-codex"
+#provider = "openai"
+#model = "gpt-5.2-codex"
+#api_key_env = "OPENAI_API_KEY"
 
 [[models]]
 name = "gpt-5.2-pro"
