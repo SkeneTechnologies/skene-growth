@@ -66,15 +66,6 @@ path = "/Users/miche/skene/skene-dashboard"
 #model = "gpt-5.1-chat-latest"
 #api_key_env = "OPENAI_API_KEY"
 
-# 90k TPM Limit
-#==============
-
-#[[models]]
-#name = "gpt-3.5-turbo-instruct"
-#provider = "openai"
-#model = "gpt-3.5-turbo-instruct-0914"
-#api_key_env = "OPENAI_API_KEY"
-
 # 200k TPM Limit
 #===============
 
