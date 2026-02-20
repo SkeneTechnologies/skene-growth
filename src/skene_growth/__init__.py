@@ -16,7 +16,7 @@ from skene_growth.codebase import (
     build_directory_tree,
 )
 from skene_growth.config import Config, load_config
-from skene_growth.docs import DocsGenerator, PSEOBuilder
+from skene_growth.docs import DocsGenerator
 from skene_growth.llm import LLMClient, create_llm_client
 from skene_growth.manifest import (
     GrowthHub,
@@ -82,7 +82,6 @@ __all__ = [
     "GenerateStep",
     # Documentation
     "DocsGenerator",
-    "PSEOBuilder",
     # Planner
     "GrowthLoop",
     "GrowthLoopCatalog",
