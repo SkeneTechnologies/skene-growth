@@ -14,7 +14,7 @@ from skene_growth.llm.base import LLMClient
 DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5"
 
 # Retry delays in seconds for no-fallback mode (exponential-ish backoff)
-RETRY_DELAYS = [5, 15, 30, 90]
+RETRY_DELAYS = [5, 15, 30]
 
 
 class AnthropicClient(LLMClient):
@@ -90,10 +90,11 @@ class AnthropicClient(LLMClient):
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text.strip()
-        except RateLimitError:
+        except RateLimitError as e:
+            logger.warning(f"RateLimitError on {self.model_name}: {e}")
             if self.no_fallback:
                 return await self._retry_with_backoff(prompt)
-            logger.warning(f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}")
+            logger.warning(f"Falling back to {self.fallback_model}")
             try:
                 response = await self.client.messages.create(
                     model=self.fallback_model,
@@ -140,16 +141,14 @@ class AnthropicClient(LLMClient):
                 async for text in stream.text_stream:
                     yield text
 
-        except RateLimitError:
+        except RateLimitError as e:
+            logger.warning(f"RateLimitError on {self.model_name} during streaming: {e}")
             if self.no_fallback:
                 async for text in self._retry_stream_with_backoff(prompt):
                     yield text
                 return
             if model_to_use == self.model_name:
-                logger.warning(
-                    f"Rate limit (429) hit on model {self.model_name} during streaming, "
-                    f"falling back to {self.fallback_model}"
-                )
+                logger.warning(f"Falling back to {self.fallback_model}")
                 try:
                     async with self.client.messages.stream(
                         model=self.fallback_model,

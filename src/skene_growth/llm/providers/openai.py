@@ -14,7 +14,7 @@ from skene_growth.llm.providers.openai_compat import OpenAICompatibleClient
 DEFAULT_FALLBACK_MODEL = "gpt-4o-mini"
 
 # Retry delays in seconds for no-fallback mode (exponential-ish backoff)
-RETRY_DELAYS = [5, 15, 30, 90]
+RETRY_DELAYS = [5, 15, 30]
 
 
 class OpenAIClient(OpenAICompatibleClient):
@@ -81,10 +81,11 @@ class OpenAIClient(OpenAICompatibleClient):
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.choices[0].message.content.strip()
-        except RateLimitError:
+        except RateLimitError as e:
+            logger.warning(f"RateLimitError on {self.model_name}: {e}")
             if self.no_fallback:
                 return await self._retry_with_backoff(prompt)
-            logger.warning(f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}")
+            logger.warning(f"Falling back to {self.fallback_model}")
             try:
                 response = await self.client.chat.completions.create(
                     model=self.fallback_model,
@@ -132,16 +133,14 @@ class OpenAIClient(OpenAICompatibleClient):
                 if chunk.choices and chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
 
-        except RateLimitError:
+        except RateLimitError as e:
+            logger.warning(f"RateLimitError on {self.model_name} during streaming: {e}")
             if self.no_fallback:
                 async for chunk in self._retry_stream_with_backoff(prompt):
                     yield chunk
                 return
             if model_to_use == self.model_name:
-                logger.warning(
-                    f"Rate limit (429) hit on model {self.model_name} during streaming, "
-                    f"falling back to {self.fallback_model}"
-                )
+                logger.warning(f"Falling back to {self.fallback_model}")
                 try:
                     stream = await self.client.chat.completions.create(
                         model=self.fallback_model,
