@@ -40,9 +40,7 @@ def write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
         console.print(f"[yellow]Warning:[/yellow] Failed to generate product docs: {exc}")
 
 
-async def write_growth_template(
-    llm, manifest_data: dict, manifest_path: Path | None = None
-) -> dict | None:
+async def write_growth_template(llm, manifest_data: dict, manifest_path: Path | None = None) -> dict | None:
     """Generate and save the growth template JSON output.
 
     Args:

@@ -47,6 +47,7 @@ skene-growth analyze [PATH] [OPTIONS]
 | `--product-docs` | | `false` | Also generate `product-docs.md` with user-facing feature documentation |
 | `--exclude TEXT` | `-e` | config value | Folder names to exclude from analysis. Repeatable: `--exclude tests --exclude vendor`. Merged with `exclude_folders` from config. |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | `false` | Disable model fallback on rate limits (429). Retries the same model with exponential backoff instead of switching to a cheaper model. |
 
 ### Behavior notes
 
@@ -107,9 +108,12 @@ skene-growth plan [OPTIONS]
 | `--api-key TEXT` | | `$SKENE_API_KEY` or config | API key for the LLM provider |
 | `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | provider default | LLM model name |
+| `--base-url TEXT` | | `$SKENE_BASE_URL` or config | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. |
 | `--verbose` | `-v` | `false` | Enable verbose output |
 | `--onboarding` | | `false` | Generate an onboarding-focused plan using a Senior Onboarding Engineer perspective |
+| `--prompt TEXT` | | | Additional user prompt to influence the plan generation |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | `false` | Disable model fallback on rate limits (429). Retries the same model with exponential backoff instead of switching to a cheaper model. |
 
 ### Auto-detection order
 
@@ -144,7 +148,9 @@ skene-growth build [OPTIONS]
 | `--api-key TEXT` | | `$SKENE_API_KEY` or config | API key for the LLM provider |
 | `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | provider default | LLM model name |
+| `--base-url TEXT` | | `$SKENE_BASE_URL` or config | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | `false` | Disable model fallback on rate limits (429). Retries the same model with exponential backoff instead of switching to a cheaper model. |
 | `--target TEXT` | `-t` | interactive | Skip the interactive menu and send the prompt directly. Options: `cursor`, `claude`, `show`, `file`. |
 
 ### Delivery targets
@@ -236,6 +242,7 @@ skene-growth chat [PATH] [OPTIONS]
 | `--api-key TEXT` | | `$SKENE_API_KEY` or config | API key for the LLM provider |
 | `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | provider default | LLM model name |
+| `--base-url TEXT` | | `$SKENE_BASE_URL` or config | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. |
 | `--max-steps INT` | | `4` | Maximum number of tool calls the LLM can make per user request |
 | `--tool-output-limit INT` | | `4000` | Maximum characters of tool output kept in conversation context |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
@@ -329,7 +336,7 @@ The command prints a deprecation warning and exits with code 1.
 | Variable | Used by | Description |
 |----------|---------|-------------|
 | `SKENE_API_KEY` | `analyze`, `plan`, `build`, `chat`, `status` | API key for the LLM provider. Equivalent to `--api-key`. |
-| `SKENE_BASE_URL` | `analyze` | Base URL for OpenAI-compatible endpoints. Equivalent to `--base-url`. |
+| `SKENE_BASE_URL` | `analyze`, `plan`, `build`, `chat` | Base URL for OpenAI-compatible endpoints. Equivalent to `--base-url`. |
 | `SKENE_PROVIDER` | config loading | LLM provider override at the environment level. |
 
 ---

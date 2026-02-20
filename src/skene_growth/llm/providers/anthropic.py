@@ -2,6 +2,7 @@
 Anthropic LLM client implementation.
 """
 
+import asyncio
 from typing import AsyncGenerator, Optional
 
 from loguru import logger
@@ -11,6 +12,9 @@ from skene_growth.llm.base import LLMClient
 
 # Default fallback model for rate limiting (429 errors)
 DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5"
+
+# Retry delays in seconds for no-fallback mode (exponential-ish backoff)
+RETRY_DELAYS = [5, 15, 30, 90]
 
 
 class AnthropicClient(LLMClient):
@@ -33,6 +37,7 @@ class AnthropicClient(LLMClient):
         api_key: SecretStr,
         model_name: str,
         fallback_model: Optional[str] = None,
+        no_fallback: Optional[bool] = False,
     ):
         """
         Initialize the Anthropic client.
@@ -41,6 +46,7 @@ class AnthropicClient(LLMClient):
             api_key: Anthropic API key (wrapped in SecretStr for security)
             model_name: Primary model to use (e.g., "claude-haiku-4-5-20251001")
             fallback_model: Model to use when rate limited (default: claude-haiku-4-5-20251001)
+            no_fallback: When True, retry same model on 429 instead of falling back
         """
         try:
             from anthropic import AsyncAnthropic
@@ -51,6 +57,7 @@ class AnthropicClient(LLMClient):
 
         self.model_name = model_name
         self.fallback_model = fallback_model or DEFAULT_FALLBACK_MODEL
+        self.no_fallback = no_fallback
         self.client = AsyncAnthropic(api_key=api_key.get_secret_value())
 
     async def generate_content(
@@ -84,6 +91,8 @@ class AnthropicClient(LLMClient):
             )
             return response.content[0].text.strip()
         except RateLimitError:
+            if self.no_fallback:
+                return await self._retry_with_backoff(prompt)
             logger.warning(f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}")
             try:
                 response = await self.client.messages.create(
@@ -132,6 +141,10 @@ class AnthropicClient(LLMClient):
                     yield text
 
         except RateLimitError:
+            if self.no_fallback:
+                async for text in self._retry_stream_with_backoff(prompt):
+                    yield text
+                return
             if model_to_use == self.model_name:
                 logger.warning(
                     f"Rate limit (429) hit on model {self.model_name} during streaming, "
@@ -154,6 +167,57 @@ class AnthropicClient(LLMClient):
                 raise RuntimeError(f"Rate limit error in streaming generation: {model_to_use}")
         except Exception as e:
             raise RuntimeError(f"Error in streaming generation: {e}")
+
+    async def _retry_with_backoff(self, prompt: str) -> str:
+        """Retry the same model with exponential backoff on rate limit errors."""
+        try:
+            from anthropic import RateLimitError
+        except ImportError:
+            RateLimitError = Exception
+
+        for attempt, delay in enumerate(RETRY_DELAYS, 1):
+            logger.warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
+            await asyncio.sleep(delay)
+            try:
+                response = await self.client.messages.create(
+                    model=self.model_name,
+                    max_tokens=8192,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                return response.content[0].text.strip()
+            except RateLimitError:
+                continue
+            except Exception as retry_error:
+                raise RuntimeError(f"Error calling Anthropic: {retry_error}")
+        raise RuntimeError(f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries")
+
+    async def _retry_stream_with_backoff(self, prompt: str) -> AsyncGenerator[str, None]:
+        """Retry streaming with the same model using exponential backoff."""
+        try:
+            from anthropic import RateLimitError
+        except ImportError:
+            RateLimitError = Exception
+
+        for attempt, delay in enumerate(RETRY_DELAYS, 1):
+            logger.warning(
+                f"Rate limit (429) on {self.model_name} during streaming, "
+                f"retry {attempt}/{len(RETRY_DELAYS)} in {delay}s"
+            )
+            await asyncio.sleep(delay)
+            try:
+                async with self.client.messages.stream(
+                    model=self.model_name,
+                    max_tokens=8192,
+                    messages=[{"role": "user", "content": prompt}],
+                ) as stream:
+                    async for text in stream.text_stream:
+                        yield text
+                return
+            except RateLimitError:
+                continue
+            except Exception as retry_error:
+                raise RuntimeError(f"Error in streaming generation: {retry_error}")
+        raise RuntimeError(f"Rate limit on {self.model_name} after {len(RETRY_DELAYS)} retries")
 
     def get_model_name(self) -> str:
         """Return the primary model name."""

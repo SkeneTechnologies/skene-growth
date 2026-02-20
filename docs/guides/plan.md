@@ -48,9 +48,12 @@ uvx skene-growth plan --onboarding
 | `--api-key TEXT` | | API key for LLM provider (or `SKENE_API_KEY` env var) |
 | `--provider TEXT` | `-p` | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
 | `--model TEXT` | `-m` | Model name (e.g., `gemini-3-flash-preview`, `claude-sonnet-4-5`) |
+| `--base-url TEXT` | | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. Also set via `SKENE_BASE_URL` env var or config. |
 | `--verbose` | `-v` | Enable verbose output |
 | `--onboarding` | | Generate onboarding-focused plan using Senior Onboarding Engineer perspective |
+| `--prompt TEXT` | | Additional user prompt to influence the plan generation |
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` |
+| `--no-fallback` | | Disable model fallback on rate limits. Retries the same model with exponential backoff instead of switching to a cheaper model. |
 
 ## How it works: the Council of Growth Engineers
 

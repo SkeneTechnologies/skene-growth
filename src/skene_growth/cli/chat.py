@@ -38,6 +38,7 @@ def run_chat(
     max_steps: int = DEFAULT_MAX_STEPS,
     tool_output_limit: int = DEFAULT_TOOL_OUTPUT_LIMIT,
     debug: bool = False,
+    base_url: str | None = None,
 ) -> None:
     """Run the interactive chat loop."""
     # Import chat dependencies (these don't require the MCP package)
@@ -57,7 +58,7 @@ def run_chat(
     cache = AnalysisCache(cache_dir=get_cache_dir(), ttl=get_cache_ttl())
     tool_runner = ToolRunner(cache=cache, cache_enabled=is_cache_enabled())
 
-    llm = create_llm_client(provider, SecretStr(api_key), model, debug=debug)
+    llm = create_llm_client(provider, SecretStr(api_key), model, base_url=base_url, debug=debug)
     state = ChatState()
 
     console.print(

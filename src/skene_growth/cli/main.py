@@ -169,6 +169,11 @@ def analyze(
         "--debug",
         help="Log all LLM input/output to .skene-growth/debug/",
     ),
+    no_fallback: bool = typer.Option(
+        False,
+        "--no-fallback",
+        help="Disable model fallback on rate limits; retry same model instead",
+    ),
 ):
     """
     Analyze a codebase and generate growth-manifest.json.
@@ -295,6 +300,7 @@ def analyze(
             resolved_model,
             base_url=resolved_base_url,
             debug=resolved_debug,
+            no_fallback=no_fallback,
         )
 
         result, manifest_data = await run_analysis(
@@ -399,6 +405,12 @@ def plan(
         "-m",
         help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
     ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        envvar="SKENE_BASE_URL",
+        help="Base URL for OpenAI-compatible API endpoint (required for generic provider)",
+    ),
     verbose: bool = typer.Option(
         False,
         "-v",
@@ -419,6 +431,11 @@ def plan(
         False,
         "--debug",
         help="Log all LLM input/output to .skene-growth/debug/",
+    ),
+    no_fallback: bool = typer.Option(
+        False,
+        "--no-fallback",
+        help="Disable model fallback on rate limits; retry same model instead",
     ),
 ):
     """
@@ -452,6 +469,7 @@ def plan(
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
+    resolved_base_url = base_url or config.base_url
     if model:
         resolved_model = model
     else:
@@ -514,7 +532,16 @@ def plan(
         "lm-studio",
         "lm_studio",
         "ollama",
+        "generic",
+        "openai-compatible",
+        "openai_compatible",
     )
+
+    # Generic provider requires base_url
+    if resolved_provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
+        if not resolved_base_url:
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            raise typer.Exit(1)
 
     # If no API key and not using local provider, show sample report
     if not resolved_api_key and not is_local_provider:
@@ -597,6 +624,8 @@ def plan(
             context_dir=context_dir_for_loops,
             user_prompt=prompt,
             debug=resolved_debug,
+            base_url=resolved_base_url,
+            no_fallback=no_fallback,
         )
 
         if memo_content is None:
@@ -685,6 +714,12 @@ def chat(
         "-m",
         help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
     ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        envvar="SKENE_BASE_URL",
+        help="Base URL for OpenAI-compatible API endpoint (required for generic provider)",
+    ),
     max_steps: int = typer.Option(
         4,
         "--max-steps",
@@ -714,6 +749,7 @@ def chat(
 
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
+    resolved_base_url = base_url or config.base_url
     if model:
         resolved_model = model
     else:
@@ -724,7 +760,16 @@ def chat(
         "lm-studio",
         "lm_studio",
         "ollama",
+        "generic",
+        "openai-compatible",
+        "openai_compatible",
     )
+
+    # Generic provider requires base_url
+    if resolved_provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
+        if not resolved_base_url:
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            raise typer.Exit(1)
 
     if not resolved_api_key:
         if is_local_provider:
@@ -750,6 +795,7 @@ def chat(
         max_steps=max_steps,
         tool_output_limit=tool_output_limit,
         debug=resolved_debug,
+        base_url=resolved_base_url,
     )
 
 
@@ -997,10 +1043,21 @@ def build(
         "-m",
         help="LLM model (uses provider default if not provided)",
     ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        envvar="SKENE_BASE_URL",
+        help="Base URL for OpenAI-compatible API endpoint (required for generic provider)",
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
         help="Log all LLM input/output to .skene-growth/debug/",
+    ),
+    no_fallback: bool = typer.Option(
+        False,
+        "--no-fallback",
+        help="Disable model fallback on rate limits; retry same model instead",
     ),
     target: Optional[str] = typer.Option(
         None,
@@ -1047,14 +1104,11 @@ def build(
     # Validate --target value if provided
     valid_targets = {"cursor", "claude", "show", "file"}
     if target is not None and target not in valid_targets:
-        console.print(
-            f"[red]Error:[/red] Invalid target '{target}'. "
-            f"Valid options: {', '.join(sorted(valid_targets))}"
-        )
+        console.print(f"[red]Error:[/red] Invalid target '{target}'. Valid options: {', '.join(sorted(valid_targets))}")
         raise typer.Exit(1)
 
     # Run async logic
-    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target))
+    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target, base_url, no_fallback))
 
 
 async def _build_async(
@@ -1065,12 +1119,21 @@ async def _build_async(
     model: Optional[str],
     debug: bool = False,
     target: Optional[str] = None,
+    base_url: Optional[str] = None,
+    no_fallback: Optional[bool] = False,
 ):
     """Async implementation of build command."""
     # Load config to get LLM settings
     config = load_config()
     api_key = api_key or config.api_key
     provider = provider or config.provider
+    base_url = base_url or config.base_url
+
+    # Generic provider requires base_url
+    if provider and provider.lower() in ("generic", "openai-compatible", "openai_compatible"):
+        if not base_url:
+            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            raise typer.Exit(1)
 
     # Validate LLM configuration
     if not api_key or not provider:
@@ -1158,7 +1221,9 @@ async def _build_async(
         from skene_growth.llm import create_llm_client
 
         resolved_debug = debug or config.debug
-        llm = create_llm_client(provider, SecretStr(api_key), model, debug=resolved_debug)
+        llm = create_llm_client(
+            provider, SecretStr(api_key), model, base_url=base_url, debug=resolved_debug, no_fallback=no_fallback
+        )
         console.print("")
         console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
 
