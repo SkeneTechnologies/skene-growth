@@ -25,6 +25,7 @@ def _build_analyze_command(
         "--model", model,
         "--api-key", api_key,
         "--output", str(output_dir),
+        "--no-fallback",
         "--debug",
     ]
 
@@ -44,6 +45,7 @@ def _build_plan_command(
         "--model", model,
         "--api-key", api_key,
         "--output", str(output_file),
+        "--no-fallback",
         "--debug",
     ]
 
@@ -62,6 +64,7 @@ def _build_build_command(
         "--model", model,
         "--api-key", api_key,
         "--target", "file",
+        "--no-fallback",
         "--debug",
     ]
 
