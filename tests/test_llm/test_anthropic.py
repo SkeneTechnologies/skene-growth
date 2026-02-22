@@ -1,8 +1,19 @@
 """Tests for Anthropic LLM client."""
 
+import httpx
 import pytest
+from anthropic import RateLimitError
 from pydantic import SecretStr
 from unittest.mock import AsyncMock, MagicMock, patch
+
+
+def _make_rate_limit_error() -> RateLimitError:
+    """Create a properly-constructed RateLimitError for anthropic >= 0.40."""
+    response = httpx.Response(
+        status_code=429,
+        request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"),
+    )
+    return RateLimitError("Rate limited", response=response, body=None)
 
 
 @pytest.fixture
@@ -51,7 +62,7 @@ class TestAnthropicClientInitialization:
 
     def test_initialization_without_anthropic_raises_import_error(self):
         """Test that missing anthropic package raises helpful error."""
-        with patch("skene_growth.llm.providers.anthropic.AsyncAnthropic", side_effect=ImportError):
+        with patch("skene_growth.llm.providers.anthropic.AsyncAnthropic", None):
             from skene_growth.llm.providers.anthropic import AnthropicClient
 
             with pytest.raises(ImportError, match="anthropic is required"):
@@ -91,15 +102,13 @@ class TestAnthropicClientGenerateContent:
     @pytest.mark.asyncio
     async def test_generate_content_with_rate_limit_fallback(self, anthropic_client):
         """Test fallback on rate limit error."""
-        from anthropic import RateLimitError
-
         # First call fails with rate limit
         mock_response = MagicMock()
         mock_response.content = [MagicMock(text="Fallback response")]
 
         anthropic_client.client.messages.create = AsyncMock(
             side_effect=[
-                RateLimitError("Rate limited"),
+                _make_rate_limit_error(),
                 mock_response
             ]
         )
@@ -112,11 +121,9 @@ class TestAnthropicClientGenerateContent:
     @pytest.mark.asyncio
     async def test_generate_content_fallback_failure_raises_error(self, anthropic_client):
         """Test that fallback failure raises RuntimeError."""
-        from anthropic import RateLimitError
-
         anthropic_client.client.messages.create = AsyncMock(
             side_effect=[
-                RateLimitError("Rate limited"),
+                _make_rate_limit_error(),
                 Exception("Fallback failed")
             ]
         )
@@ -180,7 +187,7 @@ class TestAnthropicClientStreaming:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                raise RateLimitError("Rate limited")
+                raise _make_rate_limit_error()
             return mock_stream_fallback
 
         anthropic_client.client.messages.stream = MagicMock(side_effect=stream_side_effect)

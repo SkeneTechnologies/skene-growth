@@ -12,6 +12,12 @@ from skene_growth.llm.base import LLMClient
 # Default fallback model for rate limiting (429 errors)
 DEFAULT_FALLBACK_MODEL = "claude-sonnet-4-20250514"
 
+try:
+    from anthropic import AsyncAnthropic, RateLimitError as AnthropicRateLimitError
+except ImportError:
+    AsyncAnthropic = None  # type: ignore[assignment,misc]
+    AnthropicRateLimitError = Exception  # type: ignore[assignment,misc]
+
 
 class AnthropicClient(LLMClient):
     """
@@ -42,9 +48,7 @@ class AnthropicClient(LLMClient):
             model_name: Primary model to use (e.g., "claude-sonnet-4-20250514")
             fallback_model: Model to use when rate limited (default: claude-sonnet-4-20250514)
         """
-        try:
-            from anthropic import AsyncAnthropic
-        except ImportError:
+        if AsyncAnthropic is None:
             raise ImportError(
                 "anthropic is required for Anthropic support. Install with: pip install skene-growth[anthropic]"
             )
@@ -72,18 +76,13 @@ class AnthropicClient(LLMClient):
             RuntimeError: If generation fails on both primary and fallback models
         """
         try:
-            from anthropic import RateLimitError
-        except ImportError:
-            RateLimitError = Exception  # Fallback if import fails
-
-        try:
             response = await self.client.messages.create(
                 model=self.model_name,
                 max_tokens=4096,
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text.strip()
-        except RateLimitError:
+        except AnthropicRateLimitError:
             logger.warning(f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}")
             try:
                 response = await self.client.messages.create(
@@ -94,9 +93,9 @@ class AnthropicClient(LLMClient):
                 logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
                 return response.content[0].text.strip()
             except Exception as fallback_error:
-                raise RuntimeError(f"Error calling Anthropic (fallback model {self.fallback_model}): {fallback_error}")
+                raise RuntimeError(f"Error calling Anthropic (fallback model {self.fallback_model}): {fallback_error}") from fallback_error
         except Exception as e:
-            raise RuntimeError(f"Error calling Anthropic: {e}")
+            raise RuntimeError(f"Error calling Anthropic: {e}") from e
 
     async def generate_content_stream(
         self,
@@ -116,11 +115,6 @@ class AnthropicClient(LLMClient):
         Raises:
             RuntimeError: If streaming fails on both primary and fallback models
         """
-        try:
-            from anthropic import RateLimitError
-        except ImportError:
-            RateLimitError = Exception
-
         model_to_use = self.model_name
         try:
             async with self.client.messages.stream(
@@ -131,7 +125,7 @@ class AnthropicClient(LLMClient):
                 async for text in stream.text_stream:
                     yield text
 
-        except RateLimitError:
+        except AnthropicRateLimitError:
             if model_to_use == self.model_name:
                 logger.warning(
                     f"Rate limit (429) hit on model {self.model_name} during streaming, "
