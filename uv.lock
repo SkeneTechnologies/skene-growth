@@ -1193,11 +1193,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-]
 mcp = [
     { name = "mcp" },
     { name = "xxhash" },
@@ -1224,15 +1219,12 @@ requires-dist = [
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=1.0" },
     { name = "pydantic", specifier = ">=2.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "questionary", marker = "extra == 'ui'", specifier = ">=2.0" },
     { name = "rich", specifier = ">=13.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
     { name = "typer", specifier = ">=0.12" },
     { name = "xxhash", marker = "extra == 'mcp'", specifier = ">=3.0" },
 ]
-provides-extras = ["dev", "mcp", "ui"]
+provides-extras = ["mcp", "ui"]
 
 [package.metadata.requires-dev]
 dev = [
