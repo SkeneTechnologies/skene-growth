@@ -7,67 +7,8 @@ Creates detailed implementation plans for growth strategies.
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
-
 from skene_growth.llm import LLMClient
-
-
-class CodeChange(BaseModel):
-    """A specific code change to implement."""
-
-    file_path: str = Field(description="Path to the file to modify")
-    change_type: str = Field(description="Type of change: create, modify, delete")
-    description: str = Field(description="What change to make")
-    code_snippet: str | None = Field(
-        default=None,
-        description="Example code snippet if applicable",
-    )
-    dependencies: list[str] = Field(
-        default_factory=list,
-        description="Other changes this depends on",
-    )
-
-
-class LoopPlan(BaseModel):
-    """Implementation plan for a single growth loop."""
-
-    loop_id: str = Field(description="The growth loop ID")
-    loop_name: str = Field(description="The growth loop name")
-    priority: int = Field(ge=0, le=10, description="Implementation priority")
-    estimated_complexity: str = Field(description="low, medium, or high")
-    code_changes: list[CodeChange] = Field(
-        default_factory=list,
-        description="Ordered list of code changes",
-    )
-    new_dependencies: list[str] = Field(
-        default_factory=list,
-        description="New packages/dependencies needed",
-    )
-    testing_notes: str | None = Field(
-        default=None,
-        description="Notes on how to test the implementation",
-    )
-
-
-class Plan(BaseModel):
-    """Complete plan for all growth loops."""
-
-    version: str = Field(default="1.0", description="Plan version")
-    project_name: str = Field(description="Target project name")
-    generated_at: datetime = Field(default_factory=datetime.now)
-    manifest_summary: str = Field(description="Summary of the growth manifest")
-    loop_plans: list[LoopPlan] = Field(
-        default_factory=list,
-        description="Plans for each growth loop",
-    )
-    shared_infrastructure: list[CodeChange] = Field(
-        default_factory=list,
-        description="Shared infrastructure changes needed",
-    )
-    implementation_order: list[str] = Field(
-        default_factory=list,
-        description="Recommended order of loop IDs to implement",
-    )
+from skene_growth.planner.schema import GrowthPlan, parse_plan_json, render_plan_to_markdown
 
 
 class Planner:
@@ -90,7 +31,7 @@ class Planner:
         template_data: dict[str, Any] | None = None,
         growth_loops: list[dict[str, Any]] | None = None,
         user_prompt: str | None = None,
-    ) -> str:
+    ) -> tuple[str, GrowthPlan]:
         """
         Generate a Council of Growth Engineers memo.
 
@@ -104,7 +45,7 @@ class Planner:
             growth_loops: List of active growth loop definitions (optional)
 
         Returns:
-            Markdown content for the memo
+            Tuple of (markdown content, validated GrowthPlan)
         """
         # Build context for memo generation
         manifest_summary = self._format_manifest_summary(manifest_data)
@@ -285,10 +226,41 @@ Deliver the response as a Confidential Engineering Memo:
 
 **Note:** Prefer activation phase actions.
 
+## CRITICAL: Output Format
+
+You MUST respond with a single JSON object (no markdown, no commentary outside the JSON).
+The JSON must conform to this exact schema:
+
+{{
+  "executive_summary": "<string: high-level summary focused on first-time activation>",
+  "sections": [
+    {{"title": "The Next Action", "content": "<string: markdown content for section 1>"}},
+    {{"title": "Strip to the Core", "content": "<string: markdown content for section 2>"}},
+    {{"title": "The Playbook", "content": "<string: markdown content for section 3>"}},
+    {{"title": "Engineer the Asymmetric Leverage", "content": "<string: markdown content for section 4>"}},
+    {{"title": "Apply Power Dynamics", "content": "<string: markdown content for section 5>"}},
+    {{"title": "The Average Trap", "content": "<string: markdown content for section 6>"}}
+  ],
+  "technical_execution": {{
+    "next_build": "<string: what activation loop to build next>",
+    "confidence": "<string: confidence level, e.g. '85%'>",
+    "exact_logic": "<string: specific flow changes>",
+    "data_triggers": "<string: activation events>",
+    "stack_steps": "<string: tools/structural changes>",
+    "sequence": "<string: Now / Next / Later priorities>"
+  }},
+  "memo": "<string: the closing confidential engineering memo directive>"
+}}
+
+Respond ONLY with the JSON object. No markdown code fences, no explanation.
 """
 
         response = await llm.generate_content(prompt)
-        return response
+
+        project_name = manifest_data.get("project_name", "Project")
+        plan = parse_plan_json(response)
+        markdown = render_plan_to_markdown(plan, project_name, current_time_str)
+        return markdown, plan
 
     async def generate_activation_memo(
         self,
