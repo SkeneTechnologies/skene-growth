@@ -162,11 +162,11 @@ api_key_env = "OPENAI_API_KEY"
 #model = "gpt-5.1-2025-11-13"
 #api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-5.1-codex"
-provider = "openai"
-model = "gpt-5.1-codex"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]  # not a chat model!
+#name = "gpt-5.1-codex"
+#provider = "openai"
+#model = "gpt-5.1-codex"
+#api_key_env = "OPENAI_API_KEY"
 
 #[[models]]
 #name = "gpt-5.1-codex-max"
@@ -192,11 +192,11 @@ api_key_env = "OPENAI_API_KEY"
 #model = "gpt-5.2-codex"
 #api_key_env = "OPENAI_API_KEY"
 
-[[models]]
-name = "gpt-5.2-pro"
-provider = "openai"
-model = "gpt-5.2-pro-2025-12-11"
-api_key_env = "OPENAI_API_KEY"
+#[[models]]  # not a chat model!
+#name = "gpt-5.2-pro"
+#provider = "openai"
+#model = "gpt-5.2-pro-2025-12-11"
+#api_key_env = "OPENAI_API_KEY"
 
 #################
 # Gemini Models #
