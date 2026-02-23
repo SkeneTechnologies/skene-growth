@@ -452,9 +452,7 @@ async def run_cycle(
 
             # Generate todo list from memo + structured project context
             progress.update(task, description="Generating todo list...")
-            todo_list = await generate_todo_list(
-                llm, memo_content, manifest_data, growth_plan=growth_plan
-            )
+            todo_list = await generate_todo_list(llm, memo_content, manifest_data, growth_plan=growth_plan)
 
             if growth_plan is not None:
                 executive_summary = growth_plan.executive_summary
