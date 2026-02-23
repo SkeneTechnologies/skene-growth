@@ -195,7 +195,6 @@ async def generate_todo_list(
     llm,
     memo_content: str,
     manifest_data: dict[str, Any],
-    template_data: dict[str, Any] | None = None,
     growth_plan: Any | None = None,
 ) -> list[dict[str, str]] | None:
     """Generate an implementation todo list using the structured plan context.
@@ -208,7 +207,6 @@ async def generate_todo_list(
         llm: LLM client for generation
         memo_content: Full memo markdown content
         manifest_data: Project manifest with tech_stack, features, etc.
-        template_data: Growth template data (optional)
         growth_plan: Validated GrowthPlan instance (optional, used if available)
 
     Returns:
@@ -455,7 +453,7 @@ async def run_cycle(
             # Generate todo list from memo + structured project context
             progress.update(task, description="Generating todo list...")
             todo_list = await generate_todo_list(
-                llm, memo_content, manifest_data, template_data, growth_plan=growth_plan
+                llm, memo_content, manifest_data, growth_plan=growth_plan
             )
 
             if growth_plan is not None:
