@@ -1188,26 +1188,14 @@ async def _build_async(
         )
         raise typer.Exit(1)
 
-    # Read the plan
-    try:
-        plan_content = plan.read_text()
-    except Exception as e:
-        console.print(f"[red]Error reading plan file:[/red] {e}")
-        raise typer.Exit(1)
-
-    # Extract Technical Execution section
-    technical_execution = extract_technical_execution(plan_content)
+    # Extract Technical Execution section from JSON
+    technical_execution = extract_technical_execution(plan)
 
     if not technical_execution:
         console.print(
             "[red]Error:[/red] Could not extract Technical Execution section from growth plan.\n"
-            "Please ensure your growth plan has a 'TECHNICAL EXECUTION' section with:\n"
-            "  - The Next Build\n"
-            "  - Confidence Score\n"
-            "  - Exact Logic\n"
-            "  - Data Triggers\n"
-            "  - Sequence\n\n"
-            "Generate a proper plan with: [cyan]skene plan[/cyan]\n"
+            "Please ensure a growth-plan.json file exists alongside your growth-plan.md.\n"
+            "Re-generate the plan with: [cyan]skene plan[/cyan]\n"
         )
         raise typer.Exit(1)
 
