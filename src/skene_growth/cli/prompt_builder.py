@@ -1,9 +1,9 @@
 """Prompt building and deep link utilities for build command."""
 
 import asyncio
+import json
 import os
 import platform
-import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -14,125 +14,81 @@ from rich.console import Console
 console = Console()
 
 
-def extract_executive_summary(memo_content: str) -> str | None:
-    """Extract the Executive Summary section from the memo.
+def _load_growth_plan_json(plan_path: Path) -> dict | None:
+    """Load growth-plan.json from the same directory as the plan markdown file.
 
     Args:
-        memo_content: Full memo markdown content
+        plan_path: Path to the growth-plan.md file
 
     Returns:
-        Extracted executive summary text or None if not found
+        Parsed JSON dict or None if not found
     """
-    # Look for Executive Summary section (flexible patterns)
-    pattern = r"##?\s*Executive\s+Summary.*?\n+(.*?)(?=\n\n###|\n\n##|\Z)"
-    match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
-
-    if match:
-        summary = match.group(1).strip()
-        # Clean up markdown formatting
-        summary = re.sub(r"\*\*", "", summary)  # Remove bold markers
-        summary = re.sub(r"\[.*?\]", "", summary)  # Remove markdown links
-        summary = re.sub(r"\n\n+", "\n\n", summary)  # Normalize line breaks
-        return summary
-
-    return None
-
-
-def extract_next_action(memo_content: str) -> str | None:
-    """Extract "The Next Action" section from the planner memo.
-
-    Args:
-        memo_content: Full memo markdown content
-
-    Returns:
-        Extracted next action text or None if not found
-    """
-    # Look for "### 1. The Next Action" section (planner format)
-    pattern = r"###\s*1\.\s*The\s+Next\s+Action.*?\n+(.*?)(?=\n\n###|\n\n##|\Z)"
-    match = re.search(pattern, memo_content, re.IGNORECASE | re.DOTALL)
-
-    if match:
-        action = match.group(1).strip()
-        # Clean up markdown formatting
-        action = re.sub(r"\[.*?\]", "", action)  # Remove markdown links
-        action = re.sub(r"\n\n+", "\n\n", action)  # Normalize line breaks
-        # Remove bold markers but keep content
-        action = re.sub(r"\*\*([^*]+)\*\*", r"\1", action)  # Remove bold but keep text
-        return action
-
-    return None
-
-
-def extract_technical_execution(plan_content: str) -> dict[str, str] | None:
-    """Extract the Technical Execution section from the growth plan.
-
-    Args:
-        plan_content: Full growth plan markdown content
-
-    Returns:
-        Dictionary with 'next_build', 'confidence', 'exact_logic', 'data_triggers', 'sequence'
-        or None if not found
-    """
-    # Look for Technical Execution section (section 5 or 7)
-    pattern = r"##?\s*(?:5|7)?\.\s*TECHNICAL\s+EXECUTION.*?\n(.*?)(?=\n\n###|\n\n##|\Z)"
-    match = re.search(pattern, plan_content, re.IGNORECASE | re.DOTALL)
-
-    if not match:
+    json_path = plan_path.with_suffix(".json")
+    if not json_path.exists():
+        return None
+    try:
+        return json.loads(json_path.read_text())
+    except (json.JSONDecodeError, OSError):
         return None
 
-    section_content = match.group(1)
 
-    result = {
-        "next_build": "",
-        "confidence": "",
-        "exact_logic": "",
-        "data_triggers": "",
-        "sequence": "",
+def extract_executive_summary(plan_path: Path) -> str | None:
+    """Extract the Executive Summary from the growth plan JSON.
+
+    Args:
+        plan_path: Path to the growth-plan.md file (JSON sibling is read)
+
+    Returns:
+        Executive summary text or None if not found
+    """
+    data = _load_growth_plan_json(plan_path)
+    if data is None:
+        return None
+    return data.get("executive_summary") or None
+
+
+def extract_next_action(plan_path: Path) -> str | None:
+    """Extract 'The Next Action' section from the growth plan JSON.
+
+    Args:
+        plan_path: Path to the growth-plan.md file (JSON sibling is read)
+
+    Returns:
+        Next action content or None if not found
+    """
+    data = _load_growth_plan_json(plan_path)
+    if data is None:
+        return None
+    sections = data.get("sections", [])
+    if sections:
+        return sections[0].get("content") or None
+    return None
+
+
+def extract_technical_execution(plan_path: Path) -> dict[str, str] | None:
+    """Extract the Technical Execution section from the growth plan JSON.
+
+    Args:
+        plan_path: Path to the growth-plan.md file (JSON sibling is read)
+
+    Returns:
+        Dictionary with 'next_build', 'confidence', 'exact_logic',
+        'data_triggers', 'stack_steps', 'sequence' or None if not found
+    """
+    data = _load_growth_plan_json(plan_path)
+    if data is None:
+        return None
+    te = data.get("technical_execution")
+    if te is None:
+        return None
+    return {
+        "next_build": te.get("next_build", ""),
+        "confidence": te.get("confidence", ""),
+        "exact_logic": te.get("exact_logic", ""),
+        "data_triggers": te.get("data_triggers", ""),
+        "stack_steps": te.get("stack_steps", ""),
+        "sequence": te.get("sequence", ""),
     }
-
-    # Extract "The Next Build"
-    pattern = (
-        r"\*\*The Next Build[:\*]*\s*([^*]+?)\*\*\s*\n\s*(.*?)" r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
-    )
-    next_build_match = re.search(pattern, section_content, re.IGNORECASE | re.DOTALL)
-    if next_build_match:
-        title = next_build_match.group(1).strip()
-        description = next_build_match.group(2).strip()
-        result["next_build"] = f"{title}\n{description}"
-    else:
-        # Fallback: simpler pattern
-        fallback_pattern = (
-            r"\*\*The Next Build[:\*]*\*\*\s*[:\-]?\s*(.*?)" r"(?=\*\*Confidence|\*\*Exact|\*\*Sequence|\*\*|$)"
-        )
-        next_build_match = re.search(fallback_pattern, section_content, re.IGNORECASE | re.DOTALL)
-        if next_build_match:
-            result["next_build"] = next_build_match.group(1).strip()
-
-    # Extract Confidence Score
-    confidence_pattern = r"\*\*Confidence\s+Score[:\*]*\*\*[:\s]*(.*?)(?=\*\*|$)"
-    confidence_match = re.search(confidence_pattern, section_content, re.IGNORECASE | re.DOTALL)
-    if confidence_match:
-        result["confidence"] = confidence_match.group(1).strip()
-
-    # Extract Exact Logic
-    logic_pattern = r"\*\*Exact\s+Logic.*?\*\*(.*?)" r"(?=\*\*Exact\s+Data|\*\*Sequence|\*\*|$)"
-    logic_match = re.search(logic_pattern, section_content, re.IGNORECASE | re.DOTALL)
-    if logic_match:
-        result["exact_logic"] = logic_match.group(1).strip()
-
-    # Extract Exact Data Triggers
-    triggers_pattern = r"\*\*Exact\s+Data\s+Triggers.*?\*\*(.*?)" r"(?=\*\*Sequence|\*\*|$)"
-    triggers_match = re.search(triggers_pattern, section_content, re.IGNORECASE | re.DOTALL)
-    if triggers_match:
-        result["data_triggers"] = triggers_match.group(1).strip()
-
-    # Extract Sequence
-    sequence_pattern = r"\*\*Sequence[:\*]*\*\*(.*?)(?=\n\n###|\n\n##|\Z)"
-    sequence_match = re.search(sequence_pattern, section_content, re.IGNORECASE | re.DOTALL)
-    if sequence_match:
-        result["sequence"] = sequence_match.group(1).strip()
-
-    return result if any(result.values()) else None
 
 
 async def _show_progress_indicator(stop_event: asyncio.Event) -> None:

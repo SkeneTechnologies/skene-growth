@@ -195,7 +195,7 @@ async def generate_todo_list(
     llm,
     memo_content: str,
     manifest_data: dict[str, Any],
-    template_data: dict[str, Any] | None = None,
+    growth_plan: Any | None = None,
 ) -> list[dict[str, str]] | None:
     """Generate an implementation todo list using the structured plan context.
 
@@ -207,17 +207,26 @@ async def generate_todo_list(
         llm: LLM client for generation
         memo_content: Full memo markdown content
         manifest_data: Project manifest with tech_stack, features, etc.
-        template_data: Growth template data (optional)
+        growth_plan: Validated GrowthPlan instance (optional, used if available)
 
     Returns:
         List of items with 'task' and 'priority' keys, or None on failure.
     """
     import re as _re
 
-    from skene_growth.cli.prompt_builder import extract_technical_execution
-
-    # Extract structured Technical Execution section from the memo
-    tech_exec = extract_technical_execution(memo_content)
+    # Build tech_exec from structured GrowthPlan when available
+    if growth_plan is not None:
+        te = growth_plan.technical_execution
+        tech_exec: dict[str, str] | None = {
+            "next_build": te.next_build,
+            "confidence": te.confidence,
+            "exact_logic": te.exact_logic,
+            "data_triggers": te.data_triggers,
+            "stack_steps": te.stack_steps,
+            "sequence": te.sequence,
+        }
+    else:
+        tech_exec = None
 
     # Build a compact tech-stack summary the LLM can reference
     tech_stack_lines = []
@@ -403,6 +412,7 @@ async def run_cycle(
             try:
                 progress_task = asyncio.create_task(_show_progress_indicator(stop_event))
 
+                growth_plan = None
                 if activation:
                     memo_content = await planner.generate_activation_memo(
                         llm=llm,
@@ -412,7 +422,7 @@ async def run_cycle(
                         user_prompt=user_prompt,
                     )
                 else:
-                    memo_content = await planner.generate_council_memo(
+                    memo_content, growth_plan = await planner.generate_council_memo(
                         llm=llm,
                         manifest_data=manifest_data,
                         template_data=template_data,
@@ -433,19 +443,29 @@ async def run_cycle(
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(memo_content)
 
+            # Save structured JSON alongside markdown (council memo only)
+            if growth_plan is not None:
+                json_path = output_path.with_suffix(".json")
+                json_path.write_text(growth_plan.model_dump_json(indent=2))
+
             progress.update(task, description="Complete!")
 
             # Generate todo list from memo + structured project context
             progress.update(task, description="Generating todo list...")
-            todo_list = await generate_todo_list(llm, memo_content, manifest_data, template_data)
+            todo_list = await generate_todo_list(llm, memo_content, manifest_data, growth_plan=growth_plan)
 
-            from skene_growth.cli.prompt_builder import (
-                extract_executive_summary,
-                extract_next_action,
-            )
+            if growth_plan is not None:
+                executive_summary = growth_plan.executive_summary
+                # First section is "The Next Action"
+                todo_summary = growth_plan.sections[0].content if growth_plan.sections else None
+            else:
+                from skene_growth.cli.prompt_builder import (
+                    extract_executive_summary,
+                    extract_next_action,
+                )
 
-            executive_summary = extract_executive_summary(memo_content)
-            todo_summary = extract_next_action(memo_content)
+                executive_summary = extract_executive_summary(memo_content)
+                todo_summary = extract_next_action(memo_content)
 
             return memo_content, (executive_summary, todo_summary, todo_list)
 
