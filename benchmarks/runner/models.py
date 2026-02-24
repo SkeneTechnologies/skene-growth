@@ -21,6 +21,7 @@ class CodebaseConfig(BaseModel):
 
     name: str
     path: Path
+    ground_truth: Path | None = None
 
     @field_validator("path")
     @classmethod
@@ -30,6 +31,16 @@ class CodebaseConfig(BaseModel):
             raise ValueError(f"Codebase path does not exist: {resolved}")
         if not resolved.is_dir():
             raise ValueError(f"Codebase path is not a directory: {resolved}")
+        return resolved
+
+    @field_validator("ground_truth")
+    @classmethod
+    def validate_ground_truth_exists(cls, v: Path | None) -> Path | None:
+        if v is None:
+            return None
+        resolved = v.resolve()
+        if not resolved.exists():
+            raise ValueError(f"Ground truth file does not exist: {resolved}")
         return resolved
 
 
