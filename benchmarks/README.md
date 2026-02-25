@@ -76,7 +76,7 @@ benchmarks/results/<timestamp>/
 
 ## Evaluation
 
-### Structural checks (implemented)
+### Structural checks
 
 Deterministic checks that run automatically:
 - Pipeline completion (all steps exit code 0)
@@ -85,9 +85,77 @@ Deterministic checks that run automatically:
 - Schema conformance (manifest validated against `GrowthManifest` model)
 - Markdown minimum length
 
+### Factual evaluation (ground truth)
+
+Compares pipeline output against known, verifiable properties of each codebase. Requires a ground truth TOML file per codebase.
+
+**Scored categories:**
+- **tech_stack** — framework, language, database, auth, deployment, services detection accuracy
+- **feature_detection** — recall of known growth features (matched by keyword or file pattern)
+- **industry** — primary classification and secondary tag accuracy
+- **file_references** — whether file paths in the manifest actually exist in the codebase
+
+To enable, add `ground_truth` to your codebase config:
+
+```toml
+[[codebases]]
+name = "my-project"
+path = "./benchmarks/codebases/my-project"
+ground_truth = "./benchmarks/ground_truth/my-project.toml"
+```
+
+See [Ground Truth Format](#ground-truth-format) for the TOML schema.
+
 ### LLM-as-judge (planned)
 
 Future: uses a separate LLM to score output quality on criteria like completeness, actionability, and specificity.
+
+## Ground Truth Format
+
+Ground truth files live in `benchmarks/ground_truth/` and describe verifiable properties of a codebase. Only include properties you're confident about — unspecified fields are skipped during evaluation.
+
+```toml
+name = "my-project"
+description = "Short description of the codebase"
+
+[tech_stack]
+framework = "Next.js"
+language = "TypeScript"
+database = "PostgreSQL"
+auth = "Supabase Auth"
+deployment = "Vercel"
+package_manager = "npm"
+services = ["Stripe", "Resend", "Vercel Analytics"]
+
+[industry]
+primary = "DevTools"
+acceptable_alternatives = ["SaaS", "Productivity"]
+expected_tags = ["B2B", "SaaS"]
+
+[[expected_features]]
+name = "billing"
+description = "Stripe subscription billing"
+file_patterns = ["subscriptions", "stripe"]
+keywords = ["billing", "subscription", "stripe", "payment"]
+
+[[expected_features]]
+name = "team_invites"
+description = "Workspace invitation system"
+file_patterns = ["invitations", "members"]
+keywords = ["invitation", "invite", "team", "collaboration"]
+
+# Key files that should be referenced in manifest output
+notable_files = [
+    "app/actions/subscriptions.ts",
+    "app/actions/invitations.ts",
+]
+```
+
+**Matching rules:**
+- Tech stack uses fuzzy matching (case-insensitive, handles "Next.js" vs "NextJS")
+- Feature detection matches by keyword in feature name/description OR file pattern in detected file paths
+- Industry primary accepts the expected value or any listed alternative
+- File reference validity passes if ≥50% of manifest file paths exist in the codebase
 
 ## Adding Codebases
 
