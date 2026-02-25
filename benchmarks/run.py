@@ -90,6 +90,29 @@ def main(
     logger.info("Running structural evaluation...")
     structural_evals = [evaluate_structural(r) for r in results]
 
+    # Factual evaluation (only for codebases with ground truth)
+    from benchmarks.evaluation.factual import evaluate_factual
+    from benchmarks.evaluation.ground_truth import load_ground_truth
+    from benchmarks.evaluation.models import FactualEvaluation
+
+    ground_truth_map: dict[str, Path] = {}
+    for cb in bench_config.codebases:
+        if cb.ground_truth:
+            ground_truth_map[cb.name] = cb.ground_truth
+
+    factual_evals: list[FactualEvaluation] = []
+    if ground_truth_map:
+        logger.info(f"Running factual evaluation for {len(ground_truth_map)} codebase(s) with ground truth...")
+        codebase_paths = {cb.name: cb.path for cb in bench_config.codebases}
+        for r in results:
+            gt_path = ground_truth_map.get(r.codebase_name)
+            if gt_path:
+                gt = load_ground_truth(gt_path)
+                factual_eval = evaluate_factual(r, gt, codebase_path=codebase_paths.get(r.codebase_name))
+                factual_evals.append(factual_eval)
+    else:
+        logger.info("No ground truth files configured, skipping factual evaluation")
+
     # LLM judge evaluation (optional)
     if not skip_judge:
         judge_key_env = bench_config.settings.judge_api_key_env
@@ -103,7 +126,7 @@ def main(
             )
 
     # Generate report
-    json_path, md_path = generate_report(results, structural_evals, results_dir)
+    json_path, md_path = generate_report(results, structural_evals, results_dir, factual_evals)
 
     # Summary
     successful = sum(1 for r in results if r.success)
