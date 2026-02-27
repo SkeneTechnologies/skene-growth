@@ -1,0 +1,88 @@
+name = "bullet_train"
+description = "Open-source Ruby on Rails SaaS boilerplate with teams, roles, billing, invitations, and API out of the box"
+
+# --- Tech Stack ---
+[tech_stack]
+framework = "Rails"
+language = "Ruby"
+database = "PostgreSQL"
+auth = "Devise"
+deployment = "Render"
+package_manager = "yarn"
+services = ["Stripe", "Postmark"]
+
+# --- Industry Classification ---
+[industry]
+primary = "Developer Tools"
+acceptable_alternatives = ["SaaS", "SaaS Infrastructure"]
+expected_tags = ["B2B", "SaaS", "Open Source", "Developer Tools"]
+
+# --- Expected Features ---
+
+[[expected_features]]
+name = "authentication"
+description = "Devise-based authentication with 2FA, OmniAuth (Stripe Connect), Doorkeeper OAuth2 provider, lockable accounts, and confirmable emails"
+file_patterns = ["devise", "omniauth", "doorkeeper", "oauth"]
+keywords = ["authentication", "login", "signup", "oauth", "two-factor", "2fa", "sso"]
+
+[[expected_features]]
+name = "billing"
+description = "Stripe integration with free/basic/pro pricing tiers, monthly and annual intervals, trial periods, and usage limits"
+file_patterns = ["stripe", "billing", "products.yml"]
+keywords = ["billing", "subscription", "stripe", "payment", "pricing", "plan"]
+
+[[expected_features]]
+name = "teams"
+description = "Multi-tenant team model with memberships, invitation system, bulk invitations, and team-scoped resources"
+file_patterns = ["team", "membership", "invitation"]
+keywords = ["team", "invitation", "membership", "multi-tenant", "workspace"]
+
+[[expected_features]]
+name = "roles"
+description = "Role-based access control with default/editor/admin roles, CanCanCan abilities, and per-model permission grants"
+file_patterns = ["roles", "ability"]
+keywords = ["role", "permission", "access control", "rbac", "authorization"]
+
+[[expected_features]]
+name = "onboarding"
+description = "Onboarding framework with ensure_onboarding_is_complete controller hook, onboarding routes, and invitation list step"
+file_patterns = ["onboarding"]
+keywords = ["onboarding", "wizard", "setup", "getting started"]
+
+[[expected_features]]
+name = "email"
+description = "Transactional email via Postmark with invitation and welcome email templates, ActionMailer base with premailer inline CSS"
+file_patterns = ["mailer", "user_mailer"]
+keywords = ["email", "mailer", "notification", "transactional"]
+
+[[expected_features]]
+name = "webhooks"
+description = "Outgoing webhook infrastructure with endpoints, events, deliveries, and delivery attempts; incoming webhook support"
+file_patterns = ["webhook"]
+keywords = ["webhook", "outgoing", "incoming", "event"]
+
+[[expected_features]]
+name = "api"
+description = "REST API (v1) with Doorkeeper OAuth2 tokens for teams, users, invitations, and memberships"
+file_patterns = ["api/v1"]
+keywords = ["api", "rest", "oauth", "token", "doorkeeper"]
+
+# --- Notable Files ---
+notable_files = [
+    "Gemfile",
+    "config/initializers/stripe.rb",
+    "config/initializers/devise.rb",
+    "config/initializers/doorkeeper.rb",
+    "config/models/billing/products.yml",
+    "config/models/roles.yml",
+    "app/models/invitation.rb",
+    "app/models/membership.rb",
+    "app/models/ability.rb",
+    "app/controllers/account/invitations_controller.rb",
+    "app/controllers/account/application_controller.rb",
+    "app/controllers/account/oauth/omniauth_callbacks_controller.rb",
+    "app/mailers/application_mailer.rb",
+    "config/locales/en/user_mailer.en.yml",
+    "config/routes/api/v1.rb",
+    "render.yaml",
+]

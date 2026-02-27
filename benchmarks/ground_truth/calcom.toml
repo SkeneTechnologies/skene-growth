@@ -1,0 +1,109 @@
+name = "cal.com"
+description = "Open-source scheduling and meeting management platform for businesses, teams, and individuals"
+
+# --- Tech Stack ---
+[tech_stack]
+framework = "Next.js"
+language = "TypeScript"
+database = "PostgreSQL"
+auth = "NextAuth"
+deployment = "Docker"
+package_manager = "yarn"
+services = ["Stripe", "Google APIs", "Daily.co", "Nodemailer", "PostHog", "Sentry", "Intercom"]
+
+# --- Industry Classification ---
+[industry]
+primary = "Scheduling"
+acceptable_alternatives = ["SaaS", "Productivity"]
+expected_tags = ["B2B", "B2C", "SaaS", "Open Source", "API-first"]
+
+# --- Expected Features ---
+
+[[expected_features]]
+name = "billing"
+description = "Stripe subscription billing with seat-based pricing, usage-based billing, proration, credits, and team/organization billing"
+file_patterns = ["ee/billing", "stripepayment", "credit-service"]
+keywords = ["billing", "subscription", "stripe", "payment", "credit", "invoice", "pricing"]
+
+[[expected_features]]
+name = "authentication"
+description = "NextAuth-based authentication with email/password, Google OAuth, SAML SSO, and organization-specific signup flows"
+file_patterns = ["features/auth", "next-auth-options", "signup"]
+keywords = ["authentication", "login", "signup", "oauth", "sso", "saml", "nextauth"]
+
+[[expected_features]]
+name = "teams"
+description = "Team and organization management with member invitations, role-based access control, and seat-based billing integration"
+file_patterns = ["ee/teams", "ee/organizations", "inviteMember", "membership"]
+keywords = ["team", "organization", "member", "invitation", "role", "workspace"]
+
+[[expected_features]]
+name = "onboarding"
+description = "Multi-step guided onboarding for personal users and organizations with calendar setup, team creation, and member invitations"
+file_patterns = ["onboarding", "getting-started", "BaseOnboardingService"]
+keywords = ["onboarding", "setup", "guided", "welcome", "getting-started"]
+
+[[expected_features]]
+name = "email"
+description = "Transactional email system for booking confirmations, cancellations, invitations, billing notifications, and workflow-triggered reminders"
+file_patterns = ["packages/emails", "email-manager", "EmailWorkflowService"]
+keywords = ["email", "notification", "transactional", "reminder", "confirmation"]
+
+[[expected_features]]
+name = "workflows"
+description = "Automation engine with event-triggered workflows supporting email, SMS, WhatsApp, and AI phone call actions with customizable templates"
+file_patterns = ["ee/workflows", "WorkflowService", "scheduleWorkflowReminders"]
+keywords = ["workflow", "automation", "trigger", "reminder", "action", "scheduled"]
+
+[[expected_features]]
+name = "webhooks"
+description = "Webhook infrastructure for booking events with delivery scheduling, retry logic, and external system integration"
+file_patterns = ["features/webhooks", "WebhookService", "WebhookRepository"]
+keywords = ["webhook", "integration", "event", "delivery", "payload"]
+
+[[expected_features]]
+name = "analytics"
+description = "Booking analytics and insights with CSV export, usage tracking, and PostHog integration for product metrics"
+file_patterns = ["features/insights", "analytics", "tracking"]
+keywords = ["analytics", "insights", "tracking", "metrics", "dashboard"]
+
+[[expected_features]]
+name = "embed"
+description = "Embeddable booking widget SDK for external websites with customizable themes and responsive design"
+file_patterns = ["features/embed", "EmbedCodes", "EmbedTabs"]
+keywords = ["embed", "widget", "sdk", "iframe", "booking"]
+
+[[expected_features]]
+name = "feature-flags"
+description = "Feature flag system for progressive rollout, A/B testing, and operational toggles"
+file_patterns = ["features/flags", "feature-opt-in"]
+keywords = ["feature flag", "feature gate", "rollout", "toggle"]
+
+[[expected_features]]
+name = "usage-limits"
+description = "Credit-based usage limits for SMS, WhatsApp, and AI phone calls with low balance warnings and quota enforcement"
+file_patterns = ["credits", "credit-service", "CreditBalance"]
+keywords = ["credit", "usage", "limit", "quota", "balance", "upgrade"]
+
+# --- Notable Files ---
+notable_files = [
+    "packages/features/ee/billing/credit-service.ts",
+    "packages/features/ee/billing/service/billingProvider/StripeBillingService.ts",
+    "packages/features/ee/payments/server/stripe.ts",
+    "packages/app-store/stripepayment/lib/PaymentService.ts",
+    "packages/features/auth/lib/next-auth-options.ts",
+    "packages/features/auth/signup/utils/createOrUpdateMemberships.ts",
+    "packages/features/ee/teams/lib/inviteMemberUtils.ts",
+    "packages/features/ee/teams/services/teamService.ts",
+    "packages/features/ee/organizations/lib/service/onboarding/BaseOnboardingService.ts",
+    "packages/features/onboarding/lib/onboarding-path.service.ts",
+    "packages/emails/email-manager.ts",
+    "packages/features/ee/workflows/lib/service/WorkflowService.ts",
+    "packages/features/webhooks/lib/WebhookService.ts",
+    "packages/features/insights/server/events.ts",
+    "packages/features/embed/lib/EmbedCodes.tsx",
+    "packages/features/flags/features.repository.ts",
+    "packages/features/credits/repositories/CreditsRepository.ts",
+    "packages/features/notifications/sendNotification.ts",
+    "packages/features/ee/sso/lib/saml.ts",
+]

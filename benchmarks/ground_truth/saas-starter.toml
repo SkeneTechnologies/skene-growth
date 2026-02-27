@@ -1,0 +1,75 @@
+name = "saas-starter"
+description = "Next.js SaaS starter with Stripe billing, team management, and custom JWT auth"
+
+# --- Tech Stack ---
+[tech_stack]
+framework = "Next.js"
+language = "TypeScript"
+database = "PostgreSQL"
+auth = "Custom JWT"
+package_manager = "pnpm"
+services = ["Stripe"]
+
+# --- Industry Classification ---
+[industry]
+primary = "SaaS Starter Kit"
+acceptable_alternatives = ["SaaS", "Boilerplate"]
+expected_tags = ["B2B", "SaaS", "Open Source"]
+
+# --- Expected Features ---
+
+[[expected_features]]
+name = "billing"
+description = "Stripe subscriptions with checkout sessions, customer portal, and webhook handling for subscription lifecycle"
+file_patterns = ["payments", "stripe", "pricing"]
+keywords = ["billing", "subscription", "stripe", "payment", "checkout"]
+
+[[expected_features]]
+name = "authentication"
+description = "Custom email/password auth with JWT sessions (jose), bcrypt password hashing, and cookie-based session management"
+file_patterns = ["auth", "login", "sign-in", "sign-up"]
+keywords = ["auth", "login", "signup", "session", "password"]
+
+[[expected_features]]
+name = "team-management"
+description = "Multi-member teams with role-based access (owner/member), member removal, and team creation on signup"
+file_patterns = ["team", "dashboard"]
+keywords = ["team", "member", "role", "collaboration"]
+
+[[expected_features]]
+name = "invitation-system"
+description = "Email-based team invitations with pending/accepted status tracking and invite-link signup flow"
+file_patterns = ["invit", "actions"]
+keywords = ["invite", "invitation", "team invite"]
+
+[[expected_features]]
+name = "activity-logging"
+description = "Internal activity log tracking user and team events (sign-in, sign-up, team changes) with timestamps and IP addresses"
+file_patterns = ["activity", "queries"]
+keywords = ["activity", "logging", "audit", "tracking"]
+
+[[expected_features]]
+name = "trial-management"
+description = "14-day free trial period on Stripe subscriptions with trial status display on dashboard and pricing page"
+file_patterns = ["stripe", "pricing"]
+keywords = ["trial", "free trial", "trialing"]
+
+# --- Notable Files ---
+notable_files = [
+    "lib/payments/stripe.ts",
+    "lib/payments/actions.ts",
+    "app/api/stripe/checkout/route.ts",
+    "app/api/stripe/webhook/route.ts",
+    "app/(dashboard)/pricing/page.tsx",
+    "lib/auth/session.ts",
+    "lib/auth/middleware.ts",
+    "app/(login)/actions.ts",
+    "app/(login)/sign-in/page.tsx",
+    "app/(login)/sign-up/page.tsx",
+    "middleware.ts",
+    "lib/db/schema.ts",
+    "lib/db/queries.ts",
+    "app/(dashboard)/dashboard/page.tsx",
+    "app/(dashboard)/dashboard/activity/page.tsx",
+    "app/api/team/route.ts",
+]

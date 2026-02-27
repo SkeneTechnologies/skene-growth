@@ -1,0 +1,97 @@
+name = "chatwoot"
+description = "Open-source omnichannel customer support platform with live chat, email, social media, and API channels"
+
+# --- Tech Stack ---
+[tech_stack]
+framework = "Rails"
+language = "Ruby"
+database = "PostgreSQL"
+auth = "Devise"
+deployment = "Docker"
+package_manager = "pnpm"
+services = ["Stripe", "Twilio", "Slack", "Amplitude", "Sentry", "OpenAI", "Shopify"]
+
+# --- Industry Classification ---
+[industry]
+primary = "Customer Support"
+acceptable_alternatives = ["SaaS", "Communication"]
+expected_tags = ["B2B", "SaaS", "Open Source", "Enterprise"]
+
+# --- Expected Features ---
+
+[[expected_features]]
+name = "billing"
+description = "Stripe subscriptions with tiered plans (Hacker, Startups, Business, Enterprise), billing portal, and AI credit top-up purchases"
+file_patterns = ["billing", "stripe", "enterprise/billing"]
+keywords = ["billing", "subscription", "stripe", "payment", "plan", "pricing"]
+
+[[expected_features]]
+name = "authentication"
+description = "Devise-based auth with token auth API, Google OAuth, SAML SSO, two-factor authentication (TOTP), email confirmation, and password reset"
+file_patterns = ["devise_overrides", "omniauth", "saml", "sessions_controller"]
+keywords = ["authentication", "login", "signup", "oauth", "sso", "saml", "2fa", "two-factor"]
+
+[[expected_features]]
+name = "team_management"
+description = "Agent invitation system with bulk invite, team creation and member management, and enterprise custom roles with granular permissions"
+file_patterns = ["agent_builder", "team_members", "teams", "custom_roles"]
+keywords = ["team", "invitation", "invite", "agent", "role", "member", "collaboration"]
+
+[[expected_features]]
+name = "analytics"
+description = "Amplitude event tracking on the frontend plus built-in reporting dashboards for conversations, agents, teams, CSAT, SLA, and bot performance"
+file_patterns = ["AnalyticsHelper", "reports", "amplitude"]
+keywords = ["analytics", "tracking", "reports", "metrics", "dashboard", "amplitude"]
+
+[[expected_features]]
+name = "onboarding"
+description = "Guided onboarding flow for new accounts with step-by-step setup including inbox creation, team invites, and feature introduction cards"
+file_patterns = ["onboarding", "OnboardingView", "OnboardingStep"]
+keywords = ["onboarding", "setup", "welcome", "getting started"]
+
+[[expected_features]]
+name = "notifications"
+description = "Multi-channel notification system with email notifications via mailers, browser push via web-push, mobile push via FCM, and in-app notification center"
+file_patterns = ["mailers", "notification", "fcm_service", "push_notification"]
+keywords = ["notification", "email", "push", "mailer", "fcm"]
+
+[[expected_features]]
+name = "feature_gating"
+description = "Plan-based feature flags controlling access to premium features (SLA, Captain AI, custom roles, audit logs, SAML) with paywall modal for upgrade prompts"
+file_patterns = ["featurable", "featureFlags", "plan_usage_and_limits", "BasePaywallModal"]
+keywords = ["feature flag", "feature gating", "paywall", "premium", "upgrade", "plan", "limits"]
+
+[[expected_features]]
+name = "webhooks"
+description = "Outbound webhook system allowing users to configure HTTP callbacks for conversation, message, contact, and inbox events with per-webhook secrets"
+file_patterns = ["webhook_listener", "webhooks_controller", "webhook"]
+keywords = ["webhook", "callback", "event"]
+
+# --- Notable Files ---
+notable_files = [
+    "Gemfile",
+    "package.json",
+    "config/initializers/stripe.rb",
+    "enterprise/app/services/enterprise/billing/handle_stripe_event_service.rb",
+    "enterprise/app/services/enterprise/billing/create_stripe_customer_service.rb",
+    "enterprise/app/controllers/enterprise/webhooks/stripe_controller.rb",
+    "app/javascript/dashboard/routes/dashboard/settings/billing/Index.vue",
+    "app/controllers/devise_overrides/sessions_controller.rb",
+    "app/controllers/devise_overrides/omniauth_callbacks_controller.rb",
+    "enterprise/app/controllers/api/v1/accounts/saml_settings_controller.rb",
+    "app/builders/agent_builder.rb",
+    "app/controllers/api/v1/accounts/teams_controller.rb",
+    "enterprise/app/models/custom_role.rb",
+    "app/javascript/dashboard/helper/AnalyticsHelper/index.js",
+    "app/javascript/dashboard/routes/dashboard/settings/reports/Index.vue",
+    "app/javascript/dashboard/components/widgets/conversation/OnboardingView.vue",
+    "app/mailers/agent_notifications/conversation_notifications_mailer.rb",
+    "app/services/notification/push_notification_service.rb",
+    "app/services/notification/fcm_service.rb",
+    "app/models/concerns/featurable.rb",
+    "app/javascript/dashboard/featureFlags.js",
+    "enterprise/app/models/enterprise/account/plan_usage_and_limits.rb",
+    "app/javascript/dashboard/routes/dashboard/settings/components/BasePaywallModal.vue",
+    "app/listeners/webhook_listener.rb",
+    "app/controllers/api/v1/accounts/webhooks_controller.rb",
+]

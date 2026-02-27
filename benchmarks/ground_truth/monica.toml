@@ -1,0 +1,68 @@
+name = "monica"
+description = "Personal relationship manager (CRM) for organizing interactions with friends and family"
+
+# --- Tech Stack ---
+[tech_stack]
+framework = "Laravel"
+language = "PHP"
+database = "MySQL"
+auth = "Laravel Fortify"
+deployment = "Docker"
+package_manager = "yarn"
+services = ["Uploadcare", "Meilisearch", "Typesense", "Sentry", "Telegram"]
+
+# --- Industry Classification ---
+[industry]
+primary = "Productivity"
+acceptable_alternatives = ["CRM", "Personal CRM", "Lifestyle"]
+expected_tags = ["B2C", "Open Source", "SaaS"]
+
+# --- Expected Features ---
+
+[[expected_features]]
+name = "authentication"
+description = "Full login/signup flow with email/password, OAuth social login (GitHub, Google, Facebook, LinkedIn, Microsoft Azure, Keycloak), WebAuthn/passkeys, two-factor authentication, and email verification"
+file_patterns = ["Auth/", "Fortify", "Socialite", "webauthn"]
+keywords = ["authentication", "login", "signup", "oauth", "social login", "2fa", "two-factor", "webauthn", "passkey"]
+
+[[expected_features]]
+name = "team-collaboration"
+description = "Multi-user vault system with role-based access control (viewer, editor, manager), user invitation via email, and shared vault access management"
+file_patterns = ["ManageUsers", "InviteUser", "VaultSettings", "VaultAccess", "VaultPolicy"]
+keywords = ["invitation", "invite", "team", "collaboration", "vault", "access control", "role", "permission", "sharing"]
+
+[[expected_features]]
+name = "notifications"
+description = "Multi-channel notification system with email and Telegram support, user-configurable notification channels with verification, and scheduled contact reminders"
+file_patterns = ["Notification", "Mail/", "ManageNotificationChannels", "ReminderTriggered"]
+keywords = ["notification", "email", "telegram", "reminder", "alert", "channel"]
+
+[[expected_features]]
+name = "onboarding"
+description = "Account setup job that provisions default templates, modules, and vault configuration for new users"
+file_patterns = ["SetupAccount", "CreateAccount", "CreateNewUser"]
+keywords = ["onboarding", "setup", "account creation", "welcome"]
+
+# --- Notable Files ---
+notable_files = [
+    "app/Http/Controllers/Auth/LoginController.php",
+    "app/Http/Controllers/Auth/RegisterController.php",
+    "app/Http/Controllers/Auth/SocialiteCallbackController.php",
+    "app/Http/Controllers/Auth/AcceptInvitationController.php",
+    "app/Actions/Fortify/CreateNewUser.php",
+    "app/Actions/Fortify/RedirectIfTwoFactorAuthenticatable.php",
+    "app/Actions/AttemptToAuthenticateSocialite.php",
+    "app/Models/WebauthnKey.php",
+    "app/Models/UserNotificationChannel.php",
+    "app/Domains/Settings/ManageUsers/Services/InviteUser.php",
+    "app/Domains/Settings/CreateAccount/Jobs/SetupAccount.php",
+    "app/Domains/Settings/ManageNotificationChannels/Services/CreateUserNotificationChannel.php",
+    "app/Domains/Vault/ManageVaultSettings/Services/GrantVaultAccessToUser.php",
+    "app/Domains/Vault/ManageVaultSettings/Services/ChangeVaultAccess.php",
+    "app/Policies/VaultPolicy.php",
+    "app/Mail/UserInvited.php",
+    "app/Mail/UserNotificationChannelEmailCreated.php",
+    "app/Notifications/ReminderTriggered.php",
+    "config/fortify.php",
+    "config/webauthn.php",
+]
