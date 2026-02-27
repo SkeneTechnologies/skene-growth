@@ -1,10 +1,10 @@
 # CLAUDE.md — Ground Truth Generator
 
-You are building a ground truth TOML file for a codebase. This file will be used to evaluate how accurately an AI analysis pipeline detects properties of the codebase. **Accuracy is critical** — every claim in the TOML must be verifiable from the actual source code.
+You are building a ground truth TOML file for this codebase. This file will be used to evaluate how accurately an AI analysis pipeline detects properties of the codebase. **Accuracy is critical** — every claim in the TOML must be verifiable from the actual source code.
 
 ## Your task
 
-Given a repo folder path, explore the codebase and produce a ground truth TOML file following the schema below. The output file should be written to `benchmarks/ground_truth/<repo-name>.toml`.
+Explore the codebase and produce a ground truth TOML file following the schema below. Edit the file `<repo-name>.toml` by filling the missing parts.
 
 ## Golden rule: verify against code, not docs
 
