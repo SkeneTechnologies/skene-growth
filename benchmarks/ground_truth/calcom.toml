@@ -7,7 +7,7 @@ framework = "Next.js"
 language = "TypeScript"
 database = "PostgreSQL"
 auth = "NextAuth"
-deployment = "Docker"
+deployment = "Vercel"
 package_manager = "yarn"
 services = ["Stripe", "Google APIs", "Daily.co", "Nodemailer", "PostHog", "Sentry", "Intercom"]
 
@@ -40,7 +40,7 @@ keywords = ["team", "organization", "member", "invitation", "role", "workspace"]
 [[expected_features]]
 name = "onboarding"
 description = "Multi-step guided onboarding for personal users and organizations with calendar setup, team creation, and member invitations"
-file_patterns = ["onboarding", "getting-started", "BaseOnboardingService"]
+file_patterns = ["onboarding", "onboarding-path", "BaseOnboardingService"]
 keywords = ["onboarding", "setup", "guided", "welcome", "getting-started"]
 
 [[expected_features]]
@@ -85,6 +85,24 @@ description = "Credit-based usage limits for SMS, WhatsApp, and AI phone calls w
 file_patterns = ["credits", "credit-service", "CreditBalance"]
 keywords = ["credit", "usage", "limit", "quota", "balance", "upgrade"]
 
+[[expected_features]]
+name = "i18n"
+description = "Full internationalization with 44 locales, next-i18next integration, server-side translation caching, and useLocale hook used throughout components"
+file_patterns = ["packages/i18n", "locales", "useLocale"]
+keywords = ["i18n", "localization", "translation", "locale", "language"]
+
+[[expected_features]]
+name = "api-keys"
+description = "Developer API key management with CRUD endpoints, SHA256 hashing, expiration policies, team-scoped keys, rate limiting with auto-lock, and settings UI"
+file_patterns = ["ee/api-keys", "ApiKeyService", "PrismaApiKeyRepository"]
+keywords = ["api key", "developer", "api", "key", "token", "secret"]
+
+[[expected_features]]
+name = "notifications"
+description = "Web push notification system with VAPID authentication, service worker, subscription management, instant meeting alerts with sound, and settings UI"
+file_patterns = ["features/notifications", "sendNotification", "WebPushContext"]
+keywords = ["notification", "push", "web push", "alert", "subscribe"]
+
 # --- Notable Files ---
 notable_files = [
     "packages/features/ee/billing/credit-service.ts",
@@ -106,4 +124,7 @@ notable_files = [
     "packages/features/credits/repositories/CreditsRepository.ts",
     "packages/features/notifications/sendNotification.ts",
     "packages/features/ee/sso/lib/saml.ts",
+    "packages/i18n/locales/en/common.json",
+    "packages/features/ee/api-keys/services/ApiKeyService.ts",
+    "packages/features/ee/api-keys/repositories/PrismaApiKeyRepository.ts",
 ]

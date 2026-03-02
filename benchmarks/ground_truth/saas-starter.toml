@@ -38,7 +38,7 @@ keywords = ["team", "member", "role", "collaboration"]
 
 [[expected_features]]
 name = "invitation-system"
-description = "Email-based team invitations with pending/accepted status tracking and invite-link signup flow"
+description = "Team invitations with pending/accepted status tracking and invite-link signup flow (email sending not implemented)"
 file_patterns = ["invit", "actions"]
 keywords = ["invite", "invitation", "team invite"]
 
@@ -53,6 +53,12 @@ name = "trial-management"
 description = "14-day free trial period on Stripe subscriptions with trial status display on dashboard and pricing page"
 file_patterns = ["stripe", "pricing"]
 keywords = ["trial", "free trial", "trialing"]
+
+[[expected_features]]
+name = "account-settings"
+description = "Account management with profile updates (name/email), password changes, and account deletion via dedicated settings pages"
+file_patterns = ["general", "security", "dashboard"]
+keywords = ["settings", "profile", "account", "password", "delete account"]
 
 # --- Notable Files ---
 notable_files = [
@@ -72,4 +78,6 @@ notable_files = [
     "app/(dashboard)/dashboard/page.tsx",
     "app/(dashboard)/dashboard/activity/page.tsx",
     "app/api/team/route.ts",
+    "app/(dashboard)/dashboard/general/page.tsx",
+    "app/(dashboard)/dashboard/security/page.tsx",
 ]

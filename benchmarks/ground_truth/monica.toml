@@ -5,7 +5,7 @@ description = "Personal relationship manager (CRM) for organizing interactions w
 [tech_stack]
 framework = "Laravel"
 language = "PHP"
-database = "MySQL"
+database = "SQLite"
 auth = "Laravel Fortify"
 deployment = "Docker"
 package_manager = "yarn"
@@ -13,9 +13,9 @@ services = ["Uploadcare", "Meilisearch", "Typesense", "Sentry", "Telegram"]
 
 # --- Industry Classification ---
 [industry]
-primary = "Productivity"
-acceptable_alternatives = ["CRM", "Personal CRM", "Lifestyle"]
-expected_tags = ["B2C", "Open Source", "SaaS"]
+primary = "Personal CRM"
+acceptable_alternatives = ["CRM", "Productivity", "Lifestyle"]
+expected_tags = ["B2C", "Open Source", "Self-Hosted"]
 
 # --- Expected Features ---
 
@@ -43,6 +43,24 @@ description = "Account setup job that provisions default templates, modules, and
 file_patterns = ["SetupAccount", "CreateAccount", "CreateNewUser"]
 keywords = ["onboarding", "setup", "account creation", "welcome"]
 
+[[expected_features]]
+name = "api-tokens"
+description = "Personal API token management with configurable permissions for programmatic access to vaults and contacts via Jetstream"
+file_patterns = ["UserTokenController", "UserToken", "ApiTokenManager"]
+keywords = ["api", "token", "personal access token", "api key", "permissions"]
+
+[[expected_features]]
+name = "data-import-export"
+description = "CardDAV/CalDAV-based contact and calendar synchronization with vCard import/export and vCalendar import/export"
+file_patterns = ["Dav/", "ExportVCard", "ImportVCard", "ExportVCalendar", "ImportVCalendar"]
+keywords = ["import", "export", "vcard", "carddav", "caldav", "sync", "vcalendar"]
+
+[[expected_features]]
+name = "account-cancellation"
+description = "Self-service account deletion flow allowing users to permanently cancel and remove their account after password verification"
+file_patterns = ["CancelAccount"]
+keywords = ["cancel", "delete account", "account deletion", "remove account"]
+
 # --- Notable Files ---
 notable_files = [
     "app/Http/Controllers/Auth/LoginController.php",
@@ -65,4 +83,13 @@ notable_files = [
     "app/Notifications/ReminderTriggered.php",
     "config/fortify.php",
     "config/webauthn.php",
+    "app/Http/Controllers/Profile/UserTokenController.php",
+    "app/Models/UserToken.php",
+    "app/Domains/Contact/Dav/Services/ExportVCard.php",
+    "app/Domains/Contact/Dav/Services/ImportVCard.php",
+    "app/Domains/Contact/Dav/Services/ExportVCalendar.php",
+    "app/Domains/Contact/Dav/Services/ImportVCalendar.php",
+    "app/Providers/DAVServiceProvider.php",
+    "app/Domains/Settings/CancelAccount/Services/CancelAccount.php",
+    "app/Domains/Settings/CancelAccount/Web/Controllers/CancelAccountController.php",
 ]

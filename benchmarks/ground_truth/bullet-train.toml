@@ -9,7 +9,7 @@ database = "PostgreSQL"
 auth = "Devise"
 deployment = "Render"
 package_manager = "yarn"
-services = ["Stripe", "Postmark"]
+services = ["Stripe"]
 
 # --- Industry Classification ---
 [industry]
@@ -51,7 +51,7 @@ keywords = ["onboarding", "wizard", "setup", "getting started"]
 
 [[expected_features]]
 name = "email"
-description = "Transactional email via Postmark with invitation and welcome email templates, ActionMailer base with premailer inline CSS"
+description = "Transactional email with invitation and welcome email templates, ActionMailer base with premailer inline CSS"
 file_patterns = ["mailer", "user_mailer"]
 keywords = ["email", "mailer", "notification", "transactional"]
 
