@@ -103,6 +103,18 @@ description = "Web push notification system with VAPID authentication, service w
 file_patterns = ["features/notifications", "sendNotification", "WebPushContext"]
 keywords = ["notification", "push", "web push", "alert", "subscribe"]
 
+[[expected_features]]
+name = "referrals"
+description = "Dub.co-powered referral program with embedded referral dashboard, referral token API, and feature flag gating"
+file_patterns = ["refer", "referrals-token", "DubReferralsPage"]
+keywords = ["referral", "refer", "dub", "partner", "invite"]
+
+[[expected_features]]
+name = "watchlist"
+description = "Trust and safety watchlist system with email/domain blocking, free email domain detection, spam prevention, organization-scoped and global watchlists, and audit logging"
+file_patterns = ["features/watchlist", "WatchlistService", "GlobalBlockingService"]
+keywords = ["watchlist", "blocking", "spam", "abuse", "trust", "safety"]
+
 # --- Notable Files ---
 notable_files = [
     "packages/features/ee/billing/credit-service.ts",
@@ -127,4 +139,8 @@ notable_files = [
     "packages/i18n/locales/en/common.json",
     "packages/features/ee/api-keys/services/ApiKeyService.ts",
     "packages/features/ee/api-keys/repositories/PrismaApiKeyRepository.ts",
+    "apps/web/app/(use-page-wrapper)/refer/DubReferralsPage.tsx",
+    "apps/web/app/api/user/referrals-token/route.ts",
+    "packages/features/watchlist/lib/service/WatchlistService.ts",
+    "packages/features/watchlist/lib/service/GlobalBlockingService.ts",
 ]

@@ -5,11 +5,11 @@ description = "Personal relationship manager (CRM) for organizing interactions w
 [tech_stack]
 framework = "Laravel"
 language = "PHP"
-database = "SQLite"
+database = "SQLite, MariaDB"
 auth = "Laravel Fortify"
 deployment = "Docker"
 package_manager = "yarn"
-services = ["Uploadcare", "Meilisearch", "Typesense", "Sentry", "Telegram"]
+services = ["Uploadcare", "Meilisearch", "Typesense", "Sentry", "Telegram", "LocationIQ", "Mapbox"]
 
 # --- Industry Classification ---
 [industry]
@@ -21,9 +21,9 @@ expected_tags = ["B2C", "Open Source", "Self-Hosted"]
 
 [[expected_features]]
 name = "authentication"
-description = "Full login/signup flow with email/password, OAuth social login (GitHub, Google, Facebook, LinkedIn, Microsoft Azure, Keycloak), WebAuthn/passkeys, two-factor authentication, and email verification"
-file_patterns = ["Auth/", "Fortify", "Socialite", "webauthn"]
-keywords = ["authentication", "login", "signup", "oauth", "social login", "2fa", "two-factor", "webauthn", "passkey"]
+description = "Full login/signup flow with email/password, OAuth social login (GitHub, Google, Facebook, LinkedIn, Microsoft Azure, Keycloak, SAML2, Kanidm), WebAuthn/passkeys, two-factor authentication, and email verification"
+file_patterns = ["Auth/", "Fortify", "Socialite", "webauthn", "saml2", "kanidm"]
+keywords = ["authentication", "login", "signup", "oauth", "social login", "2fa", "two-factor", "webauthn", "passkey", "saml"]
 
 [[expected_features]]
 name = "team-collaboration"
@@ -61,6 +61,30 @@ description = "Self-service account deletion flow allowing users to permanently 
 file_patterns = ["CancelAccount"]
 keywords = ["cancel", "delete account", "account deletion", "remove account"]
 
+[[expected_features]]
+name = "user-preferences"
+description = "Comprehensive user preferences system for personalizing date format, distance format, locale/language, timezone, name display order, number format, maps preference, and help visibility"
+file_patterns = ["ManageUserPreferences", "StoreLocale", "StoreTimezone", "PreferencesController"]
+keywords = ["preferences", "settings", "personalization", "locale", "timezone", "date format", "distance format"]
+
+[[expected_features]]
+name = "localization"
+description = "Multi-language internationalization support with 29+ languages, locale selection, and Laravel Localizer integration"
+file_patterns = ["lang/", "StoreLocale", "localizer"]
+keywords = ["localization", "i18n", "language", "translation", "locale", "multilingual"]
+
+[[expected_features]]
+name = "storage-management"
+description = "Account storage limit system with configurable default limits and usage tracking for uploaded files"
+file_patterns = ["ManageStorage", "AccountStorageController", "StorageIndexViewHelper"]
+keywords = ["storage", "limit", "upload", "quota", "file size"]
+
+[[expected_features]]
+name = "currency-management"
+description = "Multi-currency support with per-account currency selection, toggle functionality, and enable/disable all currencies"
+file_patterns = ["ManageCurrencies", "ToggleCurrency", "CurrencyController", "PersonalizeCurrency"]
+keywords = ["currency", "money", "currencies", "personalization"]
+
 # --- Notable Files ---
 notable_files = [
     "app/Http/Controllers/Auth/LoginController.php",
@@ -92,4 +116,13 @@ notable_files = [
     "app/Providers/DAVServiceProvider.php",
     "app/Domains/Settings/CancelAccount/Services/CancelAccount.php",
     "app/Domains/Settings/CancelAccount/Web/Controllers/CancelAccountController.php",
+    "app/Domains/Settings/ManageUserPreferences/Services/StoreLocale.php",
+    "app/Domains/Settings/ManageUserPreferences/Services/StoreTimezone.php",
+    "app/Domains/Settings/ManageUserPreferences/Web/Controllers/PreferencesController.php",
+    "app/Domains/Settings/ManageStorage/Web/Controllers/AccountStorageController.php",
+    "app/Domains/Settings/ManageStorage/Web/ViewHelpers/StorageIndexViewHelper.php",
+    "app/Domains/Settings/ManageCurrencies/Services/ToggleCurrency.php",
+    "app/Domains/Settings/ManageCurrencies/Web/Controllers/CurrencyController.php",
+    "app/Domains/Vault/ManageAddresses/Services/GetGPSCoordinate.php",
+    "app/Helpers/MapHelper.php",
 ]

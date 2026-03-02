@@ -103,6 +103,48 @@ description = "Event-driven automation engine with configurable triggers (conver
 file_patterns = ["automation_rule", "automation_rules_controller", "automation_rule_listener", "action_service"]
 keywords = ["automation", "rule", "trigger", "workflow", "condition", "action"]
 
+[[expected_features]]
+name = "canned_responses_and_macros"
+description = "Canned responses for quick-reply text snippets keyed by short codes, plus macros for multi-step saved action sequences (send message, assign agent, add label, mute, change status, send webhook) with personal and global visibility"
+file_patterns = ["canned_response", "macro", "macros_controller", "macros/execution_service"]
+keywords = ["canned response", "macro", "quick reply", "shortcut", "template", "saved action"]
+
+[[expected_features]]
+name = "integrations"
+description = "Integrations framework with an app registry and installable hooks for third-party services including Slack, Linear, Notion, Shopify, and Dyte, with OAuth flows and webhook-based event sync"
+file_patterns = ["integrations/app", "integrations/hook", "apps_controller", "hooks_controller", "slack_controller", "linear_controller"]
+keywords = ["integration", "app", "hook", "slack", "linear", "notion", "shopify", "marketplace"]
+
+[[expected_features]]
+name = "contact_management"
+description = "Contact CRM with CRUD, filtering, labels, notes, bulk actions, CSV import/export, and enterprise Company model with domain association, Clearbit enrichment, and CRM v2 feature flag"
+file_patterns = ["contact.rb", "contacts_controller", "contacts/filter_service", "data_import", "contacts_export_job", "company.rb"]
+keywords = ["contact", "crm", "company", "import", "export", "filter", "enrichment"]
+
+[[expected_features]]
+name = "agent_bots"
+description = "Webhook-driven chatbot system with agent bots assignable to inboxes, bot event listener for automatic responses, and platform API for system-wide bot management (distinct from Captain AI)"
+file_patterns = ["agent_bot", "agent_bot_inbox", "agent_bot_listener", "agent_bots_controller"]
+keywords = ["bot", "chatbot", "agent bot", "automated response", "webhook bot"]
+
+[[expected_features]]
+name = "custom_branding"
+description = "White-labeling system with configurable installation name, logos, brand URLs, widget branding, terms/privacy links, manifest display toggle, and enterprise custom domain support for Help Center portals via Cloudflare"
+file_patterns = ["installation_config", "useBranding", "custom_domains_controller", "cloudflare"]
+keywords = ["branding", "white label", "logo", "custom domain", "installation name"]
+
+[[expected_features]]
+name = "rate_limiting"
+description = "Rack::Attack-based API rate limiting with per-endpoint throttles for auth endpoints, widget API, contact search, reports, and conversation meta, configurable via environment variables"
+file_patterns = ["rack_attack"]
+keywords = ["rate limit", "throttle", "rack attack", "api limit"]
+
+[[expected_features]]
+name = "platform_api"
+description = "Platform API for programmatic multi-tenant management including account creation, user provisioning, account-user associations, and system-wide agent bot management with token-based authentication"
+file_patterns = ["platform/api", "platform_app", "platform_app_permissible"]
+keywords = ["platform api", "multi-tenant", "account provisioning", "platform app"]
+
 # --- Notable Files ---
 notable_files = [
     "Gemfile",
@@ -152,4 +194,27 @@ notable_files = [
     "app/controllers/api/v1/accounts/automation_rules_controller.rb",
     "app/listeners/automation_rule_listener.rb",
     "app/services/automation_rules/action_service.rb",
+    "app/models/canned_response.rb",
+    "app/controllers/api/v1/accounts/canned_responses_controller.rb",
+    "app/models/macro.rb",
+    "app/controllers/api/v1/accounts/macros_controller.rb",
+    "app/services/macros/execution_service.rb",
+    "app/models/integrations/app.rb",
+    "app/models/integrations/hook.rb",
+    "app/controllers/api/v1/accounts/integrations/apps_controller.rb",
+    "app/controllers/api/v1/accounts/integrations/hooks_controller.rb",
+    "app/models/contact.rb",
+    "app/controllers/api/v1/accounts/contacts_controller.rb",
+    "app/services/contacts/filter_service.rb",
+    "app/models/data_import.rb",
+    "app/jobs/account/contacts_export_job.rb",
+    "enterprise/app/models/company.rb",
+    "app/models/agent_bot.rb",
+    "app/controllers/api/v1/accounts/agent_bots_controller.rb",
+    "app/listeners/agent_bot_listener.rb",
+    "config/installation_config.yml",
+    "enterprise/app/controllers/custom_domains_controller.rb",
+    "config/initializers/rack_attack.rb",
+    "app/controllers/platform/api/v1/accounts_controller.rb",
+    "app/controllers/platform/api/v1/users_controller.rb",
 ]
