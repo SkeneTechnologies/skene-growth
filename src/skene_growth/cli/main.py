@@ -55,6 +55,7 @@ from skene_growth.cli.prompt_builder import (
 )
 from skene_growth.cli.auth import cmd_login, cmd_logout
 from skene_growth.cli.features import features_app
+from skene_growth.feature_registry import FEATURE_REGISTRY_FILENAME
 from skene_growth.cli.sample_report import show_sample_report
 from skene_growth.config import default_model_for_provider, load_config, resolve_upstream_token
 
