@@ -1,7 +1,7 @@
 """
 Feature registry: persistent storage for growth features.
 
-Stores features in skene-context/growth-features.json with merge-update semantics.
+Stores features in skene-context/feature-registry.json with merge-update semantics.
 Features survive across analyze runs; analyze adds/updates but does not erase.
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 GROWTH_PILLARS = ("onboarding", "engagement", "retention")
-FEATURE_REGISTRY_FILENAME = "growth-features.json"
+FEATURE_REGISTRY_FILENAME = "feature-registry.json"
 REGISTRY_VERSION = "1.0"
 
 
@@ -145,21 +145,78 @@ def merge_features_into_registry(
     }
 
 
-def compute_loop_ids_by_feature(loops: list[dict[str, Any]]) -> dict[str, list[str]]:
+def _infer_loop_feature_link(
+    loop: dict[str, Any],
+    features: list[dict[str, Any]],
+) -> str | None:
+    """
+    Infer feature_id for a loop that lacks linked_feature_id/linked_feature.
+
+    Tries: (1) requirements.files path match to feature file_path,
+           (2) loop name similarity to feature name.
+    Returns None if no confident match.
+    """
+    loop_id = loop.get("loop_id")
+    if not loop_id:
+        return None
+    # Already has explicit link
+    fid = loop.get("linked_feature_id") or (
+        derive_feature_id(loop.get("linked_feature", "")) if loop.get("linked_feature") else None
+    )
+    if fid:
+        return fid
+    # Match by requirements.files path
+    reqs = loop.get("requirements") or {}
+    files = reqs.get("files") or []
+    for fentry in files:
+        path = (fentry.get("path") or "").strip()
+        if not path:
+            continue
+        norm = path.replace("\\", "/")
+        for feat in features:
+            fp = (feat.get("file_path") or "").strip().replace("\\", "/")
+            if fp and (norm == fp or norm.endswith("/" + fp) or fp.endswith("/" + norm)):
+                return feat.get("feature_id") or derive_feature_id(feat.get("feature_name", ""))
+    # Match by name (loop name contains feature name or vice versa)
+    loop_name = (loop.get("name") or "").lower()
+    loop_words = set(re.findall(r"[a-z0-9]+", loop_name))
+    best: tuple[int, str] | None = None
+    for feat in features:
+        fname = (feat.get("feature_name") or "").lower()
+        fwords = set(re.findall(r"[a-z0-9]+", fname))
+        overlap = len(loop_words & fwords)
+        if overlap >= 2:
+            fid = feat.get("feature_id") or derive_feature_id(feat.get("feature_name", ""))
+            if best is None or overlap > best[0]:
+                best = (overlap, fid)
+    return best[1] if best else None
+
+
+def compute_loop_ids_by_feature(
+    loops: list[dict[str, Any]],
+    features: list[dict[str, Any]] | None = None,
+) -> dict[str, list[str]]:
     """
     Build reverse mapping: feature_id -> list of loop_ids.
 
     Uses linked_feature_id from loops if present, else derives from linked_feature name.
+    For loops without explicit link, infers from file paths or name similarity when
+    features are provided.
     """
     result: dict[str, list[str]] = {}
+    features = features or []
     for loop in loops:
         loop_id = loop.get("loop_id")
         if not loop_id:
             continue
-        fid = loop.get("linked_feature_id") or derive_feature_id(
-            loop.get("linked_feature", "")
-        )
-        if fid:
+        fid = None
+        if loop.get("linked_feature_id"):
+            fid = loop["linked_feature_id"]
+        elif loop.get("linked_feature"):
+            fid = derive_feature_id(loop["linked_feature"])
+        if not fid or fid == "unknown_feature":
+            fid = _infer_loop_feature_link(loop, features) if features else fid
+        if fid and fid != "unknown_feature":
             result.setdefault(fid, []).append(loop_id)
     return result
 
@@ -190,29 +247,88 @@ def write_feature_registry(registry_path: Path, registry: dict[str, Any]) -> Pat
 
 
 def get_registry_path_for_output(output_path: Path) -> Path:
-    """Return growth-features.json path for the given manifest output path."""
+    """Return feature-registry.json path for the given manifest output path."""
     return output_path.parent / FEATURE_REGISTRY_FILENAME
 
 
 def merge_registry_and_enrich_manifest(
     manifest_data: dict[str, Any],
-    existing_loops: list[dict[str, Any]],
+    existing_loops: list[dict[str, Any]] | None,
     output_path: Path,
 ) -> None:
     """
     Merge current_growth_features into registry, write registry, enrich manifest in-place.
 
+    Loads growth-loops from skene-context/growth-loops/ when existing_loops is None or
+    empty. Maps loops to features via linked_feature_id/linked_feature or inferred from
+    file paths/names. Includes growth_loops array in the registry.
+
     Updates manifest_data["current_growth_features"] with loop_ids and growth_pillars
     from the merged registry.
     """
     registry_path = get_registry_path_for_output(output_path)
+    context_dir = output_path.parent
+
+    if not existing_loops:
+        try:
+            from skene_growth.growth_loops.storage import load_existing_growth_loops
+            existing_loops = load_existing_growth_loops(context_dir)
+        except Exception:
+            existing_loops = []
+
     existing_registry = load_feature_registry(registry_path)
-    loop_ids_by_feature = compute_loop_ids_by_feature(existing_loops)
+    new_features = list(manifest_data.get("current_growth_features", []))
+    all_features = list(new_features)
+    if existing_registry and existing_registry.get("features"):
+        seen = {derive_feature_id(f.get("feature_name", "")) for f in new_features}
+        for ex in existing_registry["features"]:
+            if ex.get("feature_id") not in seen:
+                all_features.append(ex)
+                seen.add(ex.get("feature_id"))
+
+    loop_ids_by_feature = compute_loop_ids_by_feature(existing_loops, features=all_features)
+    mapped_loop_ids = {lid for ids in loop_ids_by_feature.values() for lid in ids}
+
+    now_str = datetime.now().isoformat()
+    orphan_loop_to_fid: dict[str, str] = {}
+    for loop in existing_loops:
+        loop_id = loop.get("loop_id")
+        if not loop_id or loop_id in mapped_loop_ids:
+            continue
+        orphan_feature = _feature_from_orphan_loop(loop, now_str)
+        fid = orphan_feature["feature_id"]
+        new_features.append(orphan_feature)
+        loop_ids_by_feature.setdefault(fid, []).append(loop_id)
+        mapped_loop_ids.add(loop_id)
+        orphan_loop_to_fid[loop_id] = fid
+
     merged_registry = merge_features_into_registry(
-        manifest_data.get("current_growth_features", []),
+        new_features,
         existing_registry,
         loop_ids_by_feature=loop_ids_by_feature,
     )
+
+    growth_loops_summary = []
+    for loop in existing_loops:
+        loop_id = loop.get("loop_id")
+        if not loop_id:
+            continue
+        fid = orphan_loop_to_fid.get(loop_id)
+        if not fid:
+            fid = loop.get("linked_feature_id") or (
+                derive_feature_id(loop["linked_feature"]) if loop.get("linked_feature") else None
+            )
+        if (not fid or fid == "unknown_feature") and all_features:
+            fid = _infer_loop_feature_link(loop, all_features)
+        if not fid or fid == "unknown_feature":
+            fid = derive_feature_id(loop.get("name", loop_id)) or "orphan_loop"
+        growth_loops_summary.append({
+            "loop_id": loop_id,
+            "name": loop.get("name", ""),
+            "linked_feature_id": fid,
+        })
+    merged_registry["growth_loops"] = growth_loops_summary
+
     write_feature_registry(registry_path, merged_registry)
 
     registry_by_id = {
