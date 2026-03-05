@@ -15,7 +15,6 @@ from rich.table import Table
 from skene_growth.config import (
     find_project_config,
     load_config,
-    load_toml,
     remove_upstream_from_config,
     resolve_upstream_api_key_with_source,
     save_upstream_to_config,
