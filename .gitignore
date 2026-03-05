@@ -85,6 +85,9 @@ htmlcov/
 *.db
 *.sqlite3
 
+# Supabase
+supabase/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 

@@ -200,6 +200,8 @@ Inherits all `GrowthManifest` fields above. The `version` field defaults to `"2.
 | `confidence_score` | `float` | Yes | Confidence in the detection, between `0.0` and `1.0`. |
 | `entry_point` | `string \| null` | No | Entry point for users (e.g., URL path, function name). |
 | `growth_potential` | `string[]` | No (default: `[]`) | List of growth opportunities specific to this feature. |
+| `loop_ids` | `string[]` | No (default: `[]`) | IDs of growth loops linked to this feature (populated by the feature registry). |
+| `growth_pillars` | `string[]` | No (default: `[]`) | 0-3 growth pillars: `"onboarding"`, `"engagement"`, `"retention"`. |
 
 ### GrowthOpportunity
 

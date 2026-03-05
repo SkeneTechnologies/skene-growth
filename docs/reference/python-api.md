@@ -126,10 +126,21 @@ config.verbose       # bool (default: False)
 config.debug         # bool (default: False)
 config.exclude_folders  # list[str] (default: [])
 config.base_url      # str | None
+config.upstream      # str | None (upstream workspace URL)
 
 # Get/set arbitrary keys
 config.get("api_key", default=None)
 config.set("provider", "gemini")
+```
+
+### Upstream credentials
+
+```python
+from skene_growth.config import (
+    save_upstream_to_config,    # Save upstream URL, workspace, API key to .skene-growth.config
+    remove_upstream_from_config,# Remove upstream credentials from .skene-growth.config
+    resolve_upstream_token,     # Resolve token from env/config
+)
 ```
 
 ## LLM Client
@@ -185,6 +196,66 @@ from skene_growth import (
 | `version` | `str` (`"2.0"`) |
 | `product_overview` | `ProductOverview \| None` |
 | `features` | `list[Feature]` |
+
+## Feature registry
+
+```python
+from skene_growth.feature_registry import (
+    load_feature_registry,              # Load registry from disk
+    write_feature_registry,             # Write registry to disk
+    merge_features_into_registry,       # Merge new features with existing registry
+    merge_registry_and_enrich_manifest, # Full registry + manifest enrichment pipeline
+    load_features_for_build,            # Load active features for build command
+    export_registry_to_format,          # Export to json, csv, or markdown
+    derive_feature_id,                  # Convert feature name to snake_case ID
+    compute_loop_ids_by_feature,        # Map feature_id -> list of loop_ids
+)
+```
+
+### Key functions
+
+| Function | Description |
+|----------|-------------|
+| `merge_features_into_registry(new_features, registry)` | Merges new features: adds new, updates matched, archives missing |
+| `merge_registry_and_enrich_manifest(manifest, context_dir)` | Full pipeline: loads loops, maps to features, writes registry, enriches manifest |
+| `load_features_for_build(context_dir)` | Returns active features list for the build command |
+| `export_registry_to_format(registry, format)` | Exports to `"json"`, `"csv"`, or `"markdown"` |
+
+## Growth loops
+
+```python
+from skene_growth.growth_loops.storage import (
+    load_existing_growth_loops,         # Load all loop JSONs from growth-loops/
+    write_growth_loop_json,             # Write a loop JSON to disk
+    generate_loop_definition_with_llm,  # Generate loop definition via LLM
+    derive_loop_id,                     # Derive loop_id from name
+    derive_loop_name,                   # Derive name from technical execution
+)
+
+from skene_growth.growth_loops.push import (
+    ensure_base_schema_migration,       # Create base schema migration
+    build_loops_to_supabase,            # Build Supabase migrations from loops
+    build_migration_sql,                # Generate migration SQL
+    write_migration,                    # Write migration file
+    push_to_upstream,                   # Push to upstream API
+)
+
+from skene_growth.growth_loops.upstream import (
+    validate_token,                     # Validate token via upstream API
+    build_package,                      # Assemble deployment package
+    build_push_manifest,                # Create push manifest with checksum
+    push_to_upstream,                   # POST package to /api/v1/deploys
+)
+```
+
+## Plan decline
+
+```python
+from skene_growth.planner.decline import (
+    decline_plan,           # Archive a declined plan with executive summary only
+    load_declined_plans,    # Load recent declined plans for reference
+)
+```
 
 ## Documentation generation
 

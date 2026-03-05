@@ -146,6 +146,51 @@ uvx skene-growth analyze . --no-fallback
 With `--no-fallback`, the CLI retries the same model with exponential backoff.
 If all 3 retries are exhausted, the command raises an error instead of switching models.
 
+## Push / upstream issues
+
+### "No token" error
+
+If `push` says "No token", you need to authenticate first:
+
+```bash
+uvx skene-growth login --upstream https://skene.ai/workspace/my-app
+```
+
+Or set the token via environment variable:
+
+```bash
+export SKENE_UPSTREAM_API_KEY="your-token"
+```
+
+### "No growth loops with Supabase telemetry found"
+
+The `push` command requires growth loops that include telemetry items with `type: "supabase"`. Make sure you have run `build` first:
+
+```bash
+uvx skene-growth build
+```
+
+Growth loop files are stored in `skene-context/growth-loops/`. Check that at least one loop has a `requirements.telemetry` entry with `"type": "supabase"`.
+
+### Push authentication failed (401/403)
+
+Your token may have expired or be invalid. Log out and log in again:
+
+```bash
+uvx skene-growth logout
+uvx skene-growth login --upstream https://skene.ai/workspace/my-app
+```
+
+### Base schema migration missing
+
+If `push` fails because the base schema is missing, run `init` first:
+
+```bash
+uvx skene-growth init
+```
+
+Then apply the migration with `supabase db push`.
+
 ## Debug mode
 
 Use `--debug` on any command to log all LLM input and output to `.skene-growth/debug/`:

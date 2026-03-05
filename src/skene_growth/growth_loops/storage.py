@@ -9,10 +9,11 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from rich.console import Console
 
+from skene_growth.feature_registry import derive_feature_id
 from skene_growth.llm.base import LLMClient
 
 console = Console()
@@ -164,17 +165,36 @@ def generate_timestamped_filename(loop_id: str) -> str:
     """
     Generate a timestamped filename for the loop.
 
-    Format: <loop_id>_YYYYMMDD_HHMMSS.json
+    Format: YYYYMMDD_HHMMSS_<loop_id>.json
 
     Args:
         loop_id: Snake_case loop identifier
 
     Returns:
-        Filename with timestamp suffix, prefix truncated to 80 chars
+        Filename with timestamp prefix, suffix truncated to 80 chars
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     sanitized_id = sanitize_filename(loop_id, max_length=80)
-    return f"{sanitized_id}_{timestamp}.json"
+    return f"{timestamp}_{sanitized_id}.json"
+
+
+def format_features_for_prompt(features: list[dict[str, Any]]) -> str:
+    """Format feature list for LLM prompt context."""
+    if not features:
+        return "(No known features — infer from technical execution and optionally define a new one.)"
+    lines = [
+        "Pick the best-matching feature for this loop, or define a new feature when none fits.",
+        "Set linked_feature (human-readable name), linked_feature_id (snake_case), growth_pillars.",
+        "",
+        "Known features:",
+    ]
+    for f in features:
+        fid = f.get("feature_id", "")
+        name = f.get("feature_name", "?")
+        pillars = f.get("growth_pillars", [])
+        path = f.get("file_path", "")
+        lines.append(f"- {name} (id: {fid}) — pillars: {pillars or 'none'} — {path}")
+    return "\n".join(lines)
 
 
 async def generate_loop_definition_with_llm(
@@ -183,6 +203,9 @@ async def generate_loop_definition_with_llm(
     technical_execution: dict[str, str],
     plan_path: Path,
     codebase_path: Path,
+    run_target: Literal["skene_cloud", "supabase"] = "supabase",
+    features: list[dict[str, Any]] | None = None,
+    bias_feature_name: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate a complete growth loop definition using LLM.
@@ -224,6 +247,60 @@ async def generate_loop_definition_with_llm(
 
     context = "\n\n".join(context_parts)
 
+    # Load database schema for table-aware telemetry
+    schema_path = plan_path.parent / "schema.md"
+    schema_context = ""
+    if schema_path.exists():
+        schema_context = schema_path.read_text(encoding="utf-8")
+
+    # Telemetry instructions based on run target
+    if run_target == "skene_cloud":
+        _telemetry_backend = "Skene Cloud / action.skene.ai"
+        _telemetry_instructions = """
+- **CRITICAL: Include ONLY ONE telemetry event - the single most meaningful action for this loop**
+- Define a code location where the app MUST call the action.skene.ai API
+- The single telemetry item must have:
+  - `type` (string, required): "skene_cloud"
+  - `action_name` (string, required): Unique identifier (snake_case, e.g., "document_created")
+  - `endpoint` (string, required): "https://action.skene.ai" (or equivalent API base)
+  - `description` (string, required): What this action represents for growth measurement
+  - `properties` (array of strings, required): Payload keys to send (e.g., ["workspace_id", "id", "created_at"])
+  - `location` (object, required): Where in code to add the call:
+    - `file` (string): Path to the file (e.g., "src/api/documents.py")
+    - `context` (string): Where in the file (e.g., "after document save", "in create_document handler")
+- Implementation: HTTP POST to action.skene.ai with JSON payload {{action_name, ...properties}}
+- Example: `{{"type": "skene_cloud", "action_name": "document_created", "endpoint": "https://action.skene.ai",
+    "description": "Tracks when a new document is persisted — activation milestone",
+    "properties": ["workspace_id", "id", "created_at"],
+    "location": {{"file": "src/api/documents.py", "context": "after document save"}}}}`
+"""
+    else:
+        _telemetry_backend = "Supabase / database triggers"
+        _telemetry_instructions = """
+- **CRITICAL: Include ONLY ONE telemetry event - the single most meaningful action for this loop**
+- Pick the ONE data state change that best signals this loop is working
+- Focus on DATA STATE CHANGES in the database, NOT app-side event emission
+- Define telemetry as database triggers that fire on INSERT, UPDATE, or DELETE
+- Use the Database Schema above to identify which tables and columns matter
+- The single telemetry item must have:
+  - `type` (string, required): "supabase"
+  - `action_name` (string, required): Unique identifier (snake_case, e.g., "document_created")
+  - `table` (string, required): Database table where the change occurs
+  - `operation` (string, required): One of "INSERT", "UPDATE", "DELETE"
+  - `description` (string, required): What this data change represents for growth measurement
+  - `properties` (array of strings, required): Column names for the trigger payload
+- Implementation: PostgreSQL AFTER INSERT/UPDATE/DELETE trigger that writes to telemetry
+- Example: `{{"type": "supabase", "action_name": "document_created", "table": "documents", "operation": "INSERT",
+    "description": "Tracks when a new document is persisted — activation milestone",
+    "properties": ["workspace_id", "id", "created_at"]}}`
+"""
+    _telemetry_instructions += "\n- **Remember: Only ONE telemetry item. Choose the most important one.**"
+
+    features_context = format_features_for_prompt(features) if features else format_features_for_prompt([])
+    bias_note = ""
+    if bias_feature_name:
+        bias_note = f"\n**Strongly prefer linking to feature: {bias_feature_name}**"
+
     # Construct the LLM prompt
     prompt = (
         f"""You are a growth engineering expert. Generate a complete growth loop definition """
@@ -236,6 +313,10 @@ The output MUST be a valid JSON object with these REQUIRED fields:
 - `loop_id` (string): Snake_case identifier matching pattern ^[a-z0-9_]+$ (e.g., "phase1_share_flag")
 - `name` (string): Human-readable name of the growth loop
 - `description` (string): Detailed description of what this loop accomplishes
+- `linked_feature` (string): Human-readable feature name this loop implements or enhances
+- `linked_feature_id` (string): Snake_case ID for programmatic linking
+  (must match a known feature_id, or derive from linked_feature)
+- `growth_pillars` (array of strings): 0–3 of "onboarding", "engagement", "retention"
 - `requirements` (object):
   - `files` (array): File requirements with path, purpose, required, checks
     (checks: array of objects with type, pattern, description)
@@ -243,9 +324,7 @@ The output MUST be a valid JSON object with these REQUIRED fields:
     signature, logic (logic field is REQUIRED)
   - `integrations` (array): Integration requirements with type, description,
     verification
-  - `telemetry` (array): Telemetry requirements with event_name, description,
-    trigger_location, trigger_condition, properties (event-focused,
-    not function-specific)
+  - `telemetry` (array): See TELEMETRY section below. **MUST contain exactly ONE item**.
 - `dependencies` (array of strings): Loop IDs this depends on (use empty array [] if none)
 - `verification_commands` (array of strings): Manual verification commands
 - `test_coverage` (object):
@@ -253,7 +332,7 @@ The output MUST be a valid JSON object with these REQUIRED fields:
   - `integration_tests` (array of strings)
   - `manual_tests` (array of strings)
 - `metrics` (object):
-  - `telemetry_events` (array of strings)
+  - `data_actions` (array of strings): Must contain the single action_name from the one telemetry item
   - `success_criteria` (array of strings)
 
 ## Technical Execution Context
@@ -264,6 +343,14 @@ The output MUST be a valid JSON object with these REQUIRED fields:
 
 - Codebase path: {codebase_path}
 - Growth plan: {plan_path}
+
+## Feature Linking
+{features_context}
+{bias_note}
+
+## Database Schema
+
+{schema_context if schema_context else "(No schema.md found — infer tables from the project context.)"}
 
 ## Your Task
 
@@ -302,30 +389,8 @@ Analyze the technical execution context and generate a complete, actionable grow
 - Identify integration points (cli_flag, api_endpoint, ui_component, external_service)
 - Provide verification commands
 
-**For `requirements.telemetry`:**
-- Focus on the EVENT itself, not specific function implementations
-- Define telemetry events that need to be tracked for measuring success
-- Each event should have:
-  - `event_name` (string, required): Unique identifier for the event
-    (snake_case)
-  - `description` (string, required): Clear explanation of when/why this
-    event occurs and what it represents
-  - `trigger_location` (string, required): File or module where this event
-    should be tracked (e.g., "src/discovery/local_scanner.py")
-  - `trigger_condition` (string, required): Description of the specific
-    condition or moment when this event should be emitted (e.g., "After scan
-    completes and leaks are found", "When user clicks generate fix button")
-  - `properties` (array of strings, required): List of data fields that
-    should be included with this event
-- Do NOT specify exact function names - let developers decide how to
-  implement event emission
-- The event can be emitted using any telemetry/logging mechanism (e.g.,
-  general "skene" event system, logging framework, etc.)
-- Example: `{{"event_name": "local_vulnerability_detected",
-    "description": "Emitted when local scanner detects revenue leak patterns",
-    "trigger_location": "src/discovery/local_scanner.py",
-    "trigger_condition": "After scan completes and leaks are found",
-    "properties": ["leak_count", "leak_types", "scan_duration_ms"]}}`
+**For `requirements.telemetry` ({_telemetry_backend}):**
+{_telemetry_instructions}
 
 **For `verification_commands`:**
 - Provide concrete commands that can verify the implementation
@@ -334,7 +399,7 @@ Analyze the technical execution context and generate a complete, actionable grow
 - Suggest unit tests, integration tests, and manual test steps
 
 **For `metrics`:**
-- List telemetry events to track
+- List data actions to track (action_name values from telemetry)
 - Define success criteria (KPIs)
 
 Return ONLY the JSON object, no markdown code fences, no explanations. The JSON must be valid and parseable."""
@@ -390,6 +455,11 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
         if "telemetry" not in loop_def["requirements"]:
             loop_def["requirements"]["telemetry"] = []
 
+        # Ensure each telemetry item has correct type
+        for item in loop_def["requirements"]["telemetry"]:
+            if isinstance(item, dict) and "type" not in item:
+                item["type"] = run_target
+
         # Ensure other required fields with defaults
         if "dependencies" not in loop_def:
             loop_def["dependencies"] = []
@@ -403,9 +473,17 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
             }
         if "metrics" not in loop_def:
             loop_def["metrics"] = {
-                "telemetry_events": [],
+                "data_actions": [],
                 "success_criteria": [],
             }
+
+        # Ensure feature linking fields (derive from name/plan if missing)
+        if not loop_def.get("linked_feature"):
+            loop_def["linked_feature"] = loop_def.get("name", loop_name)
+        if not loop_def.get("linked_feature_id"):
+            loop_def["linked_feature_id"] = derive_feature_id(loop_def["linked_feature"])
+        if "growth_pillars" not in loop_def:
+            loop_def["growth_pillars"] = []
 
         return loop_def
 
@@ -415,6 +493,9 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
             "loop_id": loop_id,
             "name": loop_name,
             "description": technical_execution.get("next_build", "Growth loop implementation")[:500],
+            "linked_feature": loop_name,
+            "linked_feature_id": derive_feature_id(loop_name),
+            "growth_pillars": [],
             "requirements": {
                 "files": [],
                 "functions": [],
@@ -429,7 +510,7 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
                 "manual_tests": [],
             },
             "metrics": {
-                "telemetry_events": [],
+                "data_actions": [],
                 "success_criteria": [],
             },
         }
@@ -504,9 +585,9 @@ def load_existing_growth_loops(base_dir: Path) -> list[dict[str, Any]]:
             loop_data = json.loads(content)
 
             # Extract timestamp from filename for sorting
-            # Expected format: <loop_id>_YYYYMMDD_HHMMSS.json
+            # Expected format: YYYYMMDD_HHMMSS_<loop_id>.json
             filename = json_file.stem  # Without .json extension
-            timestamp_match = re.search(r"_(\d{8}_\d{6})$", filename)
+            timestamp_match = re.match(r"^(\d{8}_\d{6})_", filename)
             if timestamp_match:
                 timestamp_str = timestamp_match.group(1)
                 try:
@@ -590,8 +671,21 @@ def format_growth_loops_summary(loops: list[dict[str, Any]]) -> str:
 
         telemetry = requirements.get("telemetry", [])
         if telemetry:
-            events = [t.get("event_name", "unknown") for t in telemetry[:3]]
-            lines.append(f"**Telemetry Events:** {', '.join(events)}")
+            labels = []
+            for t in telemetry[:3]:
+                name = t.get("action_name", "unknown")
+                table = t.get("table", "")
+                op = t.get("operation", "")
+                loc = t.get("location", {})
+                if table:
+                    suffix = f" ({table} {op})"
+                elif loc:
+                    file = loc.get("file", "?")
+                    suffix = f" ({file})"
+                else:
+                    suffix = ""
+                labels.append(f"{name}{suffix}")
+            lines.append(f"**Data Actions:** {', '.join(labels)}")
 
         # Include dependencies
         dependencies = loop.get("dependencies", [])

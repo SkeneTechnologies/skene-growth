@@ -8,7 +8,9 @@ Supports loading config from:
 Priority: CLI args > environment variables > project config > user config
 """
 
+import logging
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,7 @@ try:
 except ImportError:
     import tomli as tomllib  # type: ignore
 
+logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL_BY_PROVIDER = {
     "openai": "gpt-4o",
@@ -103,6 +106,17 @@ class Config:
         """Get base URL for OpenAI-compatible providers."""
         return self.get("base_url")
 
+    @property
+    def upstream(self) -> str | None:
+        """Get upstream URL for push (e.g. https://skene.ai/workspace/my-app)."""
+        url = self.get("upstream") or self.get("upstream_url")
+        return url.strip() if isinstance(url, str) and url.strip() else None
+
+    @property
+    def upstream_api_key(self) -> str | None:
+        """Get upstream API key. Precedence: SKENE_UPSTREAM_API_KEY env > config > credentials file."""
+        return self.get("upstream_api_key")
+
 
 def find_project_config() -> Path | None:
     """Find project-level config file (.skene-growth.config)."""
@@ -115,6 +129,82 @@ def find_project_config() -> Path | None:
             return config_path
 
     return None
+
+
+def save_upstream_to_config(upstream_url: str, workspace_slug: str, api_key: str) -> Path:
+    """Save upstream connection info and API key to .skene-growth.config.
+
+    Creates the file if it doesn't exist, or merges into the existing one
+    preserving all other settings.
+    """
+    config_path = find_project_config() or (Path.cwd() / ".skene-growth.config")
+
+    existing: dict[str, Any] = {}
+    if config_path.exists():
+        try:
+            existing = load_toml(config_path)
+        except Exception:
+            pass
+
+    existing["upstream"] = upstream_url
+    existing["workspace"] = workspace_slug
+    existing["upstream_api_key"] = api_key
+
+    _write_config_toml(config_path, existing)
+    return config_path
+
+
+def remove_upstream_from_config() -> Path | None:
+    """Remove upstream, workspace, and upstream_api_key from .skene-growth.config.
+
+    Returns path if the file was found and updated, None otherwise.
+    """
+    config_path = find_project_config()
+    if not config_path or not config_path.exists():
+        return None
+
+    try:
+        existing = load_toml(config_path)
+    except Exception:
+        return None
+
+    changed = False
+    for key in ("upstream", "upstream_url", "workspace", "upstream_api_key"):
+        if key in existing:
+            del existing[key]
+            changed = True
+
+    if not changed:
+        return None
+
+    _write_config_toml(config_path, existing)
+    return config_path
+
+
+def _write_config_toml(path: Path, data: dict[str, Any]) -> None:
+    """Write a flat dict as a TOML file, preserving all keys."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines: list[str] = []
+    for key, value in data.items():
+        if isinstance(value, str):
+            escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+            lines.append(f'{key} = "{escaped}"')
+        elif isinstance(value, bool):
+            lines.append(f"{key} = {str(value).lower()}")
+        elif isinstance(value, list):
+            items = ", ".join(f'"{v}"' if isinstance(v, str) else str(v) for v in value)
+            lines.append(f"{key} = [{items}]")
+        elif isinstance(value, (int, float)):
+            lines.append(f"{key} = {value}")
+        else:
+            lines.append(f'{key} = "{value}"')
+    lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+    if sys.platform != "win32":
+        try:
+            path.chmod(0o600)
+        except (OSError, PermissionError):
+            pass
 
 
 def find_user_config() -> Path | None:
@@ -131,6 +221,30 @@ def find_user_config() -> Path | None:
         return config_path
 
     return None
+
+
+def resolve_upstream_token(config: Config) -> str | None:
+    """Resolve upstream API key. See resolve_upstream_api_key_with_source for precedence."""
+    key, _ = resolve_upstream_api_key_with_source(config)
+    return key
+
+
+def resolve_upstream_api_key_with_source(config: Config) -> tuple[str | None, str]:
+    """
+    Resolve upstream API key and its source. Returns (api_key, source).
+
+    Precedence:
+    1. SKENE_UPSTREAM_API_KEY env
+    2. upstream_api_key from .skene-growth.config (or user config)
+    """
+    env_key = os.environ.get("SKENE_UPSTREAM_API_KEY")
+    if env_key:
+        return env_key.strip(), "env"
+
+    if config.upstream_api_key:
+        return config.upstream_api_key.strip(), "config"
+
+    return None, "-"
 
 
 def load_toml(path: Path) -> dict[str, Any]:
@@ -180,5 +294,7 @@ def load_config() -> Config:
         config.set("base_url", base_url)
     if os.environ.get("SKENE_DEBUG", "").lower() in ("1", "true", "yes"):
         config.set("debug", True)
+    if api_key := os.environ.get("SKENE_UPSTREAM_API_KEY"):
+        config.set("upstream_api_key", api_key.strip() if api_key else None)
 
     return config

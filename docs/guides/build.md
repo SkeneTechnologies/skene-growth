@@ -50,6 +50,7 @@ uvx skene-growth build --context ./my-context
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` |
 | `--no-fallback` | | Disable model fallback on rate limits. Retries the same model with exponential backoff instead of switching to a cheaper model. |
 | `--target TEXT` | `-t` | Skip the interactive menu and send the prompt directly. Options: `cursor`, `claude`, `show`, `file`. |
+| `--feature TEXT` | `-f` | Bias toward this feature name when linking the growth loop to a feature in the registry |
 
 ## How it works
 
@@ -145,6 +146,9 @@ The growth loop JSON conforms to the `GROWTH_LOOP_VERIFICATION_SPEC` schema:
   "loop_id": "share_flag",
   "name": "Share Flag",
   "description": "Detailed description of the growth loop",
+  "linked_feature": "Social Sharing",
+  "linked_feature_id": "social_sharing",
+  "growth_pillars": ["engagement", "retention"],
   "requirements": {
     "files": [
       {
@@ -178,11 +182,11 @@ The growth loop JSON conforms to the `GROWTH_LOOP_VERIFICATION_SPEC` schema:
     ],
     "telemetry": [
       {
-        "event_name": "share_initiated",
-        "description": "User clicked the share button",
-        "trigger_location": "src/components/ShareButton.tsx",
-        "trigger_condition": "After user clicks share and link is copied",
-        "properties": ["share_type", "source_page", "user_id"]
+        "type": "supabase",
+        "table": "share_events",
+        "operation": "INSERT",
+        "properties": ["share_type", "source_page", "user_id"],
+        "action_name": "share_initiated"
       }
     ]
   },
@@ -195,13 +199,13 @@ The growth loop JSON conforms to the `GROWTH_LOOP_VERIFICATION_SPEC` schema:
   },
   "metrics": {
     "telemetry_events": ["share_initiated", "share_completed"],
+    "data_actions": ["share_initiated"],
     "success_criteria": ["Share rate > 5% of active users"]
   },
   "_metadata": {
     "source_plan_path": "/absolute/path/to/growth-plan.md",
     "saved_at": "2025-01-15T10:30:00",
-    "target": "cursor",
-    "prompt": "The full generated prompt text..."
+    "run_target": "supabase"
   }
 }
 ```
@@ -210,15 +214,17 @@ Key sections of the schema:
 
 | Section | Description |
 |---------|-------------|
+| `linked_feature` / `linked_feature_id` | The feature this loop implements, linked to the feature registry |
+| `growth_pillars` | 0-3 of `"onboarding"`, `"engagement"`, `"retention"` |
 | `requirements.files` | Files to create or modify, with verification checks (type, pattern, description) |
 | `requirements.functions` | Functions to implement, including signature and logic description |
 | `requirements.integrations` | Integration points (CLI flags, API endpoints, UI components, external services) |
-| `requirements.telemetry` | Events to track, with trigger locations and conditions |
+| `requirements.telemetry` | Telemetry items with `type` (`supabase` or `skene_cloud`), table/operation, and properties |
 | `dependencies` | Other loop IDs this loop depends on |
 | `verification_commands` | Commands to verify the implementation |
 | `test_coverage` | Unit, integration, and manual test descriptions |
-| `metrics` | Telemetry events and success criteria (KPIs) |
-| `_metadata` | Build metadata: source plan path, timestamp, chosen destination, generated prompt |
+| `metrics` | Telemetry events, `data_actions` (must match telemetry `action_name`s), and success criteria |
+| `_metadata` | Build metadata: source plan path, timestamp, run target |
 
 Growth loop files accumulate over time. The `plan` command reads existing loops and instructs the council not to suggest duplicates, keeping successive iterations complementary.
 
@@ -251,6 +257,7 @@ debug = true
 
 ## Next steps
 
+- [Push](push.md) -- Push growth loops to Supabase and upstream
 - [Status](status.md) -- Check whether growth loop requirements have been implemented in your codebase
 - [Chat](chat.md) -- Use the interactive terminal chat for ad-hoc growth analysis
 - [Configuration](configuration.md) -- Set up persistent config so you do not need to pass flags every time

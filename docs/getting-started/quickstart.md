@@ -1,6 +1,6 @@
 # Quickstart
 
-Get from zero to a full growth plan in six commands.
+Get from zero to a deployed growth loop.
 
 > **Prerequisites**
 >
@@ -8,123 +8,95 @@ Get from zero to a full growth plan in six commands.
 > - [uv](https://docs.astral.sh/uv/) installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 > - An API key from OpenAI, Google Gemini, or Anthropic -- OR a local LLM running via [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.com/)
 
-## The 6-step workflow
+## Setup
 
-### Step 1: Create a config file
+### Create and configure
 
 ```bash
+# Create a config file with sensible defaults
 uvx skene-growth config --init
-```
 
-This creates `.skene-growth.config` in your current directory with sensible defaults. The file is created with restrictive permissions (`0600` on Unix) since it will hold your API key.
-
-### Step 2: Configure your LLM provider
-
-```bash
+# Set up your LLM provider and API key interactively
 uvx skene-growth config
 ```
 
-This shows your current configuration, then asks if you want to edit it. If you choose to edit, an interactive setup walks you through:
+The interactive setup walks you through provider, model, and API key selection.
 
-1. **Provider** -- choose from openai, gemini, anthropic, lmstudio, ollama, or generic (any OpenAI-compatible endpoint)
-2. **Model** -- pick from a curated list per provider, or enter a custom model name
-3. **Base URL** -- only prompted if you select the `generic` provider
-4. **API key** -- entered as a password field (hidden input)
+> **Tip:** You can skip config setup entirely by passing `--api-key` and `--provider` flags directly to each command, or by setting the `SKENE_API_KEY` and `SKENE_PROVIDER` environment variables.
 
-The configuration is saved back to your `.skene-growth.config` file.
+## Analyze, plan, build
 
-> **Tip:** You can skip this step entirely by passing `--api-key` and `--provider` flags directly to each command, or by setting the `SKENE_API_KEY` and `SKENE_PROVIDER` environment variables.
-
-### Step 3: Analyze your codebase
+### Analyze your codebase
 
 ```bash
 uvx skene-growth analyze .
 ```
 
-This scans your codebase and generates two files in `./skene-context/`:
+Scans your codebase and generates files in `./skene-context/`:
 
-- **`growth-manifest.json`** -- structured data about your tech stack, existing growth features, and growth opportunities
-- **`growth-template.json`** -- a business-type-aware growth template with prioritized recommendations
+- **`growth-manifest.json`** -- your tech stack, growth features, and opportunities
+- **`growth-template.json`** -- a growth template tailored to your business type
+- **`feature-registry.json`** -- tracks features across analysis runs
 
-The analysis uses your configured LLM to understand your codebase structure, detect the technology stack (framework, language, database, hosting), identify existing growth features, and surface new growth opportunities.
-
-You can pass a different path instead of `.` to analyze a project elsewhere on disk:
-
-```bash
-uvx skene-growth analyze /path/to/your/project
-```
-
-### Step 4: Generate a growth plan
+### Generate a growth plan
 
 ```bash
 uvx skene-growth plan
 ```
 
-This reads `growth-manifest.json` and `growth-template.json` from `./skene-context/` (auto-detected) and generates a `growth-plan.md` file in the same directory.
+Produces a prioritized growth plan with executive summary, opportunities, and a technical execution section.
 
-The plan is produced by a "Council of Growth Engineers" analysis -- multiple specialized perspectives evaluate your codebase and converge on a prioritized growth strategy. The output includes:
+For activation-focused analysis instead of general growth, add `--activation`.
 
-- An executive summary
-- Prioritized growth opportunities with implementation details
-- A technical execution section with the recommended "next build"
-- An implementation todo list
-
-For activation-focused analysis instead of general growth, add the `--activation` flag:
-
-```bash
-uvx skene-growth plan --activation
-```
-
-### Step 5: Build an implementation prompt
+### Build an implementation prompt
 
 ```bash
 uvx skene-growth build
 ```
 
-This command:
+Generates a focused implementation prompt from your growth plan and asks where to send it -- **Cursor**, **Claude**, or **Show** in terminal.
 
-1. Reads `growth-plan.md` from `./skene-context/` (auto-detected)
-2. Extracts the Technical Execution section (the recommended next build, exact logic, data triggers, sequence)
-3. Uses your LLM to generate a focused implementation prompt
-4. Asks where you want to send it:
-   - **Cursor** -- opens via deep link
-   - **Claude** -- launches in terminal
-   - **Show** -- prints the full prompt to the terminal
+Also saves a growth loop definition with telemetry specs to `./skene-context/`.
 
-The prompt is also saved to a file in `./skene-context/` for later use.
+> **Tip:** Use `--target file` to skip the interactive menu (useful for scripting).
 
-> **Tip:** Use `--target` to skip the interactive menu. This is useful for scripting:
-> ```bash
-> uvx skene-growth build --target file   # Just save the prompt, no interaction
-> ```
+## Verify and deploy
 
-### Step 6: Check implementation status
+### Check implementation status
 
-After implementing the growth loop (using Cursor, Claude, or manually), verify that all requirements are met:
+After implementing the growth loop, verify that all requirements are met:
 
 ```bash
 uvx skene-growth status
 ```
 
-This loads the growth loop definitions from `./skene-context/growth-loops/` and uses AST parsing to verify that required files, functions, and patterns are present in your codebase. Each loop is marked **COMPLETE** or **INCOMPLETE** with details on what's missing.
+Checks that required files, functions, and patterns exist in your codebase. Each loop is marked **COMPLETE** or **INCOMPLETE**. Add `--find-alternatives` to use the LLM to find alternative implementations.
 
-For LLM-powered semantic matching to find alternative implementations:
+### Push to Supabase and upstream
+
+If your project uses Supabase, initialize the base schema and push growth loop telemetry:
 
 ```bash
-uvx skene-growth status --find-alternatives --api-key "your-key"
+# One-time: create the base schema migration - to use in deploying the Skene Growth schema yourself.
+uvx skene-growth init
+
+# Generate telemetry triggers and push
+uvx skene-growth login --upstream https://skene.ai/workspace/<my-workspace-name>
+uvx skene-growth push
 ```
 
 ## What you get
 
-After running all six steps, your `./skene-context/` directory contains:
+Your `./skene-context/` directory contains:
 
 | File | Description |
 |---|---|
-| `growth-manifest.json` | Structured analysis of your codebase: tech stack, current growth features, opportunities |
-| `growth-template.json` | Business-type-aware growth template with prioritized recommendations |
-| `growth-plan.md` | Full growth plan with executive summary, priorities, and technical execution details |
+| `growth-manifest.json` | Tech stack, growth features, opportunities |
+| `growth-template.json` | Growth template tailored to your business type |
+| `feature-registry.json` | Features tracked across analysis runs, linked to growth loops |
+| `growth-plan.md` | Prioritized growth plan with technical execution details |
 | `implementation-prompt.md` | Ready-to-use prompt for your AI coding assistant |
-| `growth-loops/*.json` | Growth loop definitions with file/function requirements for validation |
+| `growth-loops/*.json` | Growth loop definitions with telemetry specs and verification requirements |
 
 ## Alternative: Quick one-liner
 
@@ -148,13 +120,16 @@ If you want to see what skene-growth does before configuring an LLM, simply run 
 uvx skene-growth analyze .
 ```
 
-When no API key is configured and you are not using a local provider, the command falls back to a sample growth analysis preview demonstrating the kind of strategic insights available with full API-powered analysis.
+Without an API key (and no local provider), the command falls back to a sample preview showing the kind of output a full analysis produces.
 
 ## Next steps
 
 - [Analyze command in depth](../guides/analyze.md) -- all flags, output customization, excluding folders
 - [Plan command in depth](../guides/plan.md) -- context directories, activation mode, custom manifest paths
 - [Build command in depth](../guides/build.md) -- prompt generation, Cursor/Claude integration
+- [Push command in depth](../guides/push.md) -- Supabase migrations and upstream deployment
 - [Status command in depth](../guides/status.md) -- growth loop validation and alternative matching
+- [Features](../guides/features.md) -- managing and exporting the feature registry
+- [Login](../guides/login.md) -- authenticating with Skene Cloud upstream
 - [Configuration reference](../guides/configuration.md) -- config files, environment variables, precedence rules
 - [LLM providers](../guides/llm-providers.md) -- setup for OpenAI, Gemini, Anthropic, LM Studio, Ollama, and generic endpoints

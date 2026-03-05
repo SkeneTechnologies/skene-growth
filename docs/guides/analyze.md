@@ -42,6 +42,7 @@ If no API key is configured and you are not using a local provider, the command 
 | `--model TEXT` | `-m` | Model name (e.g., `gpt-4o`, `gemini-3-flash-preview`, `claude-sonnet-4-5`) |
 | `--base-url TEXT` | | Base URL for OpenAI-compatible endpoint (required for `generic` provider; also `SKENE_BASE_URL` env var) |
 | `--product-docs` | | Generate `product-docs.md` with user-facing feature documentation (creates v2.0 manifest) |
+| `--features` | | Only analyze growth features and update `feature-registry.json` (skips opportunities and revenue leakage) |
 | `--exclude TEXT` | `-e` | Folder names to exclude from analysis (repeatable). Also configurable in `.skene-growth.config` as `exclude_folders`. |
 | `--verbose` | `-v` | Enable verbose output |
 | `--debug` | | Log all LLM input/output to `.skene-growth/debug/` |
@@ -67,6 +68,12 @@ The primary output. Contains the full analysis results as structured JSON:
 | `revenue_leakage` | Revenue leakage issues with impact assessment and recommendations |
 | `generated_at` | ISO 8601 timestamp of when the manifest was generated |
 
+### feature-registry.json
+
+A persistent registry of growth features maintained across analysis runs. Each analysis merges new features into the existing registry: new features are added with `first_seen_at`, matched features are updated with `last_seen_at` and marked `active`, and unmatched features are marked `archived`. The registry also maps features to growth loops via `loop_ids` and annotates them with growth pillars.
+
+See the [features guide](features.md) for registry structure and export options.
+
 ### growth-template.json
 
 A custom PLG growth template generated alongside the manifest. Contains lifecycle stages tailored to your project's business type and industry. This template is used by the `plan` command to generate actionable growth plans.
@@ -91,6 +98,23 @@ When enabled, the command:
 4. Produces a v2.0 manifest (extends the standard manifest with `product_overview` and `features` fields)
 
 The v2.0 manifest is a superset of v1.0 -- all standard fields remain present.
+
+## Features-only mode
+
+The `--features` flag runs a lightweight analysis that only updates the feature registry:
+
+```bash
+uvx skene-growth analyze . --features
+```
+
+This mode:
+
+1. Runs the growth features analyzer only (skips opportunities and revenue leakage)
+2. Loads existing growth loops from `skene-context/growth-loops/`
+3. Maps loops to features and updates `feature-registry.json`
+4. Enriches the manifest with `loop_ids` and `growth_pillars`
+
+This is faster than a full analysis and useful when you want to refresh the feature registry after building new growth loops.
 
 ## Excluding folders
 
@@ -200,4 +224,5 @@ To run the full analysis, provide an API key via any of these methods:
 ## Next steps
 
 - [Plan](plan.md) -- Generate a growth plan from your manifest using the Council of Growth Engineers
+- [Features](features.md) -- Export and manage the feature registry
 - [Configuration](configuration.md) -- Set up persistent config so you do not need to pass flags every time

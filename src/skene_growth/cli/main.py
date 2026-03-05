@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+import click
 import typer
 from pydantic import SecretStr
 from rich.console import Console
@@ -28,19 +29,24 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
+from typer.core import TyperGroup
 
 from skene_growth import __version__
 from skene_growth.cli.analysis_helpers import (
     run_analysis,
     run_cycle,
+    run_features_analysis,
     show_analysis_summary,
+    show_features_summary,
 )
+from skene_growth.cli.auth import cmd_login, cmd_login_status, cmd_logout
 from skene_growth.cli.config_manager import (
     create_sample_config,
     interactive_config_setup,
     save_config,
     show_config_status,
 )
+from skene_growth.cli.features import features_app
 from skene_growth.cli.output_writers import write_growth_template, write_product_docs
 from skene_growth.cli.prompt_builder import (
     build_prompt_from_template,
@@ -51,13 +57,40 @@ from skene_growth.cli.prompt_builder import (
     save_prompt_to_file,
 )
 from skene_growth.cli.sample_report import show_sample_report
-from skene_growth.config import default_model_for_provider, load_config
+from skene_growth.config import default_model_for_provider, load_config, resolve_upstream_token
+
+# Command order and groups for --help
+_COMMAND_ORDER = [
+    "analyze",
+    "plan",
+    "build",
+    "status",
+    "push",
+    "config",
+    "validate",
+    "login",
+    "logout",
+    "features",
+    "init",
+    "chat",
+]
+
+
+class SectionedHelpGroup(TyperGroup):
+    """TyperGroup that lists commands in a specific order for help output."""
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        ordered = [c for c in _COMMAND_ORDER if c in self.commands]
+        extra = [c for c in self.commands if c not in _COMMAND_ORDER]
+        return ordered + extra
+
 
 app = typer.Typer(
     name="skene-growth",
     help="PLG analysis toolkit for codebases. Analyze code, detect growth opportunities.",
     add_completion=False,
     no_args_is_help=True,
+    cls=SectionedHelpGroup,
 )
 
 console = Console()
@@ -154,6 +187,11 @@ def analyze(
         "--product-docs",
         help="Generate product-docs.md with user-facing feature documentation",
     ),
+    features: bool = typer.Option(
+        False,
+        "--features",
+        help="Only analyze growth features and update feature-registry.json",
+    ),
     exclude: Optional[list[str]] = typer.Option(
         None,
         "--exclude",
@@ -188,6 +226,10 @@ def analyze(
     - Collects user-facing feature documentation from codebase
     - Generates product-docs.md: User-friendly documentation of features and roadmap
 
+    With --features flag:
+    - Only runs growth features analysis
+    - Updates skene-context/feature-registry.json (with growth-loops mapping)
+
     Examples:
 
         # Analyze current directory (uvx)
@@ -202,6 +244,9 @@ def analyze(
 
         # Generate product documentation
         uvx skene analyze . --product-docs
+
+        # Features only (registry update)
+        uvx skene analyze . --features
     """
     # Load config with fallbacks
     config = load_config()
@@ -253,8 +298,14 @@ def analyze(
             console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
             raise typer.Exit(1)
 
-    # If no API key and not using local provider, show sample report
+    # If no API key and not using local provider, show sample report or require key
     if not resolved_api_key and not is_local_provider:
+        if features:
+            console.print(
+                "[yellow]No API key provided.[/yellow] Feature analysis requires an LLM.\n"
+                "Set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config"
+            )
+            raise typer.Exit(1)
         console.print(
             "[yellow]No API key provided.[/yellow] Showing sample growth analysis preview.\n"
             "For full AI-powered analysis, set --api-key, SKENE_API_KEY env var, or add to .skene-growth.config\n"
@@ -266,8 +317,8 @@ def analyze(
         if is_local_provider:
             resolved_api_key = resolved_provider  # Dummy key for local server
 
-    # If product docs are requested, use docs mode to collect features
-    mode_str = "docs" if product_docs else "growth"
+    # If features only, use features mode
+    mode_str = "docs" if product_docs else ("features" if features else "growth")
     console.print(
         Panel.fit(
             f"[bold blue]Analyzing codebase[/bold blue]\n"
@@ -303,34 +354,49 @@ def analyze(
             no_fallback=no_fallback,
         )
 
-        result, manifest_data = await run_analysis(
-            path,
-            resolved_output,
-            llm,
-            verbose,
-            product_docs,
-            exclude_folders=exclude_folders if exclude_folders else None,
-        )
+        if features:
+            result, manifest_data = await run_features_analysis(
+                path,
+                resolved_output,
+                llm,
+                verbose,
+                exclude_folders=exclude_folders if exclude_folders else None,
+            )
+            registry_path = resolved_output.parent / "feature-registry.json"
+            if result is None:
+                raise typer.Exit(1)
+            console.print(f"\n[green]Success![/green] Feature registry updated: {registry_path}")
+            if manifest_data:
+                show_features_summary(manifest_data)
+        else:
+            result, manifest_data = await run_analysis(
+                path,
+                resolved_output,
+                llm,
+                verbose,
+                product_docs,
+                exclude_folders=exclude_folders if exclude_folders else None,
+            )
 
-        if result is None:
-            raise typer.Exit(1)
+            if result is None:
+                raise typer.Exit(1)
 
-        # Generate product docs if requested
-        if product_docs:
-            write_product_docs(manifest_data, resolved_output)
+            # Generate product docs if requested
+            if product_docs:
+                write_product_docs(manifest_data, resolved_output)
 
-        template_data = await write_growth_template(
-            llm,
-            manifest_data,
-            resolved_output,
-        )
+            template_data = await write_growth_template(
+                llm,
+                manifest_data,
+                resolved_output,
+            )
 
-        # Show summary
-        console.print(f"\n[green]Success![/green] Manifest saved to: {resolved_output}")
+            # Show summary
+            console.print(f"\n[green]Success![/green] Manifest saved to: {resolved_output}")
 
-        # Show quick stats if available
-        if result.data:
-            show_analysis_summary(result.data, template_data)
+            # Show quick stats if available
+            if result.data:
+                show_analysis_summary(result.data, template_data)
 
     asyncio.run(execute_analysis())
 
@@ -686,7 +752,7 @@ def plan(
     asyncio.run(execute_cycle())
 
 
-@app.command()
+@app.command(rich_help_panel="experimental")
 def chat(
     path: Path = typer.Argument(
         ".",
@@ -799,7 +865,7 @@ def chat(
     )
 
 
-@app.command()
+@app.command(rich_help_panel="manage")
 def validate(
     manifest: Path = typer.Argument(
         ...,
@@ -1012,6 +1078,242 @@ def status(
     print_validation_report(results)
 
 
+@app.command(rich_help_panel="manage")
+def login(
+    upstream: Optional[str] = typer.Option(
+        None,
+        "--upstream",
+        "-u",
+        help="Upstream workspace URL (e.g. https://skene.ai/workspace/my-app)",
+    ),
+    status: bool = typer.Option(
+        False,
+        "--status",
+        "-s",
+        help="Show current login status for this project",
+    ),
+):
+    """
+    Log in to upstream for push.
+
+    Saves upstream credentials to .skene-growth.config.
+
+    Use --status to check current login state.
+
+    Examples:
+
+        skene login --upstream https://skene.ai/workspace/my-project
+        skene login --status
+    """
+    if status:
+        cmd_login_status()
+        return
+    cmd_login(upstream_url=upstream)
+
+
+@app.command(rich_help_panel="manage")
+def logout():
+    """
+    Log out from upstream (remove saved token).
+
+    Does not invalidate the token server-side.
+    """
+    cmd_logout()
+
+
+@app.command(rich_help_panel="manage")
+def init(
+    path: Path = typer.Argument(
+        ".",
+        help="Project root (output directory for supabase/)",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+):
+    """
+    Create skene_growth base schema migration if missing.
+
+    Writes supabase/migrations/20260201000000_skene_growth_schema.sql with
+    event_log, failed_events, enrichment_map.
+    Safe to run repeatedly; skips if migration already exists.
+    """
+    from skene_growth.growth_loops.push import ensure_base_schema_migration
+
+    written = ensure_base_schema_migration(path.resolve())
+    if written:
+        console.print(f"[green]Created schema migration:[/green] {written}")
+        console.print("[dim]Run supabase db push to apply.[/dim]")
+    else:
+        console.print("[dim]Base schema migration already exists.[/dim]")
+
+
+@app.command()
+def push(
+    path: Path = typer.Argument(
+        ".",
+        help="Project root (output directory for supabase/)",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    context: Optional[Path] = typer.Option(
+        None,
+        "--context",
+        "-c",
+        help="Path to skene-context directory (auto-detected if omitted)",
+    ),
+    loop_id: Optional[str] = typer.Option(
+        None,
+        "--loop",
+        "-l",
+        help="Push only this loop (by loop_id); if omitted, pushes all loops with Supabase telemetry",
+    ),
+    upstream: Optional[str] = typer.Option(
+        None,
+        "--upstream",
+        "-u",
+        help="Upstream workspace URL (e.g. https://skene.ai/workspace/my-app)",
+    ),
+    push_only: bool = typer.Option(
+        False,
+        "--push-only",
+        help="Re-push current output without regenerating",
+    ),
+):
+    """
+    Build a Supabase migration from growth loop telemetry into /supabase and push to upstream.
+
+    Creates:
+    - supabase/migrations/<timestamp>_skene_growth_telemetry.sql: idempotent triggers
+      on telemetry-defined tables that INSERT into event_log
+
+    With --upstream: pushes artifacts to remote for backup/versioning.
+    Use `skene login` to authenticate.
+
+    Examples:
+
+        skene push
+        skene push --upstream https://skene.ai/workspace/my-app
+        skene push --loop skene_guard_activation_safety
+        skene push --context ./skene-context
+    """
+    from skene_growth.growth_loops.push import (
+        build_loops_to_supabase,
+        extract_supabase_telemetry,
+        push_to_upstream,
+    )
+    from skene_growth.growth_loops.storage import load_existing_growth_loops
+
+    config = load_config()
+    resolved_upstream = upstream or config.upstream
+    resolved_token = resolve_upstream_token(config) if resolved_upstream else None
+
+    # Resolve context directory
+    if context is None:
+        candidates = [
+            path / "skene-context",
+            Path.cwd() / "skene-context",
+        ]
+        for candidate in candidates:
+            if (candidate / "growth-loops").is_dir():
+                context = candidate
+                break
+        if context is None and not push_only:
+            console.print(
+                "[red]Could not find skene-context/growth-loops/ directory.[/red]\n"
+                "Use --context to specify the path explicitly."
+            )
+            raise typer.Exit(1)
+    if push_only and context is None:
+        context = path / "skene-context"
+        if not (context / "growth-loops").is_dir():
+            context = Path.cwd() / "skene-context"
+
+    loops_with_telemetry: list[dict[str, Any]] = []
+    if not push_only:
+        loops = load_existing_growth_loops(context)
+        loops_with_telemetry = [loop for loop in loops if extract_supabase_telemetry(loop)]
+        if loop_id:
+            loops_with_telemetry = [loop for loop in loops_with_telemetry if loop.get("loop_id") == loop_id]
+            if not loops_with_telemetry:
+                console.print(f"[red]No loop with loop_id '{loop_id}' has Supabase telemetry.[/red]")
+                raise typer.Exit(1)
+        if not loops_with_telemetry:
+            console.print(
+                "[yellow]No growth loops with Supabase telemetry found.[/yellow]\n"
+                "Add telemetry with type 'supabase' (table, operation, properties) via skene build."
+            )
+            raise typer.Exit(1)
+
+    try:
+        if not push_only:
+            migration_path = build_loops_to_supabase(
+                loops_with_telemetry,
+                path,
+            )
+            console.print(f"[green]Migration:[/green] {migration_path}")
+        else:
+            ctx = context or path / "skene-context"
+            if (ctx / "growth-loops").is_dir():
+                loops_with_telemetry = [
+                    loop for loop in load_existing_growth_loops(ctx) if extract_supabase_telemetry(loop)
+                ]
+
+        if resolved_upstream:
+            ctx = context or path / "skene-context"
+            if push_only:
+                migrations_dir = path / "supabase" / "migrations"
+                if migrations_dir.exists():
+                    telemetry = next(
+                        (p for p in sorted(migrations_dir.glob("*.sql")) if "skene_growth_telemetry" in p.name.lower()),
+                        None,
+                    )
+                    if telemetry:
+                        console.print(f"[green]Telemetry:[/green] {telemetry}")
+                if (ctx / "growth-loops").is_dir():
+                    console.print(f"[green]Growth loops:[/green] {ctx / 'growth-loops'}")
+            if not resolved_token:
+                console.print("[yellow]No token. Run skene login to authenticate.[/yellow]")
+            else:
+                loops_dir = ctx / "growth-loops" if ctx.exists() else None
+                if loops_dir and loops_dir.exists():
+                    console.print(f"[green]Growth loops:[/green] {loops_dir}")
+                result = push_to_upstream(
+                    project_root=path,
+                    upstream_url=resolved_upstream,
+                    token=resolved_token,
+                    loops=loops_with_telemetry,
+                    context=context,
+                )
+                if result.get("ok"):
+                    loops_dir = ctx / "growth-loops" if ctx.exists() else None
+                    growth_loops_count = len(list(loops_dir.glob("*.json"))) if loops_dir and loops_dir.exists() else 0
+                    suffix = "s" if growth_loops_count != 1 else ""
+                    sent_parts = [
+                        f"growth-loops ({growth_loops_count} file{suffix})",
+                        "telemetry.sql",
+                    ]
+                    console.print(
+                        f"[green]Pushed to upstream[/green] commit_hash={result.get('commit_hash', '?')} "
+                        f"(package: {', '.join(sent_parts)})"
+                    )
+                else:
+                    msg = result.get("message", "Push failed.")
+                    if result.get("error") == "auth":
+                        console.print(f"[red]{msg}[/red]")
+                    else:
+                        console.print(f"[yellow]{msg}[/yellow]")
+
+        if not push_only:
+            console.print("\n[dim]Upstream parses the package (growth loops + telemetry.sql) and deploys.[/dim]\n")
+    except Exception as e:
+        console.print(f"[red]Deploy failed:[/red] {e}")
+        raise typer.Exit(1)
+
+
 @app.command()
 def build(
     plan: Optional[Path] = typer.Option(
@@ -1065,14 +1367,21 @@ def build(
         "-t",
         help="Where to send the prompt (skip interactive menu). Options: cursor, claude, show, file",
     ),
+    feature: Optional[str] = typer.Option(
+        None,
+        "--feature",
+        "-f",
+        help="Bias toward this feature name when linking the loop",
+    ),
 ):
     """
     Build an AI prompt from your growth plan using LLM, then choose where to send it.
 
     Workflow:
     1. Extracts Technical Execution from growth plan
-    2. Uses LLM to generate intelligent, focused prompt
+    2. Builds and saves growth loop definition (Supabase telemetry)
     3. Asks where to send: Cursor, Claude, or Show
+    4. Generates implementation prompt with LLM and executes
 
     Use --target to skip the interactive menu (useful for scripting):
 
@@ -1108,7 +1417,7 @@ def build(
         raise typer.Exit(1)
 
     # Run async logic
-    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target, base_url, no_fallback))
+    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target, base_url, no_fallback, feature))
 
 
 async def _build_async(
@@ -1121,6 +1430,7 @@ async def _build_async(
     target: Optional[str] = None,
     base_url: Optional[str] = None,
     no_fallback: Optional[bool] = False,
+    bias_feature: Optional[str] = None,
 ):
     """Async implementation of build command."""
     # Load config to get LLM settings
@@ -1213,19 +1523,13 @@ async def _build_async(
             provider, SecretStr(api_key), model, base_url=base_url, debug=resolved_debug, no_fallback=no_fallback
         )
         console.print("")
-        console.print(f"[dim]Using {provider} ({model}) to generate intelligent prompt...[/dim]\n")
-
-        # Generate prompt with LLM
-        prompt = await build_prompt_with_llm(plan.resolve(), technical_execution, llm)
-
+        console.print(f"[dim]Using {provider} ({model})[/dim]\n")
     except Exception as e:
-        console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
-        console.print("[dim]Falling back to template...[/dim]\n")
-        prompt = build_prompt_from_template(plan.resolve(), technical_execution)
+        console.print(f"[red]Error:[/red] Failed to create LLM client: {e}")
+        raise typer.Exit(1)
 
     # Display the technical execution context
-    console.print(f"\n[bold blue]Building prompt from Technical Execution:[/bold blue] {plan}\n")
-
+    console.print(f"[bold blue]Technical Execution:[/bold blue] {plan}\n")
     if technical_execution.get("next_build"):
         console.print(
             Panel(
@@ -1236,66 +1540,10 @@ async def _build_async(
             )
         )
 
-    # Show the prompt preview
-    console.print("\n[bold]Generated Prompt Preview:[/bold]")
-    preview = prompt if len(prompt) <= 200 else prompt[:200] + "..."
-    console.print(f"[dim]{preview}[/dim]\n")
+    # Run loop in: always Supabase for now (Skene Cloud option disabled)
+    run_target = "supabase"
 
-    # If --target was provided, skip the interactive menu
-    if target is None:
-        # Interactive mode: ask where to send the prompt
-        console.print("[bold cyan]Where do you want to send this prompt?[/bold cyan]")
-
-        # Use questionary for arrow key selection (with fallback)
-        try:
-            import questionary
-
-            choices_list = [
-                questionary.Choice("Cursor (open via deep link)", value="cursor"),
-                questionary.Choice("Claude (open in terminal)", value="claude"),
-                questionary.Choice("Show full prompt", value="show"),
-                questionary.Choice("Cancel", value="cancel"),
-            ]
-
-            selection = questionary.select(
-                "",
-                choices=choices_list,
-                use_arrow_keys=True,
-                use_shortcuts=True,
-                instruction="(Use arrow keys to navigate, Enter to select)",
-            ).ask()
-
-            if selection == "cancel" or selection is None:
-                console.print("\n[dim]Cancelled.[/dim]")
-                return
-
-            target = selection
-
-        except ImportError:
-            # Fallback to numbered menu if questionary not installed
-            choices = [
-                "1. Cursor (open via deep link)",
-                "2. Claude (open in terminal)",
-                "3. Show full prompt",
-                "4. Cancel",
-            ]
-            for choice in choices:
-                console.print(f"  {choice}")
-
-            console.print()
-            selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
-
-            if selection == "1":
-                target = "cursor"
-            elif selection == "2":
-                target = "claude"
-            elif selection == "3":
-                target = "show"
-            elif selection == "4":
-                console.print("[dim]Cancelled.[/dim]")
-                return
-
-    # Save growth loop definition (only if not cancelled)
+    # 2. Loop build
     try:
         from skene_growth.growth_loops.storage import (
             derive_loop_id,
@@ -1315,14 +1563,21 @@ async def _build_async(
         else:
             base_output_dir = Path(config.output_dir)
 
-        # Generate loop definition with LLM
-        console.print("\n[dim]Please wait...Finalising the prompt and generating growth loop definition...[/dim]")
+        from skene_growth.feature_registry import load_features_for_build
+
+        features = load_features_for_build(base_output_dir)
+
+        # Generate loop definition with LLM (telemetry format depends on run_target)
+        console.print("\n[dim]Please wait...Generating growth loop definition...[/dim]")
         console.print("")
         loop_definition = await generate_loop_definition_with_llm(
             llm=llm,
             technical_execution=technical_execution,
             plan_path=plan.resolve(),
             codebase_path=Path.cwd(),
+            run_target=run_target,
+            features=features if features else None,
+            bias_feature_name=bias_feature,
         )
 
         # Extract loop_id and name from generated definition (in case LLM changed them)
@@ -1332,12 +1587,11 @@ async def _build_async(
         # Generate filename using final loop_id
         timestamped_filename = generate_timestamped_filename(loop_id)
 
-        # Add metadata for tracking
+        loop_definition["run_target"] = run_target
         loop_definition["_metadata"] = {
             "source_plan_path": str(plan.resolve()),
             "saved_at": datetime.now().isoformat(),
-            "target": target,
-            "prompt": prompt,
+            "run_target": run_target,
         }
 
         # Write to file
@@ -1356,6 +1610,64 @@ async def _build_async(
             import traceback
 
             console.print(traceback.format_exc())
+
+    # 3. Ask build location (where to send the prompt)
+    # If --target was provided, skip the interactive menu
+    if target is None:
+        # Interactive mode: ask where to send the prompt
+        console.print("[bold cyan]Where do you want to send the implementation prompt?[/bold cyan]")
+        try:
+            import questionary
+
+            choices_list = [
+                questionary.Choice("Cursor (open via deep link)", value="cursor"),
+                questionary.Choice("Claude (open in terminal)", value="claude"),
+                questionary.Choice("Show full prompt", value="show"),
+                questionary.Choice("Cancel", value="cancel"),
+            ]
+            selection = questionary.select(
+                "",
+                choices=choices_list,
+                use_arrow_keys=True,
+                use_shortcuts=True,
+                instruction="(Use arrow keys to navigate, Enter to select)",
+            ).ask()
+
+            if selection == "cancel" or selection is None:
+                console.print("\n[dim]Cancelled.[/dim]")
+                return
+            target = selection
+        except ImportError:
+            choices = [
+                "1. Cursor (open via deep link)",
+                "2. Claude (open in terminal)",
+                "3. Show full prompt",
+                "4. Cancel",
+            ]
+            for choice in choices:
+                console.print(f"  {choice}")
+            console.print()
+            selection = Prompt.ask("Select option", choices=["1", "2", "3", "4"], default="1")
+            if selection == "1":
+                target = "cursor"
+            elif selection == "2":
+                target = "claude"
+            elif selection == "3":
+                target = "show"
+            elif selection == "4":
+                console.print("[dim]Cancelled.[/dim]")
+                return
+            else:
+                target = "cursor"
+
+    # 4. Prompt build
+    console.print("\n[dim]Generating implementation prompt...[/dim]\n")
+    try:
+        prompt = await build_prompt_with_llm(plan.resolve(), technical_execution, llm)
+    except Exception as e:
+        console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
+        console.print("[dim]Falling back to template...[/dim]\n")
+        prompt = build_prompt_from_template(plan.resolve(), technical_execution)
 
     # Save prompt to a file for cross-platform consumption
     prompt_output_dir = plan.parent if plan else Path(config.output_dir)
@@ -1396,7 +1708,10 @@ async def _build_async(
             raise typer.Exit(1)
 
 
-@app.command()
+app.add_typer(features_app, name="features", rich_help_panel="manage")
+
+
+@app.command(rich_help_panel="manage")
 def config(
     init: bool = typer.Option(
         False,
@@ -1599,17 +1914,22 @@ def skene_entry_point():
         help="PLG analysis toolkit for codebases. Analyze code, detect growth opportunities.",
         add_completion=False,
         no_args_is_help=False,
+        cls=SectionedHelpGroup,
     )
 
-    # Add all commands from the main app as subcommands FIRST
-    # This ensures subcommands are recognized before the callback
+    # Add commands in order: analyze, plan, build, status, push | manage | experimental
     skene_app.command()(analyze)
     skene_app.command()(plan)
-    skene_app.command()(chat)
-    skene_app.command()(validate)
-    skene_app.command()(status)
     skene_app.command()(build)
-    skene_app.command()(config)
+    skene_app.command()(status)
+    skene_app.command()(push)
+    skene_app.command(rich_help_panel="manage")(config)
+    skene_app.command(rich_help_panel="manage")(validate)
+    skene_app.command(rich_help_panel="manage")(login)
+    skene_app.command(rich_help_panel="manage")(logout)
+    skene_app.add_typer(features_app, name="features", rich_help_panel="manage")
+    skene_app.command(rich_help_panel="manage")(init)
+    skene_app.command(rich_help_panel="experimental")(chat)
 
     # Add callback to handle default case (no subcommand) - launches chat
     # Added AFTER commands so subcommands take precedence

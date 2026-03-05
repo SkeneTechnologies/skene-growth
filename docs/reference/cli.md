@@ -1,6 +1,6 @@
 # CLI Reference
 
-Complete reference for every `skene-growth` command and flag (version 0.2.1).
+Complete reference for every `skene-growth` command and flag.
 
 For in-depth usage of individual commands, see the [guides](../guides/analyze.md). This page is a lookup reference.
 
@@ -44,6 +44,7 @@ skene-growth analyze [PATH] [OPTIONS]
 | `--base-url TEXT` | | `$SKENE_BASE_URL` or config | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. |
 | `--verbose` | `-v` | `false` | Enable verbose output |
 | `--product-docs` | | `false` | Also generate `product-docs.md` with user-facing feature documentation |
+| `--features` | | `false` | Only analyze growth features and update `feature-registry.json` (skips opportunities and revenue leakage) |
 | `--exclude TEXT` | `-e` | config value | Folder names to exclude from analysis. Repeatable: `--exclude tests --exclude vendor`. Merged with `exclude_folders` from config. |
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
 | `--no-fallback` | | `false` | Disable model fallback on rate limits (429). Retries the same model with exponential backoff instead of switching to a cheaper model. |
@@ -123,6 +124,7 @@ skene-growth build [OPTIONS]
 | `--debug` | | `false` | Log all LLM input/output to `.skene-growth/debug/` |
 | `--no-fallback` | | `false` | Disable model fallback on rate limits (429). Retries the same model with exponential backoff instead of switching to a cheaper model. |
 | `--target TEXT` | `-t` | interactive | Skip the interactive menu and send the prompt directly. Options: `cursor`, `claude`, `show`, `file`. |
+| `--feature TEXT` | `-f` | | Bias toward this feature name when linking the growth loop to a feature in the registry |
 
 ### Delivery targets
 
@@ -285,6 +287,139 @@ See the [configuration guide](../guides/configuration.md) for file format and al
 
 ---
 
+## `push`
+
+Build Supabase migrations from growth loop telemetry and push artifacts to upstream.
+
+Creates idempotent trigger-based migrations that INSERT into `event_log` for each telemetry-defined table. Optionally pushes growth loops and telemetry SQL to Skene Cloud upstream.
+
+```
+skene-growth push [PATH] [OPTIONS]
+```
+
+### Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `PATH` | `.` | Project root (output directory for `supabase/`) |
+
+### Options
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--context PATH` | `-c` | auto-detected | Path to `skene-context` directory. Auto-detected from `<PATH>/skene-context/` or `./skene-context/`. |
+| `--loop TEXT` | `-l` | | Push only this loop (by `loop_id`). If omitted, pushes all loops with Supabase telemetry. |
+| `--upstream TEXT` | `-u` | config | Upstream workspace URL (e.g. `https://skene.ai/workspace/my-app`). Resolved from `.skene-growth.config` or this flag. |
+| `--push-only` | | `false` | Re-push current output without regenerating migrations |
+
+### Behavior notes
+
+- Requires growth loops with Supabase telemetry (type `"supabase"`) in `skene-context/growth-loops/`.
+- Generates a migration file at `supabase/migrations/<timestamp>_skene_growth_telemetry.sql`.
+- When `--upstream` is provided (or resolved from `.skene-growth.config`), pushes the package (growth loops + telemetry SQL) to the upstream API.
+- Use `skene login` to authenticate before pushing to upstream.
+
+See the [push guide](../guides/push.md) for detailed usage.
+
+---
+
+## `login`
+
+Log in to Skene Cloud upstream for push.
+
+```
+skene-growth login [OPTIONS]
+```
+
+### Options
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--upstream TEXT` | `-u` | | Upstream workspace URL (e.g. `https://skene.ai/workspace/my-app`) |
+| `--status` | `-s` | `false` | Show current login status for this project |
+
+### Behavior notes
+
+- Saves upstream URL, workspace, and API key to `.skene-growth.config` with restrictive permissions (`0600`).
+- Use `--status` to check whether you are logged in for the current project.
+
+See the [login guide](../guides/login.md) for detailed usage.
+
+---
+
+## `logout`
+
+Log out from upstream (remove saved token).
+
+```
+skene-growth logout
+```
+
+### Behavior notes
+
+- Removes upstream credentials from `.skene-growth.config`.
+- Does not invalidate the token server-side.
+
+---
+
+## `init`
+
+Create the skene_growth base schema migration for Supabase.
+
+```
+skene-growth init [PATH]
+```
+
+### Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `PATH` | `.` | Project root (output directory for `supabase/`) |
+
+### Behavior notes
+
+- Writes `supabase/migrations/20260201000000_skene_growth_schema.sql` containing the base schema: `event_log`, `failed_events`, `enrichment_map` tables and supporting functions.
+- Safe to run repeatedly -- skips if the migration already exists.
+- Run `supabase db push` after to apply the migration.
+
+---
+
+## `features`
+
+Manage the growth feature registry.
+
+### `features export`
+
+Export the feature registry for use in external tools.
+
+```
+skene-growth features export [PATH] [OPTIONS]
+```
+
+### Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `PATH` | `.` | Project root (to locate `skene-context`) |
+
+### Options
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--context PATH` | `-c` | auto-detected | Path to `skene-context` directory |
+| `--format TEXT` | `-f` | `json` | Output format: `json`, `csv`, `markdown` |
+| `--output PATH` | `-o` | stdout | Output file path. Prints to stdout if omitted. |
+
+### Behavior notes
+
+- Reads `feature-registry.json` from the context directory.
+- Requires running `analyze` first to populate the registry.
+- Use for integrating with dashboards, Linear, Notion, or documentation.
+
+See the [features guide](../guides/features.md) for detailed usage.
+
+---
+
 ## `generate` (deprecated)
 
 This command is deprecated and will be removed. Use `analyze --product-docs` instead.
@@ -309,6 +444,8 @@ The command prints a deprecation warning and exits with code 1.
 | `SKENE_API_KEY` | `analyze`, `plan`, `build`, `chat`, `status` | API key for the LLM provider. Equivalent to `--api-key`. |
 | `SKENE_BASE_URL` | `analyze`, `plan`, `build`, `chat` | Base URL for OpenAI-compatible endpoints. Equivalent to `--base-url`. |
 | `SKENE_PROVIDER` | config loading | LLM provider override at the environment level. |
+| `SKENE_UPSTREAM_API_KEY` | `push`, `login` | API key for upstream authentication. |
+| `SKENE_DEBUG` | all commands | Enable debug mode (`true`/`false`). |
 
 ---
 
@@ -354,6 +491,25 @@ uvx skene-growth status
 
 # Check status with LLM-powered alternative matching
 uvx skene-growth status --find-alternatives --api-key "YOUR_KEY"
+
+# Features-only analysis (updates feature registry without full analysis)
+uvx skene-growth analyze . --features
+
+# Push growth loops to Supabase + upstream
+uvx skene-growth push
+uvx skene-growth push --upstream https://skene.ai/workspace/my-app
+uvx skene-growth push --loop my_loop_id
+
+# Login/logout from upstream
+uvx skene-growth login --upstream https://skene.ai/workspace/my-app
+uvx skene-growth login --status
+uvx skene-growth logout
+
+# Initialize Supabase base schema
+uvx skene-growth init
+
+# Export feature registry
+uvx skene-growth features export --format markdown -o features.md
 
 # Quick preview (no API key, just run analyze without a key)
 uvx skene-growth analyze .
