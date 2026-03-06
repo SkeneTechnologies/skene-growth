@@ -6,7 +6,7 @@ BUILD_DIR=build
 
 # GitHub release settings (bump VERSION when cutting a new release)
 REPO=SkeneTechnologies/skene
-VERSION=tui-v0.2.1rc1
+VERSION=tui-v0.3.0
 
 # Build flags
 LDFLAGS=-ldflags "-s -w"
