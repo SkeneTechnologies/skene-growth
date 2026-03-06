@@ -1,28 +1,28 @@
 <p align="center">
   <a href="https://www.skene.ai"><img src="https://img.shields.io/badge/Website-007ACC?style=flat&logo=google-chrome&logoColor=white" alt="Website"></a>
-  <a href="https://www.skene.ai/resources/docs/skene-growth"><img src="https://img.shields.io/badge/Docs-555?style=flat&logo=bookstack&logoColor=white" alt="Docs"></a>
+  <a href="https://www.skene.ai/resources/docs/skene"><img src="https://img.shields.io/badge/Docs-555?style=flat&logo=bookstack&logoColor=white" alt="Docs"></a>
   <a href="https://www.skene.ai/resources/blog"><img src="https://img.shields.io/badge/Blog-555?style=flat&logo=substack&logoColor=white" alt="Blog"></a>
   <a href="https://www.reddit.com/r/plgbuilders/"><img src="https://img.shields.io/badge/r%2Fplgbuilders-D84315?style=flat&logo=reddit&logoColor=white" alt="Reddit"></a>
 </p>
 
-# skene-growth
+# skene
 
-[![PyPI version](https://img.shields.io/pypi/v/skene-growth)](https://pypi.org/project/skene-growth/)
-[![Downloads](https://static.pepy.tech/badge/skene-growth/month)](https://pepy.tech/projects/skene-growth)
-[![Commit Activity](https://img.shields.io/github/commit-activity/m/SkeneTechnologies/skene-growth)](https://github.com/SkeneTechnologies/skene-growth/commits)
+[![PyPI version](https://img.shields.io/pypi/v/skene)](https://pypi.org/project/skene/)
+[![Downloads](https://static.pepy.tech/badge/skene/month)](https://pepy.tech/projects/skene)
+[![Commit Activity](https://img.shields.io/github/commit-activity/m/SkeneTechnologies/skene)](https://github.com/SkeneTechnologies/skene/commits)
 
 PLG (Product-Led Growth) codebase analysis toolkit. Scan your codebase, detect growth opportunities, and generate actionable implementation plans.
 
 ## Quick Start
 
 ```bash
-uvx skene-growth config --init   # Create config file
-uvx skene-growth config          # Set provider, model, API key
-uvx skene-growth analyze .       # Analyze your codebase
-uvx skene-growth plan            # Generate a growth plan
-uvx skene-growth build           # Build an implementation prompt
-uvx skene-growth status          # Check loop implementation status
-uvx skene-growth push            # Deploy telemetry to Supabase + upstream
+uvx skene config --init   # Create config file
+uvx skene config          # Set provider, model, API key
+uvx skene analyze .       # Analyze your codebase
+uvx skene plan            # Generate a growth plan
+uvx skene build           # Build an implementation prompt
+uvx skene status          # Check loop implementation status
+uvx skene push            # Deploy telemetry to Supabase + upstream
 ```
 
 ## What It Does
@@ -46,26 +46,26 @@ Supports OpenAI, Gemini, Claude, LM Studio, Ollama, and any OpenAI-compatible en
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Recommended (no install needed)
-uvx skene-growth
+uvx skene
 
 # Or install globally
-pip install skene-growth
+pip install skene
 ```
 
 ## Documentation
 
-Full documentation: [www.skene.ai/resources/docs/skene-growth](https://www.skene.ai/resources/docs/skene-growth)
+Full documentation: [www.skene.ai/resources/docs/skene](https://www.skene.ai/resources/docs/skene)
 
 ## MCP Server
 
-skene-growth includes an MCP server for integration with AI assistants. Add to your assistant config:
+skene includes an MCP server for integration with AI assistants. Add to your assistant config:
 
 ```json
 {
   "mcpServers": {
-    "skene-growth": {
+    "skene": {
       "command": "uvx",
-      "args": ["--from", "skene-growth[mcp]", "skene-growth-mcp"],
+      "args": ["--from", "skene[mcp]", "skene-mcp"],
       "env": {
         "SKENE_API_KEY": "your-api-key"
       }
@@ -80,14 +80,14 @@ This repository contains two independent packages:
 
 | Directory | Description | Language | Distribution |
 |-----------|-------------|----------|-------------|
-| `src/skene_growth/` | CLI + analysis engine | Python | [PyPI](https://pypi.org/project/skene-growth/) |
-| `tui/` | Interactive terminal UI wizard | Go | [GitHub Releases](https://github.com/SkeneTechnologies/skene-growth/releases) |
+| `src/skene/` | CLI + analysis engine | Python | [PyPI](https://pypi.org/project/skene/) |
+| `tui/` | Interactive terminal UI wizard | Go | [GitHub Releases](https://github.com/SkeneTechnologies/skene/releases) |
 
 The TUI (`tui/`) is a Bubble Tea app that provides an interactive wizard experience and orchestrates the Python CLI via `uvx`. Each package has independent CI/CD pipelines.
 
 ## Contributing
 
-Contributions are welcome. Please open an issue or submit a pull request on [GitHub](https://github.com/SkeneTechnologies/skene-growth).
+Contributions are welcome. Please open an issue or submit a pull request on [GitHub](https://github.com/SkeneTechnologies/skene).
 
 ## License
 

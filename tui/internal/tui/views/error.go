@@ -216,7 +216,7 @@ var (
 	ErrPipFailed = &ErrorInfo{
 		Code:       "PIP_FAILED",
 		Title:      "Package Installation Failed",
-		Message:    "pip failed to install skene-growth package.",
+		Message:    "pip failed to install skene package.",
 		Suggestion: "Run 'pip install --upgrade pip' and try again.",
 		Severity:   SeverityError,
 		Retryable:  true,

@@ -99,11 +99,11 @@ func (e *Engine) SetPromptHandler(fn func(InteractivePrompt)) {
 	e.promptFn = fn
 }
 
-// Run executes the analysis by spawning uvx skene-growth analyze
+// Run executes the analysis by spawning uvx skene analyze
 func (e *Engine) Run(ctx context.Context) *AnalysisResult {
 	result := &AnalysisResult{}
 
-	e.sendUpdate(PhaseScanCodebase, 0.0, "Starting analysis via uvx skene-growth...")
+	e.sendUpdate(PhaseScanCodebase, 0.0, "Starting analysis via uvx skene...")
 
 	args := []string{constants.GrowthPackageName, "analyze", "."}
 	args = append(args, e.buildCommonFlags()...)
@@ -123,7 +123,7 @@ func (e *Engine) Run(ctx context.Context) *AnalysisResult {
 	return result
 }
 
-// GeneratePlan spawns uvx skene-growth plan
+// GeneratePlan spawns uvx skene plan
 func (e *Engine) GeneratePlan() *AnalysisResult {
 	result := &AnalysisResult{}
 
@@ -140,7 +140,7 @@ func (e *Engine) GeneratePlan() *AnalysisResult {
 	return result
 }
 
-// GenerateBuild spawns uvx skene-growth build
+// GenerateBuild spawns uvx skene build
 func (e *Engine) GenerateBuild() *AnalysisResult {
 	result := &AnalysisResult{}
 
@@ -157,7 +157,7 @@ func (e *Engine) GenerateBuild() *AnalysisResult {
 	return result
 }
 
-// ValidateManifest spawns uvx skene-growth validate
+// ValidateManifest spawns uvx skene validate
 func (e *Engine) ValidateManifest() *AnalysisResult {
 	result := &AnalysisResult{}
 

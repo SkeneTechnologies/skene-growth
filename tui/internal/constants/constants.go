@@ -24,7 +24,7 @@ const (
 
 // Package and directory names
 const (
-	GrowthPackageName  = "skene-growth"
+	GrowthPackageName  = "skene"
 	OutputDirName      = "skene-context"
 	DefaultOutputDir   = "./skene-context"
 	SkeneCacheDir      = ".skene"
@@ -56,6 +56,6 @@ var SkenePackages = []PackageMeta{
 		ID:          "growth",
 		Name:        "Skene Growth",
 		Description: "Tech stack detection, growth features, revenue leakage, growth plans (via uvx)",
-		URL:         "github.com/SkeneTechnologies/skene-growth",
+		URL:         "github.com/SkeneTechnologies/skene",
 	},
 }

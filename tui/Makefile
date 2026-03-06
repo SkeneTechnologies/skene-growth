@@ -5,7 +5,7 @@ BINARY_NAME=skene
 BUILD_DIR=build
 
 # GitHub release settings (bump VERSION when cutting a new release)
-REPO=SkeneTechnologies/skene-growth
+REPO=SkeneTechnologies/skene
 VERSION=tui-v0.2.1rc1
 
 # Build flags

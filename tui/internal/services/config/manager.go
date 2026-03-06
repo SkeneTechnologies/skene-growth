@@ -9,7 +9,7 @@ import (
 	"skene/internal/constants"
 )
 
-// Config represents the skene-growth configuration
+// Config represents the skene configuration
 type Config struct {
 	Provider     string `json:"provider"`
 	Model        string `json:"model"`
@@ -238,7 +238,7 @@ func GetProviders() []Provider {
 			RequiresKey: true,
 			AuthURL:     constants.SkeneAuthURL,
 			Models: []Model{
-				{ID: "skene-growth-v1", Name: "skene-growth-v1", Description: "Growth analysis model"},
+				{ID: "skene-v1", Name: "skene-v1", Description: "Growth analysis model"},
 			},
 		},
 		{

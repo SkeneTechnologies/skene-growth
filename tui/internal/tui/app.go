@@ -405,7 +405,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.configMgr.SetModel(msg.Model)
 			} else {
 				// Default Skene model
-				a.configMgr.SetModel("skene-growth-v1")
+				a.configMgr.SetModel("skene-v1")
 			}
 
 			// Show "verifying" spinner first so the user sees activity
@@ -1228,17 +1228,17 @@ func (a *App) runEngineCommand(title string, command string) tea.Cmd {
 		switch command {
 		case "plan":
 			if p != nil {
-				p.Send(NextStepOutputMsg{Line: "Running: uvx skene-growth plan ..."})
+				p.Send(NextStepOutputMsg{Line: "Running: uvx skene plan ..."})
 			}
 			result = engine.GeneratePlan()
 		case "build":
 			if p != nil {
-				p.Send(NextStepOutputMsg{Line: "Running: uvx skene-growth build ..."})
+				p.Send(NextStepOutputMsg{Line: "Running: uvx skene build ..."})
 			}
 			result = engine.GenerateBuild()
 		case "validate":
 			if p != nil {
-				p.Send(NextStepOutputMsg{Line: "Running: uvx skene-growth validate ..."})
+				p.Send(NextStepOutputMsg{Line: "Running: uvx skene validate ..."})
 			}
 			result = engine.ValidateManifest()
 		default:
@@ -1312,8 +1312,8 @@ func analysisErrorSuggestion(err error) string {
 	if containsAny(s, "failed to locate uvx", "failed to download uv") {
 		return "The CLI could not provision the uvx runtime. Check your internet connection and try again."
 	}
-	if containsAny(s, "No module named", "not found: skene-growth", "package not found") {
-		return "The skene-growth package could not be found. Make sure it is published or install it manually."
+	if containsAny(s, "No module named", "not found: skene", "package not found") {
+		return "The skene package could not be found. Make sure it is published or install it manually."
 	}
 	if containsAny(s, "API key", "401", "unauthorized") {
 		return "Check your API key, ensure it has the required permissions, and try again."

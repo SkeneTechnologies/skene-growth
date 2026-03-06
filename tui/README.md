@@ -1,6 +1,6 @@
 # Skene
 
-A terminal interface for [Skene Growth](https://github.com/SkeneTechnologies/skene-growth). Guides you through selecting a repository, choosing an AI provider, and running growth analysis — all from the terminal.
+A terminal interface for [Skene Growth](https://github.com/SkeneTechnologies/skene). Guides you through selecting a repository, choosing an AI provider, and running growth analysis — all from the terminal.
 
 Built with Go and [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
@@ -8,7 +8,7 @@ Built with Go and [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
 Skene terminal is the interactive front-end for **Skene Growth** — a PLG analysis toolkit that detects your tech stack, discovers growth features, identifies revenue leakage, and generates growth plans.
 
-The tool itself does **not** perform any analysis. It orchestrates `uvx skene-growth` in your selected repository directory and displays the results.
+The tool itself does **not** perform any analysis. It orchestrates `uvx skene` in your selected repository directory and displays the results.
 
 ## Features
 
@@ -151,7 +151,7 @@ make release      # package releases
 
 ## Related
 
-- [skene-growth](https://github.com/SkeneTechnologies/skene-growth) — PLG analysis toolkit (CLI + MCP server)
+- [skene](https://github.com/SkeneTechnologies/skene) — PLG analysis toolkit (CLI + MCP server)
 
 ## License
 

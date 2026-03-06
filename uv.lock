@@ -1176,7 +1176,7 @@ wheels = [
 ]
 
 [[package]]
-name = "skene-growth"
+name = "skene"
 version = "0.2.1"
 source = { editable = "." }
 dependencies = [

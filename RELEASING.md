@@ -4,8 +4,8 @@ This monorepo contains two independently released packages. Each has its own CI/
 
 | Package | Directory | Distribution | Tag pattern |
 |---------|-----------|-------------|-------------|
-| Python CLI (`skene-growth`) | `src/skene_growth/` | [PyPI](https://pypi.org/project/skene-growth/) | `v*` (e.g. `v0.3.0`) |
-| TUI (`skene`) | `tui/` | [GitHub Releases](https://github.com/SkeneTechnologies/skene-growth/releases) | `tui-v*` (e.g. `tui-v0.3.0`) |
+| Python CLI (`skene`) | `src/skene/` | [PyPI](https://pypi.org/project/skene/) | `v*` (e.g. `v0.3.0`) |
+| TUI (`skene`) | `tui/` | [GitHub Releases](https://github.com/SkeneTechnologies/skene/releases) | `tui-v*` (e.g. `tui-v0.3.0`) |
 
 ## Pre-release versions
 
@@ -19,12 +19,12 @@ Pre-release TUI builds are automatically marked as pre-release on GitHub (not "l
 
 ---
 
-## Python CLI (`skene-growth`)
+## Python CLI (`skene`)
 
 ### Files to update
 
 1. **`pyproject.toml`** — `version = "X.Y.Z"`
-2. **`src/skene_growth/__init__.py`** — `__version__ = "X.Y.Z"` (if present)
+2. **`src/skene/__init__.py`** — `__version__ = "X.Y.Z"` (if present)
 
 ### Steps
 
@@ -33,8 +33,8 @@ Pre-release TUI builds are automatically marked as pre-release on GitHub (not "l
 #    Example: "0.2.1" for stable, "0.3.0rc1" for release candidate
 
 # 2. Commit the version bump
-git add pyproject.toml src/skene_growth/__init__.py
-git commit -m "Bump skene-growth version to X.Y.Z"
+git add pyproject.toml src/skene/__init__.py
+git commit -m "Bump skene version to X.Y.Z"
 git push origin main
 
 # 3. Create a GitHub Release (this triggers PyPI publishing)
@@ -48,7 +48,7 @@ gh release create vX.Y.Zrc1 --prerelease --title "vX.Y.Zrc1" --generate-notes
 
 1. Creating the GitHub Release triggers `.github/workflows/publish.yml`
 2. The workflow builds the Python package and publishes to PyPI via trusted publishing
-3. Users can install with `pip install skene-growth` or `uvx skene-growth`
+3. Users can install with `pip install skene` or `uvx skene`
 
 ---
 
@@ -105,13 +105,13 @@ The CI pipelines run independently — Python changes don't trigger Go CI and vi
 
 ### Python release
 - [ ] Version bumped in `pyproject.toml`
-- [ ] Version bumped in `src/skene_growth/__init__.py` (if applicable)
+- [ ] Version bumped in `src/skene/__init__.py` (if applicable)
 - [ ] Changes committed and pushed to `main`
 - [ ] GitHub Release created (`gh release create vX.Y.Z`)
-- [ ] Verify on [PyPI](https://pypi.org/project/skene-growth/)
+- [ ] Verify on [PyPI](https://pypi.org/project/skene/)
 
 ### TUI release
 - [ ] `VERSION` updated in `tui/Makefile`
 - [ ] Changes committed and pushed to `main`
 - [ ] Tag created and pushed (`git tag tui-vX.Y.Z && git push origin tui-vX.Y.Z`)
-- [ ] Verify on [GitHub Releases](https://github.com/SkeneTechnologies/skene-growth/releases)
+- [ ] Verify on [GitHub Releases](https://github.com/SkeneTechnologies/skene/releases)
