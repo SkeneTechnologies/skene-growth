@@ -34,7 +34,9 @@ func Check() *Result {
 	client := &http.Client{Timeout: 3 * time.Second}
 
 	// List recent releases and find the latest tui-v* tag.
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=20", constants.Repository)
+	// constants.Repository includes the "github.com/" prefix, strip it for the API.
+	repo := strings.TrimPrefix(constants.Repository, "github.com/")
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=20", repo)
 	resp, err := client.Get(url)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return nil
