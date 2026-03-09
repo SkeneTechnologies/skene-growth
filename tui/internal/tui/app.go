@@ -8,6 +8,7 @@ import (
 
 	"skene/internal/constants"
 	"skene/internal/game"
+	"github.com/atotto/clipboard"
 	"skene/internal/services/auth"
 	"skene/internal/services/config"
 	"skene/internal/services/growth"
@@ -544,6 +545,13 @@ func (a *App) handleWelcomeKeys(key string) tea.Cmd {
 		} else {
 			a.state = StateProviderSelect
 			a.providerView.SetSize(a.width, a.height)
+		}
+		return nil
+	case "c":
+		if a.welcomeView != nil && a.welcomeView.HasUpdate() {
+			if clipboard.WriteAll(a.welcomeView.GetUpdateCmd()) == nil {
+				a.welcomeView.SetCopied()
+			}
 		}
 		return nil
 	}

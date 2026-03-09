@@ -21,6 +21,7 @@ type WelcomeView struct {
 	// Update notification (set asynchronously)
 	newVersion string
 	updateCmd  string
+	copied     bool
 }
 
 // NewWelcomeView creates a new welcome view
@@ -61,6 +62,21 @@ func (v *WelcomeView) SetUpdateAvailable(newVersion, updateCmd string) {
 	v.updateCmd = updateCmd
 }
 
+// HasUpdate returns true if an update notification is present.
+func (v *WelcomeView) HasUpdate() bool {
+	return v.newVersion != ""
+}
+
+// GetUpdateCmd returns the update command string.
+func (v *WelcomeView) GetUpdateCmd() string {
+	return v.updateCmd
+}
+
+// SetCopied marks the update command as copied to clipboard.
+func (v *WelcomeView) SetCopied() {
+	v.copied = true
+}
+
 // ResetAnimation recreates the animation so it plays from the start
 func (v *WelcomeView) ResetAnimation() tea.Cmd {
 	v.anim = components.NewASCIIMotion(styles.IsDarkBackground)
@@ -96,14 +112,22 @@ func (v *WelcomeView) Render() string {
 	if v.newVersion != "" {
 		notice := fmt.Sprintf("Update available: %s (current: %s)", v.newVersion, constants.Version)
 		updateNotice = center.Render(styles.Accent.Render(notice))
-		updateNotice += "\n" + center.Render(styles.Muted.Render(v.updateCmd))
+		if v.copied {
+			updateNotice += "\n" + center.Render(styles.Muted.Render("Copied to clipboard!"))
+		} else {
+			updateNotice += "\n" + center.Render(styles.Muted.Render("Press c to copy update command"))
+		}
 	}
 
 	// Footer help
-	footer := components.FooterHelp([]components.HelpItem{
+	helpItems := []components.HelpItem{
 		{Key: constants.HelpKeyEnter, Desc: constants.HelpDescStart},
 		{Key: constants.HelpKeyCtrlC, Desc: constants.HelpDescQuit},
-	})
+	}
+	if v.newVersion != "" {
+		helpItems = append(helpItems, components.HelpItem{Key: "c", Desc: "copy update cmd"})
+	}
+	footer := components.FooterHelp(helpItems)
 
 	// Combine elements
 	elements := []string{
@@ -144,8 +168,12 @@ func (v *WelcomeView) Render() string {
 
 // GetHelpItems returns context-specific help
 func (v *WelcomeView) GetHelpItems() []components.HelpItem {
-	return []components.HelpItem{
+	items := []components.HelpItem{
 		{Key: constants.HelpKeyEnter, Desc: constants.HelpDescStart},
 		{Key: constants.HelpKeyCtrlC, Desc: constants.HelpDescQuit},
 	}
+	if v.newVersion != "" {
+		items = append(items, components.HelpItem{Key: "c", Desc: "copy update cmd"})
+	}
+	return items
 }
