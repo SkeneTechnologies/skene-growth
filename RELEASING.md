@@ -54,13 +54,14 @@ gh release create vX.Y.Zrc1 --prerelease --title "vX.Y.Zrc1" --generate-notes
 
 ## TUI
 
-### Files to update
+### Version handling
 
-1. **`tui/Makefile`** — `VERSION=tui-vX.Y.Z` (used by the no-Go fallback download path and injected into the binary at build time)
+The binary version is automatically injected via `-ldflags` at build time — `tui/internal/constants/constants.go` does _not_ need to be updated manually.
 
-> **Note:** `tui/internal/constants/constants.go` does _not_ need to be updated. The version is automatically injected into the binary via `-ldflags` at build time, using the `VERSION` from the Makefile (local builds) or the git tag (CI builds).
+- **Stable releases:** Update `VERSION` in `tui/Makefile` (e.g. `VERSION=tui-v0.3.0`). This is used by the no-Go fallback download path and for local builds, and should always point to the latest stable release.
+- **Pre-releases:** Do _not_ update the Makefile. The CI workflow reads the version from the git tag directly, so the Makefile should keep pointing to the latest stable release.
 
-### Steps
+### Stable release steps
 
 ```bash
 # 1. Update VERSION in tui/Makefile
@@ -74,6 +75,14 @@ git push origin main
 # 3. Tag and push (this triggers the release workflow)
 git tag tui-vX.Y.Z
 git push origin tui-vX.Y.Z
+```
+
+### Pre-release steps
+
+```bash
+# No file changes needed — just tag and push
+git tag tui-vX.Y.Za1
+git push origin tui-vX.Y.Za1
 ```
 
 ### What happens
@@ -112,8 +121,12 @@ The CI pipelines run independently — Python changes don't trigger Go CI and vi
 - [ ] GitHub Release created (`gh release create vX.Y.Z`)
 - [ ] Verify on [PyPI](https://pypi.org/project/skene/)
 
-### TUI release
+### TUI stable release
 - [ ] `VERSION` updated in `tui/Makefile`
 - [ ] Changes committed and pushed to `main`
 - [ ] Tag created and pushed (`git tag tui-vX.Y.Z && git push origin tui-vX.Y.Z`)
+- [ ] Verify on [GitHub Releases](https://github.com/SkeneTechnologies/skene/releases)
+
+### TUI pre-release
+- [ ] Tag created and pushed (`git tag tui-vX.Y.Za1 && git push origin tui-vX.Y.Za1`)
 - [ ] Verify on [GitHub Releases](https://github.com/SkeneTechnologies/skene/releases)
