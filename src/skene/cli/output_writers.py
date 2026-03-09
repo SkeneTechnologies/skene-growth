@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from skene.output import console
+from skene.output import success as output_success, warning as output_warning
 
 
 def write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
@@ -22,7 +22,7 @@ def write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
         else:
             manifest = GrowthManifest.model_validate(manifest_data)
     except Exception as exc:
-        console.print(f"[yellow]Warning:[/yellow] Failed to parse manifest for product docs: {exc}")
+        output_warning(f"Failed to parse manifest for product docs: {exc}")
         return
 
     # Write to same directory as manifest (./skene-context/)
@@ -33,9 +33,9 @@ def write_product_docs(manifest_data: dict, manifest_path: Path) -> None:
         generator = DocsGenerator()
         product_content = generator.generate_product_docs(manifest)
         product_docs_path.write_text(product_content)
-        console.print(f"[green]Product docs saved to:[/green] {product_docs_path}")
+        output_success(f"Product docs saved to: {product_docs_path}")
     except Exception as exc:
-        console.print(f"[yellow]Warning:[/yellow] Failed to generate product docs: {exc}")
+        output_warning(f"Failed to generate product docs: {exc}")
 
 
 async def write_growth_template(llm, manifest_data: dict, manifest_path: Path | None = None) -> dict | None:
@@ -59,8 +59,8 @@ async def write_growth_template(llm, manifest_data: dict, manifest_path: Path | 
         else:
             output_dir = Path("./skene-context")
         json_path = write_growth_template_outputs(template_data, output_dir)
-        console.print(f"[green]Growth template saved to:[/green] {json_path}")
+        output_success(f"Growth template saved to: {json_path}")
         return template_data
     except Exception as exc:
-        console.print(f"[yellow]Warning:[/yellow] Failed to generate growth template: {exc}")
+        output_warning(f"Failed to generate growth template: {exc}")
         return None
