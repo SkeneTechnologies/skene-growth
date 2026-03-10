@@ -1382,37 +1382,6 @@ func (a *App) detectLocalModels() tea.Cmd {
 	}
 }
 
-// analysisErrorSuggestion returns a contextual suggestion based on the error
-func analysisErrorSuggestion(err error) string {
-	s := err.Error()
-	if containsAny(s, "failed to locate uvx", "failed to download uv") {
-		return "The CLI could not provision the uvx runtime. Check your internet connection and try again."
-	}
-	if containsAny(s, "No module named", "not found: skene", "package not found") {
-		return "The skene package could not be found. Make sure it is published or install it manually."
-	}
-	if containsAny(s, "API key", "401", "unauthorized") {
-		return "Check your API key, ensure it has the required permissions, and try again."
-	}
-	if containsAny(s, "network", "connection", "timeout") {
-		return "Check your network connection and try again."
-	}
-	return "Check the output above for details and try again."
-}
-
-func containsAny(s string, substrs ...string) bool {
-	for _, sub := range substrs {
-		if len(s) >= len(sub) {
-			for i := 0; i <= len(s)-len(sub); i++ {
-				if s[i:i+len(sub)] == sub {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 func (a *App) showError(err *views.ErrorInfo) {
 	a.prevState = a.state
 	a.currentError = err

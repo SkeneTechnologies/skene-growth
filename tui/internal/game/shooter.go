@@ -15,9 +15,6 @@ import (
 )
 
 const (
-	defaultWidth  = 60
-	defaultHeight = 18
-
 	playerX    = 8
 	shootEvery = 3
 
