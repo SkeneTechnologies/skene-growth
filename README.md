@@ -73,7 +73,7 @@ For CLI usage details, see the [documentation](https://www.skene.ai/resources/do
 
 ## Monorepo Structure
 
-This repository contains two independent packages:
+This repository contains two packages:
 
 | Directory | Description | Language | Distribution |
 |-----------|-------------|----------|-------------|
