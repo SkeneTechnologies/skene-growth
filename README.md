@@ -6,13 +6,8 @@
   <a href="https://www.reddit.com/r/plgbuilders/"><img width="153" height="42" alt="reddit" src="https://github.com/user-attachments/assets/b420ea50-26e3-40fe-ab34-ac179f748357"></a>
 </p>
 
-# Skene
 
-[![PyPI version](https://img.shields.io/pypi/v/skene)](https://pypi.org/project/skene/)
-[![Downloads](https://static.pepy.tech/badge/skene/month)](https://pepy.tech/projects/skene)
-[![Commit Activity](https://img.shields.io/github/commit-activity/m/SkeneTechnologies/skene)](https://github.com/SkeneTechnologies/skene/commits)
-
-PLG (Product-Led Growth) codebase analysis toolkit. Scan your codebase, detect growth opportunities, and generate actionable implementation plans.
+Skene is a codebase analysis toolkit for product-led growth. It scan your codebase, detect growth opportunities, and generate actionable implementation plans.
 
 ## Quick Start
 
