@@ -30,19 +30,19 @@ const (
 func (p AnalysisPhase) String() string {
 	switch p {
 	case PhaseScanCodebase:
-		return "Scanning codebase"
+		return constants.PhaseScanningCodebase
 	case PhaseDetectFeatures:
-		return "Detecting product features"
+		return constants.PhaseDetectingFeatures
 	case PhaseGrowthLoops:
-		return "Growth loop analysis"
+		return constants.PhaseGrowthLoops
 	case PhaseMonetisation:
-		return "Monetisation analysis"
+		return constants.PhaseMonetisation
 	case PhaseOpportunities:
-		return "Opportunity modelling"
+		return constants.PhaseOpportunities
 	case PhaseGenerateDocs:
-		return "Generating manifests & docs"
+		return constants.PhaseGeneratingDocs
 	default:
-		return "Analyzing..."
+		return constants.StatusInProgress
 	}
 }
 
