@@ -1,9 +1,9 @@
 <p align="center">
-  <img width="2000" height="400" alt="Skene_git" src="https://github.com/user-attachments/assets/86018223-e653-45de-90d2-334f6f4de589" />
-  <a href="https://www.skene.ai"><img src="https://img.shields.io/badge/Website-007ACC?style=flat&logo=google-chrome&logoColor=white" alt="Website"></a>
-  <a href="https://www.skene.ai/resources/docs/skene"><img src="https://img.shields.io/badge/Docs-555?style=flat&logo=bookstack&logoColor=white" alt="Docs"></a>
-  <a href="https://www.skene.ai/resources/blog"><img src="https://img.shields.io/badge/Blog-555?style=flat&logo=substack&logoColor=white" alt="Blog"></a>
-  <a href="https://www.reddit.com/r/plgbuilders/"><img src="https://img.shields.io/badge/r%2Fplgbuilders-D84315?style=flat&logo=reddit&logoColor=white" alt="Reddit"></a>
+  <img width="2000" height="400" alt="Skene_git" src="https://github.com/user-attachments/assets/86018223-e653-45de-90d2-334f6f4de589">
+  <a href="https://www.skene.ai"><img width="120" height="42" alt="website" src="https://github.com/user-attachments/assets/04e469ab-cd02-4526-bc5b-e5e0ca440fc6"></a>
+  <a href="https://www.skene.ai/resources/docs/skene"><img width="103" height="42" alt="docs" src="https://github.com/user-attachments/assets/c63f96cb-52a9-4154-881b-37526b850f9b"></a>
+  <a href="https://www.skene.ai/resources/blog"><img width="100" height="42" alt="blog" src="https://github.com/user-attachments/assets/baabe37b-0557-443e-9b01-6ae3951cf91b"></a>
+  <a href="https://www.reddit.com/r/plgbuilders/"><img width="153" height="42" alt="reddit" src="https://github.com/user-attachments/assets/18d0df1b-81d9-4112-83f6-0a8fde5c189a"></a>
 </p>
 
 # Skene
