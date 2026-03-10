@@ -107,16 +107,23 @@ func (v *WelcomeView) Render() string {
 	// Version info
 	version := center.Render(styles.Muted.Render(constants.Version + " • " + constants.Repository))
 
-	// Update notification
+	// Update notification — bordered block with update + hint
 	var updateNotice string
 	if v.newVersion != "" {
-		notice := fmt.Sprintf("Update available: %s (current: %s)", v.newVersion, constants.Version)
-		updateNotice = center.Render(styles.Accent.Render(notice))
+		notice := fmt.Sprintf(constants.UpdateNoticeFormat, v.newVersion, constants.Version)
+		hintRaw := constants.UpdateNoticeHintCopy
 		if v.copied {
-			updateNotice += "\n" + center.Render(styles.Muted.Render("Copied to clipboard!"))
-		} else {
-			updateNotice += "\n" + center.Render(styles.Muted.Render("Press c to copy update command"))
+			hintRaw = constants.UpdateNoticeCopied
 		}
+		hint := styles.Muted.Render(hintRaw)
+		blockWidth := lipgloss.Width(notice)
+		if w := lipgloss.Width(hintRaw); w > blockWidth {
+			blockWidth = w
+		}
+		blockWidth += 4 // padding
+		content := styles.UpdateNoticeText.Render(notice) + "\n" + hint
+		block := styles.UpdateNotice.Width(blockWidth).Render(content)
+		updateNotice = center.Render(block)
 	}
 
 	// Footer help
@@ -125,7 +132,7 @@ func (v *WelcomeView) Render() string {
 		{Key: constants.HelpKeyCtrlC, Desc: constants.HelpDescQuit},
 	}
 	if v.newVersion != "" {
-		helpItems = append(helpItems, components.HelpItem{Key: "c", Desc: "copy update cmd"})
+		helpItems = append(helpItems, components.HelpItem{Key: constants.HelpKeyC, Desc: constants.HelpDescCopyUpdateCmd})
 	}
 	footer := components.FooterHelp(helpItems)
 
@@ -173,7 +180,7 @@ func (v *WelcomeView) GetHelpItems() []components.HelpItem {
 		{Key: constants.HelpKeyCtrlC, Desc: constants.HelpDescQuit},
 	}
 	if v.newVersion != "" {
-		items = append(items, components.HelpItem{Key: "c", Desc: "copy update cmd"})
+		items = append(items, components.HelpItem{Key: constants.HelpKeyC, Desc: constants.HelpDescCopyUpdateCmd})
 	}
 	return items
 }
