@@ -146,7 +146,7 @@ func (v *ProviderView) renderProviderList(width int) string {
 		var item string
 		if isSelected {
 			name := styles.ListItemSelected.Render(p.Name)
-			desc := styles.AccentStyle().PaddingLeft(2).Width(descWidth).Render(p.Description)
+			desc := lipgloss.NewStyle().Foreground(styles.MidGray).PaddingLeft(2).Width(descWidth).Render(p.Description)
 			item = name + "\n" + desc
 		} else {
 			name := styles.ListItem.Render(p.Name)
