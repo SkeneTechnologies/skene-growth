@@ -118,7 +118,11 @@ class AnthropicClient(LLMClient):
         try:
             from anthropic import RateLimitError
         except ImportError:
-            RateLimitError = Exception
+            class FallbackRateLimitError(Exception):
+                """Fallback error used when anthropic.RateLimitError is unavailable."""
+                pass
+
+            RateLimitError = FallbackRateLimitError
 
         def _usage_from_response(response) -> dict[str, int] | None:
             usage = getattr(response, "usage", None)
