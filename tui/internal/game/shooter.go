@@ -24,15 +24,28 @@ const (
 )
 
 var (
-	styleShip     = lipgloss.NewStyle().Foreground(styles.GameShip)
-	styleBullet   = lipgloss.NewStyle().Foreground(styles.GameBullet)
-	styleEnemy    = lipgloss.NewStyle().Foreground(styles.GameEnemy)
-	styleTerrain  = lipgloss.NewStyle().Foreground(styles.GameTerrain)
-	styleHUD      = lipgloss.NewStyle().Foreground(styles.GameHUD).Bold(true)
-	styleExplo    = lipgloss.NewStyle().Foreground(styles.GameExplosion)
-	styleDead     = lipgloss.NewStyle().Foreground(styles.GameDead).Bold(true)
-	styleEnemyBul = lipgloss.NewStyle().Foreground(styles.GameEnemyBullet)
+	styleShip     lipgloss.Style
+	styleBullet   lipgloss.Style
+	styleEnemy    lipgloss.Style
+	styleTerrain  lipgloss.Style
+	styleHUD      lipgloss.Style
+	styleExplo    lipgloss.Style
+	styleDead     lipgloss.Style
+	styleEnemyBul lipgloss.Style
 )
+
+// RebuildGameStyles initializes game styles. Call this after styles.Init()
+// to ensure theme detection has run.
+func RebuildGameStyles() {
+	styleShip = styles.AccentStyle()
+	styleBullet = lipgloss.NewStyle().Foreground(styles.ErrorColor)
+	styleEnemy = lipgloss.NewStyle().Foreground(styles.ErrorColor)
+	styleTerrain = styles.AccentStyle()
+	styleHUD = lipgloss.NewStyle().Foreground(styles.TextColor).Bold(true)
+	styleExplo = lipgloss.NewStyle().Foreground(styles.WarningColor)
+	styleDead = lipgloss.NewStyle().Foreground(styles.ErrorColor).Bold(true)
+	styleEnemyBul = lipgloss.NewStyle().Foreground(styles.WarningColor)
+}
 
 type vec2 struct{ x, y int }
 
@@ -638,7 +651,7 @@ func (g *Game) Render() string {
 	}
 	blankStyle := lipgloss.NewStyle()
 	if g.flashTimer > 0 {
-		blankStyle = blankStyle.Background(styles.GameFlash)
+		blankStyle = blankStyle.Background(styles.ErrorColor)
 	}
 	blank := cell{' ', blankStyle}
 	grid := make([][]cell, g.height)
@@ -761,10 +774,10 @@ func (g *Game) Render() string {
 	}
 
 	if !g.dead {
-		set(playerX-1, g.playerY-1, '/', lipgloss.NewStyle().Foreground(styles.GameShip))
+		set(playerX-1, g.playerY-1, '/', styles.AccentStyle())
 		set(playerX-1, g.playerY, 'S', styleShip)
 		set(playerX, g.playerY, '►', styleShip)
-		set(playerX-1, g.playerY+1, '\\', lipgloss.NewStyle().Foreground(styles.GameShip))
+		set(playerX-1, g.playerY+1, '\\', styles.AccentStyle())
 	}
 
 	var sb strings.Builder

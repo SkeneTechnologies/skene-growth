@@ -68,6 +68,9 @@ var (
 		Light: lipgloss.CompleteColor{TrueColor: "#1A1410", ANSI: "0"},
 	}
 
+	// BoldTextColor is the raw accent color value. Use AccentStyle() for
+	// foreground text — it handles custom ANSI themes correctly. Use this
+	// directly only for borders, backgrounds, or other non-foreground uses.
 	BoldTextColor lipgloss.TerminalColor = lipgloss.CompleteAdaptiveColor{
 		Dark:  lipgloss.CompleteColor{TrueColor: "#FEC089", ANSI: "15"},
 		Light: lipgloss.CompleteColor{TrueColor: "#FF800F", ANSI: "0"},
@@ -115,19 +118,6 @@ var (
 	// They now map to the terminal's own background vicinity via muted.
 	Charcoal = MutedColor
 	DarkGray = MutedColor
-)
-
-// Game colors — the game reuses the same semantic palette.
-var (
-	GameShip        = BoldTextColor // player ship: accent color
-	GameBullet      = ErrorColor    // player bullets: red/danger
-	GameEnemy       = ErrorColor    // enemy sprites: red/danger
-	GameTerrain     = BoldTextColor // cave walls: accent color
-	GameHUD         = TextColor     // score/HP overlay: default text
-	GameExplosion   = WarningColor  // explosion particles: yellow/warning
-	GameDead        = ErrorColor    // death screen text: red/danger
-	GameEnemyBullet = WarningColor  // enemy projectiles: yellow (distinct from player bullets)
-	GameFlash       = ErrorColor    // damage flash background: red
 )
 
 // ═══════════════════════════════════════════════════════════════════
@@ -232,11 +222,11 @@ var UpdateNotice lipgloss.Style
 // UpdateNoticeText style — main update message
 var UpdateNoticeText lipgloss.Style
 
-// AccentStyle returns a style that renders as the accent / "bold text"
-// color. When a custom theme is active, we rely on Bold(true) with no
-// explicit foreground so the terminal applies its own "Bold Text" color.
-// On standard themes we set the brand foreground explicitly.
-// Use this when building inline styles that need the accent color.
+// AccentStyle returns a style with the accent color applied. On standard
+// terminals this is the brand foreground; on custom ANSI themes it uses
+// Bold so the terminal's own theme color shows through. Use this (or the
+// pre-built Accent variable) for all accent-colored text. Chain
+// .Bold(true) yourself if you also want bold weight.
 func AccentStyle() lipgloss.Style {
 	if HasCustomTheme {
 		return lipgloss.NewStyle().Bold(true)
@@ -244,22 +234,13 @@ func AccentStyle() lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(BoldTextColor)
 }
 
-// AccentBoldStyle is AccentStyle that is always bold (titles, headings).
-func AccentBoldStyle() lipgloss.Style {
-	if HasCustomTheme {
-		return lipgloss.NewStyle().Bold(true)
-	}
-	return lipgloss.NewStyle().Foreground(BoldTextColor).Bold(true)
-}
-
 // rebuildStyles constructs all lipgloss styles from the current color
 // variables. Called by Init() after colors have been set.
 func rebuildStyles() {
 	accent := AccentStyle()
-	accentBold := AccentBoldStyle()
 
 	// Text styles
-	Title = accentBold
+	Title = accent.Bold(true)
 	Subtitle = accent
 	Body = lipgloss.NewStyle().Foreground(TextColor)
 	Muted = lipgloss.NewStyle().Foreground(MutedColor)
@@ -335,7 +316,7 @@ func rebuildStyles() {
 	ProgressEmpty = MutedColor
 
 	// Help styles
-	HelpKey = accentBold
+	HelpKey = accent.Bold(true)
 	HelpDesc = lipgloss.NewStyle().Foreground(MutedColor)
 	HelpSeparator = lipgloss.NewStyle().Foreground(MutedColor).SetString(" • ")
 
@@ -410,7 +391,7 @@ func repeatString(s string, n int) string {
 
 // PageTitle creates a centered page title
 func PageTitle(title string, width int) string {
-	return AccentBoldStyle().
+	return AccentStyle().Bold(true).
 		Width(width).
 		Align(lipgloss.Center).
 		Render(title)

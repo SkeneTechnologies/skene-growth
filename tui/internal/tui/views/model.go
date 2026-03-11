@@ -128,7 +128,7 @@ func (v *ModelView) renderModelList(width int) string {
 		var item string
 		if isSelected {
 			name := styles.ListItemSelected.Render(m.Name)
-			desc := styles.AccentStyle().PaddingLeft(2).Width(descWidth).Render(m.Description)
+			desc := lipgloss.NewStyle().Foreground(styles.MidGray).PaddingLeft(2).Width(descWidth).Render(m.Description)
 			item = name + "\n" + desc
 		} else {
 			name := styles.ListItem.Render(m.Name)
