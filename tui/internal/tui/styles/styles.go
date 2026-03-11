@@ -54,56 +54,43 @@ func detectCustomTheme(output *termenv.Output) bool {
 // ═══════════════════════════════════════════════════════════════════
 // COLOR PALETTE
 //
-// Derived from the terminal profile settings:
-//   Text      = default text color (no explicit color — terminal foreground)
-//   BoldText  = accent / titles / highlighted text (bold text color)
-//   Muted     = borders, dimmed text, secondary UI
-//   Error     = red semantic
-//   Success   = green semantic
-//   Warning   = yellow semantic
+// Two tiers:
+//   TrueColor  – Skene brand hex values (used on standard modern terminals)
+//   ANSI       – 16-color indices that adapt to the user's theme
 //
-// TrueColor & ANSI256 tiers carry the Skene brand hex/index values.
-// ANSI tier maps to the user's 16-color theme for full adaptivity.
+// When a custom theme is detected, the renderer is forced to ANSI so
+// CompleteAdaptiveColor always picks the ANSI tier.
 // ═══════════════════════════════════════════════════════════════════
 
-// Core palette — these are the only colors the entire TUI needs.
 var (
-	// TextColor is the terminal's default foreground. On dark backgrounds
-	// this is white/light; on light backgrounds it is black/dark.
 	TextColor lipgloss.TerminalColor = lipgloss.CompleteAdaptiveColor{
-		Dark:  lipgloss.CompleteColor{TrueColor: "#FFFFFF", ANSI256: "255", ANSI: "15"},
-		Light: lipgloss.CompleteColor{TrueColor: "#1A1410", ANSI256: "234", ANSI: "0"},
+		Dark:  lipgloss.CompleteColor{TrueColor: "#FFFFFF", ANSI: "15"},
+		Light: lipgloss.CompleteColor{TrueColor: "#1A1410", ANSI: "0"},
 	}
 
-	// BoldTextColor is the accent / brand color used for titles, highlights,
-	// active elements. Maps to the terminal's "Bold Text" color setting.
 	BoldTextColor lipgloss.TerminalColor = lipgloss.CompleteAdaptiveColor{
-		Dark:  lipgloss.CompleteColor{TrueColor: "#FEC089", ANSI256: "216", ANSI: "3"},
-		Light: lipgloss.CompleteColor{TrueColor: "#FF800F", ANSI256: "208", ANSI: "3"},
+		Dark:  lipgloss.CompleteColor{TrueColor: "#FEC089", ANSI: "15"},
+		Light: lipgloss.CompleteColor{TrueColor: "#FF800F", ANSI: "0"},
 	}
 
-	// MutedColor is for borders, dimmed text, and secondary UI elements.
 	MutedColor lipgloss.TerminalColor = lipgloss.CompleteAdaptiveColor{
-		Dark:  lipgloss.CompleteColor{TrueColor: "#4A4A4A", ANSI256: "239", ANSI: "8"},
-		Light: lipgloss.CompleteColor{TrueColor: "#6B6058", ANSI256: "242", ANSI: "15"},
+		Dark:  lipgloss.CompleteColor{TrueColor: "#4A4A4A", ANSI: "8"},
+		Light: lipgloss.CompleteColor{TrueColor: "#6B6058", ANSI: "15"},
 	}
 
-	// ErrorColor is the semantic red for errors and danger.
 	ErrorColor lipgloss.TerminalColor = lipgloss.CompleteAdaptiveColor{
-		Dark:  lipgloss.CompleteColor{TrueColor: "#F25246", ANSI256: "196", ANSI: "9"},
-		Light: lipgloss.CompleteColor{TrueColor: "#F25246", ANSI256: "196", ANSI: "1"},
+		Dark:  lipgloss.CompleteColor{TrueColor: "#F25246", ANSI: "9"},
+		Light: lipgloss.CompleteColor{TrueColor: "#F25246", ANSI: "1"},
 	}
 
-	// SuccessColor is the semantic green for success indicators.
 	SuccessColor lipgloss.TerminalColor = lipgloss.CompleteAdaptiveColor{
-		Dark:  lipgloss.CompleteColor{TrueColor: "#D7F4AB", ANSI256: "192", ANSI: "10"},
-		Light: lipgloss.CompleteColor{TrueColor: "#7EC017", ANSI256: "112", ANSI: "2"},
+		Dark:  lipgloss.CompleteColor{TrueColor: "#D7F4AB", ANSI: "10"},
+		Light: lipgloss.CompleteColor{TrueColor: "#7EC017", ANSI: "2"},
 	}
 
-	// WarningColor is the semantic yellow for warnings.
 	WarningColor lipgloss.TerminalColor = lipgloss.CompleteAdaptiveColor{
-		Dark:  lipgloss.CompleteColor{TrueColor: "#E6B450", ANSI256: "179", ANSI: "11"},
-		Light: lipgloss.CompleteColor{TrueColor: "#8A6500", ANSI256: "136", ANSI: "3"},
+		Dark:  lipgloss.CompleteColor{TrueColor: "#E6B450", ANSI: "11"},
+		Light: lipgloss.CompleteColor{TrueColor: "#8A6500", ANSI: "3"},
 	}
 )
 
