@@ -61,6 +61,7 @@ class Planner:
         user_prompt: str | None = None,
         plan_steps: list[PlanStepDefinition] | None = None,
         on_step: Callable[[int, str, str, dict[str, int] | None], None] | None = None,
+        on_harmonize: Callable[[], None] | None = None,
     ) -> tuple[str, GrowthPlan]:
         """
         Generate a growth plan using multi-step orchestration.
@@ -78,6 +79,7 @@ class Planner:
             user_prompt: Additional user context (optional)
             plan_steps: Step definitions for middle sections; defaults to DEFAULT_PLAN_STEPS
             on_step: Callback invoked after each section with (step_number, title, markdown, usage)
+            on_harmonize: Callback invoked just before the harmonization pass
 
         Returns:
             Tuple of (markdown content, validated GrowthPlan)
@@ -132,6 +134,8 @@ class Planner:
             on_step(te_step_number, "Technical Execution", te_md, te_tokens)
 
         # Harmonization pass
+        if on_harmonize:
+            on_harmonize()
         plan = await self._harmonize(
             llm=llm,
             shared_context=shared_context,

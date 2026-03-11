@@ -16,6 +16,8 @@ DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5"
 # Retry delays in seconds for no-fallback mode (exponential-ish backoff)
 RETRY_DELAYS = [5, 15, 30]
 
+DEFAULT_TIMEOUT = 900.0
+
 
 class AnthropicClient(LLMClient):
     """
@@ -58,7 +60,7 @@ class AnthropicClient(LLMClient):
         self.model_name = model_name
         self.fallback_model = fallback_model or DEFAULT_FALLBACK_MODEL
         self.no_fallback = no_fallback
-        self.client = AsyncAnthropic(api_key=api_key.get_secret_value())
+        self.client = AsyncAnthropic(api_key=api_key.get_secret_value(), timeout=DEFAULT_TIMEOUT)
 
     async def generate_content(
         self,
@@ -111,8 +113,8 @@ class AnthropicClient(LLMClient):
     async def generate_content_with_usage(
         self,
         prompt: str,
-    ) -> tuple[str, int | None]:
-        """Generate text and return (content, total_tokens). Returns None for tokens when not in response."""
+    ) -> tuple[str, dict[str, int] | None]:
+        """Generate text and return (content, usage). Usage has output_tokens, input_tokens. Returns None when not in response."""
         try:
             from anthropic import RateLimitError
         except ImportError:
@@ -121,7 +123,7 @@ class AnthropicClient(LLMClient):
         def _usage_from_response(response) -> dict[str, int] | None:
             usage = getattr(response, "usage", None)
             if usage and hasattr(usage, "input_tokens") and hasattr(usage, "output_tokens"):
-                return {"input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens}
+                return {"output_tokens": usage.output_tokens, "input_tokens": usage.input_tokens}
             return None
 
         try:

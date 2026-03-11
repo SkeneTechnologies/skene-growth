@@ -101,7 +101,7 @@ class DebugLLMClient(LLMClient):
         if usage:
             inp = usage.get("input_tokens", 0)
             out = usage.get("output_tokens", 0)
-            token_info = f" | {inp:,} in / {out:,} out"
+            token_info = f" | {out:,} out / {inp:,} in"
         self._write(f"\n[RESPONSE] ({duration:.2f}s{token_info})\n{content}\n\n--- End call #{call_id} ---\n")
         logger.debug(
             "LLM call #{} completed | {:.2f}s | response_len={}{}",

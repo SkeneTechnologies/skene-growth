@@ -528,15 +528,7 @@ async def run_generate_plan(
                 # Growth plan: multi-step orchestration with incremental writes
                 plan_steps = await load_plan_steps(context_dir=context_dir, llm=llm)
 
-                # Prepare file with empty content (will be appended per step)
-                header_lines = [
-                    "**Growth Plan Next Steps**",
-                    f"**Generated:** {__import__('datetime').datetime.now().isoformat()}",
-                    "",
-                    "---",
-                    "",
-                ]
-                output_path.write_text("\n".join(header_lines))
+                accumulated_chunks: list[str] = []
 
                 def on_step(
                     step_number: int,
@@ -550,10 +542,13 @@ async def run_generate_plan(
                     if usage:
                         inp = usage.get("input_tokens", 0)
                         out = usage.get("output_tokens", 0)
-                        suffix = f" ({inp:,} in / {out:,} out)"
+                        suffix = f" ({out:,} out / {inp:,} in)"
                     console.print(f"[green]Generated section:[/green] {title}{suffix}")
-                    with output_path.open("a", encoding="utf-8") as f:
-                        f.write(markdown_chunk + "\n")
+                    accumulated_chunks.append(markdown_chunk)
+                    output_path.write_text("\n".join(accumulated_chunks) + "\n")
+
+                def on_harmonize() -> None:
+                    console.print("[dim]Harmonising...[/dim]")
 
                 memo_content, growth_plan = await planner.generate_growth_plan(
                     llm=llm,
@@ -563,6 +558,7 @@ async def run_generate_plan(
                     user_prompt=user_prompt,
                     plan_steps=plan_steps,
                     on_step=on_step,
+                    on_harmonize=on_harmonize,
                 )
                 # Overwrite with the harmonized final version
                 output_path.write_text(memo_content)
@@ -598,7 +594,7 @@ async def run_generate_plan(
             total_in = sum(u.get("input_tokens", 0) for u in tokens_used)
             total_out = sum(u.get("output_tokens", 0) for u in tokens_used)
             if total_in > 0 or total_out > 0:
-                console.print(f"[dim]Total tokens:[/dim] {total_in:,} in / {total_out:,} out")
+                console.print(f"[dim]Total tokens:[/dim] {total_out:,} out / {total_in:,} in")
 
             return memo_content, (executive_summary, todo_summary, todo_list)
 
