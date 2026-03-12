@@ -112,7 +112,8 @@ class AnthropicClient(LLMClient):
         self,
         prompt: str,
     ) -> tuple[str, dict[str, int] | None]:
-        """Generate text and return (content, usage). Usage has output_tokens, input_tokens. Returns None when not in response."""
+        """Generate text and return (content, usage). Usage has output_tokens, input_tokens.
+        Returns None when not in response."""
         try:
             from anthropic import RateLimitError
         except ImportError:

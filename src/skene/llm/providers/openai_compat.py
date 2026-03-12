@@ -86,7 +86,8 @@ class OpenAICompatibleClient(LLMClient):
         self,
         prompt: str,
     ) -> tuple[str, dict[str, int] | None]:
-        """Generate text and return (content, usage). Usage has output_tokens, input_tokens. Returns None when not in response."""
+        """Generate text and return (content, usage). Usage has output_tokens, input_tokens.
+        Returns None when not in response."""
         try:
             response = await self.client.chat.completions.create(
                 model=self.model_name,

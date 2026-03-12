@@ -166,7 +166,8 @@ class GoogleGeminiClient(LLMClient):
         self,
         prompt: str,
     ) -> tuple[str, dict[str, int] | None]:
-        """Generate text and return (content, usage). Usage has output_tokens, input_tokens. Returns None when not in response."""
+        """Generate text and return (content, usage). Usage has output_tokens, input_tokens.
+        Returns None when not in response."""
         try:
             response = await self._call_api(self.model_name, prompt)
             return (response.text.strip(), _extract_usage(response))

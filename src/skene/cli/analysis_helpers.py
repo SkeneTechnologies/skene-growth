@@ -550,6 +550,9 @@ async def run_generate_plan(
                 def on_harmonize() -> None:
                     console.print("[dim]Harmonising...[/dim]")
 
+                project_name_from_file = (
+                    manifest_data.get("project_name") if (manifest_path and manifest_path.exists()) else None
+                )
                 memo_content, growth_plan = await planner.generate_growth_plan(
                     llm=llm,
                     manifest_data=manifest_data,
@@ -559,6 +562,7 @@ async def run_generate_plan(
                     plan_steps=plan_steps,
                     on_step=on_step,
                     on_harmonize=on_harmonize,
+                    project_name_from_file=project_name_from_file,
                 )
                 # Overwrite with the harmonized final version
                 output_path.write_text(memo_content)

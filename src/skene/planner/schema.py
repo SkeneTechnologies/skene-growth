@@ -34,20 +34,23 @@ class GrowthPlan(BaseModel):
     technical_execution: TechnicalExecution = Field(description="Technical Execution blueprint")
 
 
-def render_plan_to_markdown(plan: GrowthPlan, project_name: str, generated_at: str) -> str:
+def render_plan_to_markdown(plan: GrowthPlan, generated_at: str, project_name: str | None = None) -> str:
     """Render a GrowthPlan to the markdown memo format.
 
     Args:
         plan: Validated GrowthPlan instance
-        project_name: Name of the project
         generated_at: ISO timestamp string
+        project_name: Project name from manifest file (None = omit from output)
 
     Returns:
         Markdown string matching the council memo format
     """
     lines: list[str] = []
 
-    lines.append(f"# Growth Plan #")
+    if project_name:
+        lines.append(f"# Growth Plan: {project_name} #")
+    else:
+        lines.append("# Growth Plan #")
     lines.append(f"**Generated:** {generated_at}")
     lines.append("")
     lines.append("---")

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from skene_growth.planner.steps import (
+from skene.planner.steps import (
     DEFAULT_PLAN_STEPS,
     PlanStepDefinition,
     load_plan_steps,

@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from skene_growth.planner.planner import Planner
-from skene_growth.planner.schema import GrowthPlan
-from skene_growth.planner.steps import PlanStepDefinition
+from skene.planner.planner import Planner
+from skene.planner.schema import GrowthPlan
+from skene.planner.steps import PlanStepDefinition
 
 _MANIFEST = {
     "project_name": "TestProject",
@@ -145,7 +145,7 @@ class TestGenerateGrowthPlan:
     @pytest.mark.asyncio
     async def test_uses_default_steps_when_none_provided(self):
         """Should use DEFAULT_PLAN_STEPS (4 steps) when plan_steps is not given."""
-        from skene_growth.planner.steps import DEFAULT_PLAN_STEPS
+        from skene.planner.steps import DEFAULT_PLAN_STEPS
 
         tech_exec_data = {
             "next_build": "B.",
@@ -216,6 +216,5 @@ class TestGenerateGrowthPlan:
             plan_steps=[PlanStepDefinition(title="Step One", instruction="Do step one.")],
         )
         assert isinstance(markdown, str)
-        assert "TestProject" in markdown
         assert "Executive Summary" in markdown
         assert "Technical Execution" in markdown

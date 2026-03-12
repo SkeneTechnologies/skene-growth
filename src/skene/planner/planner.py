@@ -62,6 +62,7 @@ class Planner:
         plan_steps: list[PlanStepDefinition] | None = None,
         on_step: Callable[[int, str, str, dict[str, int] | None], None] | None = None,
         on_harmonize: Callable[[], None] | None = None,
+        project_name_from_file: str | None = None,
     ) -> tuple[str, GrowthPlan]:
         """
         Generate a growth plan using multi-step orchestration.
@@ -80,13 +81,13 @@ class Planner:
             plan_steps: Step definitions for middle sections; defaults to DEFAULT_PLAN_STEPS
             on_step: Callback invoked after each section with (step_number, title, markdown, usage)
             on_harmonize: Callback invoked just before the harmonization pass
+            project_name_from_file: Project name from manifest file (None = omit from markdown header)
 
         Returns:
             Tuple of (markdown content, validated GrowthPlan)
         """
         steps = plan_steps if plan_steps is not None else DEFAULT_PLAN_STEPS
         current_time_str = datetime.now().isoformat()
-        project_name = manifest_data.get("project_name", "Project")
 
         shared_context = self._build_shared_context(
             manifest_data=manifest_data,
@@ -144,7 +145,7 @@ class Planner:
             tech_exec=tech_exec,
         )
 
-        markdown = render_plan_to_markdown(plan, project_name, current_time_str)
+        markdown = render_plan_to_markdown(plan, current_time_str, project_name_from_file)
         return markdown, plan
 
     # ------------------------------------------------------------------

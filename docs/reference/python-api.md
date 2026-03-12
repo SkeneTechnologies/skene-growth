@@ -332,5 +332,5 @@ The `Planner` class generates growth plans from manifests and templates. It is u
 
 ### Helper functions
 
-- `render_plan_to_markdown(plan, project_name, generated_at)` — Render a `GrowthPlan` to the council memo markdown format
+- `render_plan_to_markdown(plan, generated_at, project_name=None)` — Render a `GrowthPlan` to the council memo markdown format. Include `project_name` only when from manifest file.
 - `parse_plan_json(response)` — Parse an LLM response (with optional code fences) into a validated `GrowthPlan`

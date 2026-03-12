@@ -25,7 +25,6 @@ import click
 import typer
 from pydantic import SecretStr
 from rich.console import Console
-from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
@@ -34,8 +33,8 @@ from typer.core import TyperGroup
 from skene import __version__
 from skene.cli.analysis_helpers import (
     run_analysis,
-    run_generate_plan,
     run_features_analysis,
+    run_generate_plan,
     show_analysis_summary,
     show_features_summary,
 )
@@ -644,8 +643,12 @@ def plan(
 
     plan_type = "activation plan" if activation else "growth plan"
     base = context if context else Path(".")
-    default_manifest = (base / "skene-context" / "growth-manifest.json") if not context else (base / "growth-manifest.json")
-    default_template = (base / "skene-context" / "growth-template.json") if not context else (base / "growth-template.json")
+    default_manifest = (
+        (base / "skene-context" / "growth-manifest.json") if not context else (base / "growth-manifest.json")
+    )
+    default_template = (
+        (base / "skene-context" / "growth-template.json") if not context else (base / "growth-template.json")
+    )
     manifest_display = str(manifest.resolve()) if manifest else f"{default_manifest.resolve()} (not found)"
     template_display = str(template.resolve()) if template else f"{default_template.resolve()} (not found)"
     console.print(
