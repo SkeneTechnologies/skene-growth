@@ -310,14 +310,18 @@ skene push [PATH] [OPTIONS]
 | `--context PATH` | `-c` | auto-detected | Path to `skene-context` directory. Auto-detected from `<PATH>/skene-context/` or `./skene-context/`. |
 | `--loop TEXT` | `-l` | | Push only this loop (by `loop_id`). If omitted, pushes all loops with Supabase telemetry. |
 | `--upstream TEXT` | `-u` | config | Upstream workspace URL (e.g. `https://skene.ai/workspace/my-app`). Resolved from `.skene.config` or this flag. |
-| `--push-only` | | `false` | Re-push current output without regenerating migrations |
+| `--push-only` | | `false` | Re-push current output without regenerating migrations. |
+| `--local [URL]` | | | Build schema + telemetry migrations locally without pushing to upstream. Optionally provide an ingest URL (default: `https://www.skene.ai/api/v1/cloud/ingest/db-trigger`). Mutually exclusive with `--upstream` and `--push-only`. |
+| `--proxy-secret TEXT` | | `YOUR_PROXY_SECRET` | Proxy secret for the `x-skene-secret` header in `notify_event_log()`. Use with `--local URL`. |
 
 ### Behavior notes
 
 - Requires growth loops with Supabase telemetry (type `"supabase"`) in `skene-context/growth-loops/`.
-- Generates a migration file at `supabase/migrations/<timestamp>_skene_telemetry.sql`.
+- Always creates `supabase/migrations/20260201000000_skene_growth_schema.sql` (idempotent).
+- Generates trigger migrations at `supabase/migrations/<timestamp>_skene_growth_telemetry.sql`.
 - When `--upstream` is provided (or resolved from `.skene.config`), pushes the package (growth loops + telemetry SQL) to the upstream API.
 - Use `skene login` to authenticate before pushing to upstream.
+- `--local` skips the upstream push entirely. Without a URL, uses Skene Cloud ingest by default. With `--local https://...`, the ingest URL is hardcoded into `notify_event_log()` in the telemetry migration.
 
 See the [push guide](../guides/push.md) for detailed usage.
 
@@ -497,6 +501,8 @@ uvx skene analyze . --features
 
 # Push growth loops to Supabase + upstream
 uvx skene push
+uvx skene push --local
+uvx skene push --local https://skene.ai --proxy-secret my-secret
 uvx skene push --upstream https://skene.ai/workspace/my-app
 uvx skene push --loop my_loop_id
 

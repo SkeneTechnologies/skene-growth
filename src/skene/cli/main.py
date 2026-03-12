@@ -17,6 +17,7 @@ Configuration files (optional):
 import asyncio
 import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -94,6 +95,23 @@ app = typer.Typer(
 )
 
 console = Console()
+
+# Default ingest URL when --local is used without a URL
+DEFAULT_LOCAL_INGEST_BASE = "https://www.skene.ai"
+
+
+def _ensure_local_has_default_url() -> None:
+    """When push --local is used without URL, inject default ingest base URL."""
+    argv = sys.argv
+    if "push" not in argv or "--local" not in argv:
+        return
+    try:
+        idx = argv.index("--local")
+    except ValueError:
+        return
+    next_idx = idx + 1
+    if next_idx >= len(argv) or argv[next_idx].startswith("-"):
+        argv.insert(next_idx, DEFAULT_LOCAL_INGEST_BASE)
 
 
 def version_callback(value: bool):
@@ -1135,8 +1153,8 @@ def init(
     """
     Create skene base schema migration if missing.
 
-    Writes supabase/migrations/20260201000000_skene_schema.sql with
-    event_log, failed_events, enrichment_map.
+    Writes supabase/migrations/20260201000000_skene_growth_schema.sql with
+    event_log, failed_events, enrichment_map, enrich_event, notify_event_log.
     Safe to run repeatedly; skips if migration already exists.
     """
     from skene.growth_loops.push import ensure_base_schema_migration
@@ -1182,33 +1200,59 @@ def push(
         "--push-only",
         help="Re-push current output without regenerating",
     ),
+    local: Optional[str] = typer.Option(
+        None,
+        "--local",
+        help=(
+            "Build migrations locally without pushing upstream. "
+            "Optionally provide ingest URL (default: https://www.skene.ai/api/v1/cloud/ingest/db-trigger)."
+        ),
+    ),
+    proxy_secret: Optional[str] = typer.Option(
+        None,
+        "--proxy-secret",
+        help="Proxy secret for ingest endpoint (use with --local URL). Default: YOUR_PROXY_SECRET placeholder.",
+    ),
 ):
     """
     Build a Supabase migration from growth loop telemetry into /supabase and push to upstream.
 
     Creates:
-    - supabase/migrations/<timestamp>_skene_telemetry.sql: idempotent triggers
+    - supabase/migrations/20260201000000_skene_growth_schema.sql: event_log, failed_events, enrichment_map, webhook
+    - supabase/migrations/<timestamp>_skene_growth_telemetry.sql: idempotent triggers
       on telemetry-defined tables that INSERT into event_log
 
+    With --local: build schema + telemetry migrations only (no upstream push), using default Skene Cloud ingest URL.
+    With --local https://...: same, and bake custom ingest URL into notify_event_log webhook.
     With --upstream: pushes artifacts to remote for backup/versioning.
     Use `skene login` to authenticate.
 
     Examples:
 
         skene push
+        skene push --local
+        skene push --local https://skene.ai --proxy-secret my-secret
         skene push --upstream https://skene.ai/workspace/my-app
         skene push --loop skene_guard_activation_safety
         skene push --context ./skene-context
     """
     from skene.growth_loops.push import (
         build_loops_to_supabase,
+        ensure_base_schema_migration,
         extract_supabase_telemetry,
         push_to_upstream,
     )
     from skene.growth_loops.storage import load_existing_growth_loops
 
+    if local is not None and upstream:
+        console.print("[red]--local and --upstream cannot be used together.[/red]")
+        raise typer.Exit(1)
+    if local is not None and push_only:
+        console.print("[red]--local and --push-only cannot be used together.[/red]")
+        raise typer.Exit(1)
+
     config = load_config()
-    resolved_upstream = upstream or config.upstream
+    resolved_upstream = None if local is not None else (upstream or config.upstream)
     resolved_token = resolve_upstream_token(config) if resolved_upstream else None
 
     # Resolve context directory
@@ -1221,40 +1265,57 @@ def push(
             if (candidate / "growth-loops").is_dir():
                 context = candidate
                 break
-        if context is None and not push_only:
+        if context is None and not push_only and local is None:
             console.print(
                 "[red]Could not find skene-context/growth-loops/ directory.[/red]\n"
                 "Use --context to specify the path explicitly."
             )
             raise typer.Exit(1)
-    if push_only and context is None:
+    if (push_only or local is not None) and context is None:
         context = path / "skene-context"
         if not (context / "growth-loops").is_dir():
             context = Path.cwd() / "skene-context"
 
     loops_with_telemetry: list[dict[str, Any]] = []
     if not push_only:
-        loops = load_existing_growth_loops(context)
-        loops_with_telemetry = [loop for loop in loops if extract_supabase_telemetry(loop)]
-        if loop_id:
-            loops_with_telemetry = [loop for loop in loops_with_telemetry if loop.get("loop_id") == loop_id]
-            if not loops_with_telemetry:
-                console.print(f"[red]No loop with loop_id '{loop_id}' has Supabase telemetry.[/red]")
-                raise typer.Exit(1)
-        if not loops_with_telemetry:
+        ctx_for_loops = context or path / "skene-context"
+        if (ctx_for_loops / "growth-loops").is_dir():
+            loops = load_existing_growth_loops(ctx_for_loops)
+            loops_with_telemetry = [loop for loop in loops if extract_supabase_telemetry(loop)]
+            if loop_id:
+                loops_with_telemetry = [loop for loop in loops_with_telemetry if loop.get("loop_id") == loop_id]
+                if not loops_with_telemetry:
+                    console.print(f"[red]No loop with loop_id '{loop_id}' has Supabase telemetry.[/red]")
+                    raise typer.Exit(1)
+        if not loops_with_telemetry and local is None:
             console.print(
                 "[yellow]No growth loops with Supabase telemetry found.[/yellow]\n"
                 "Add telemetry with type 'supabase' (table, operation, properties) via skene build."
             )
             raise typer.Exit(1)
 
+    forward_url = local.strip() if (local and local.strip()) else None
+    secret = proxy_secret or "YOUR_PROXY_SECRET"
+
+    if local is not None and forward_url == DEFAULT_LOCAL_INGEST_BASE:
+        console.print(
+            "[dim]Using default Skene Cloud ingest URL. "
+            "For self-hosted, pass a trigger URL: [bold]skene push --local https://your-ingest.example.com[/bold]. "
+            "To push to upstream, use [bold]skene login[/bold].[/dim]"
+        )
+
     try:
         if not push_only:
+            schema_path = ensure_base_schema_migration(path)
+            if schema_path:
+                console.print(f"[green]Schema:[/green] {schema_path}")
             migration_path = build_loops_to_supabase(
                 loops_with_telemetry,
                 path,
+                forward_url=forward_url,
+                proxy_secret=secret,
             )
-            console.print(f"[green]Migration:[/green] {migration_path}")
+            console.print(f"[green]Telemetry:[/green] {migration_path}")
         else:
             ctx = context or path / "skene-context"
             if (ctx / "growth-loops").is_dir():
@@ -1268,7 +1329,7 @@ def push(
                 migrations_dir = path / "supabase" / "migrations"
                 if migrations_dir.exists():
                     telemetry = next(
-                        (p for p in sorted(migrations_dir.glob("*.sql")) if "skene_telemetry" in p.name.lower()),
+                        (p for p in sorted(migrations_dir.glob("*.sql")) if "skene_growth_telemetry" in p.name.lower()),
                         None,
                     )
                     if telemetry:
@@ -1307,7 +1368,7 @@ def push(
                     else:
                         console.print(f"[yellow]{msg}[/yellow]")
 
-        if not push_only:
+        if not push_only and resolved_upstream:
             console.print("\n[dim]Upstream parses the package (growth loops + telemetry.sql) and deploys.[/dim]\n")
     except Exception as e:
         console.print(f"[red]Deploy failed:[/red] {e}")
@@ -2008,38 +2069,23 @@ def skene_entry_point():
             )
 
     # Run the app - typer will handle sys.argv automatically
+    _ensure_local_has_default_url()
     skene_app()
 
 
-def skene_growth_deprecated_entry():
-    """Deprecated entry point for 'skene-growth' command. Use 'skene' instead."""
-    import warnings
-
-    warnings.warn(
-        "'skene-growth' is deprecated and will be removed in a future release. Use 'skene' instead.",
-        DeprecationWarning,
-        stacklevel=1,
-    )
-    console.print(
-        "[yellow]Warning:[/yellow] 'skene-growth' is deprecated. Use 'skene' instead.",
-        highlight=False,
-    )
+def skene_growth_entry():
+    """Entry point for 'skene-growth' command (development). Use 'skene' for production."""
+    _ensure_local_has_default_url()
     app()
 
 
-def skene_growth_mcp_deprecated_entry():
-    """Deprecated entry point for 'skene-growth-mcp' command. Use 'skene-mcp' instead."""
-    import warnings
-
-    warnings.warn(
-        "'skene-growth-mcp' is deprecated and will be removed in a future release. Use 'skene-mcp' instead.",
-        DeprecationWarning,
-        stacklevel=1,
-    )
+def skene_growth_mcp_entry():
+    """Entry point for 'skene-growth-mcp' command (development). Use 'skene-mcp' for production."""
     from skene.mcp.server import main as mcp_main
 
     mcp_main()
 
 
 if __name__ == "__main__":
+    _ensure_local_has_default_url()
     app()

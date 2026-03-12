@@ -13,24 +13,24 @@ from typing import Any
 
 from rich.console import Console
 
-from skene.growth_loops.schema_sql import BASE_SCHEMA_SQL
+from skene.growth_loops.schema_sql import BASE_SCHEMA_SQL, notify_event_log_sql
 
 console = Console()
 
 BASE_SCHEMA_MIGRATION_PREFIX = "20260201000000"
-BASE_SCHEMA_MIGRATION_NAME = "skene_schema"
+BASE_SCHEMA_MIGRATION_NAME = "skene_growth_schema"
 
 
 def _trigger_name(table: str, operation: str, loop_id: str) -> str:
     """Generate a safe trigger name."""
     safe_loop = re.sub(r"[^a-z0-9_]", "_", loop_id.lower())
-    return f"skene_trg_{table}_{operation}_{safe_loop}"
+    return f"skene_growth_trg_{table}_{operation}_{safe_loop}"
 
 
 def _function_name(table: str, operation: str, loop_id: str) -> str:
     """Generate a safe function name for the trigger."""
     safe_loop = re.sub(r"[^a-z0-9_]", "_", loop_id.lower())
-    return f"skene_fn_{table}_{operation}_{safe_loop}"
+    return f"skene_growth_fn_{table}_{operation}_{safe_loop}"
 
 
 def _build_trigger_function_sql(
@@ -64,10 +64,10 @@ def _build_trigger_function_sql(
 
     body = f"""
 BEGIN
-  INSERT INTO skene.event_log (entity_id, event_type, metadata)
+  INSERT INTO skene_growth.event_log (entity_id, event_type, metadata)
   VALUES ({entity_id_expr}::uuid, '{event_type_val}', {metadata_json});
 EXCEPTION WHEN invalid_text_representation OR OTHERS THEN
-  INSERT INTO skene.event_log (entity_id, event_type, metadata)
+  INSERT INTO skene_growth.event_log (entity_id, event_type, metadata)
   VALUES (NULL, '{event_type_val}', {metadata_json});
 END;
 RETURN NULL;
@@ -77,7 +77,7 @@ CREATE OR REPLACE FUNCTION {fn_name}()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, skene
+SET search_path = public, skene_growth
 AS $$
 BEGIN
 {body}
@@ -123,6 +123,8 @@ def build_migration_sql(
     loops: list[dict[str, Any]],
     *,
     supabase_url_placeholder: str = "https://YOUR_PROJECT.supabase.co",
+    forward_url: str | None = None,
+    proxy_secret: str = "YOUR_PROXY_SECRET",
 ) -> str:
     """
     Build a complete Supabase migration SQL from growth loop definitions.
@@ -168,13 +170,16 @@ def build_migration_sql(
 
     migration = f"""-- Skene Growth: allowlisted triggers insert into event_log (Shadow Mirror)
 -- Generated at {datetime.now().isoformat()}
--- Depends on: 20260201000000_skene_schema.sql (run skene init first)
+-- Depends on: 20260201000000_skene_growth_schema.sql (run skene init first)
 
 -- Trigger functions
 """
     migration += "\n\n".join(fn_parts)
     migration += "\n\n-- Triggers\n"
     migration += "\n".join(trg_parts)
+
+    if forward_url:
+        migration += "\n\n" + notify_event_log_sql(forward_url, proxy_secret)
 
     return migration.strip()
 
@@ -183,7 +188,7 @@ def write_migration(
     migration_sql: str,
     output_dir: Path,
     *,
-    migration_name: str = "skene_telemetry",
+    migration_name: str = "skene_growth_telemetry",
 ) -> Path:
     """Write migration SQL to supabase/migrations/ with timestamp filename."""
     migrations_dir = output_dir / "supabase" / "migrations"
@@ -237,16 +242,21 @@ def build_loops_to_supabase(
     output_dir: Path,
     *,
     supabase_url_placeholder: str = "https://YOUR_PROJECT.supabase.co",
+    forward_url: str | None = None,
+    proxy_secret: str = "YOUR_PROXY_SECRET",
 ) -> Path:
     """
     Build migration for the given growth loops.
 
     Ensures base schema migration exists (event_log, failed_events, enrichment_map)
-    before writing trigger migration. Returns migration_path.
+    before writing trigger migration. When forward_url is provided (e.g. from --local URL),
+    appends notify_event_log override with that ingest URL. Returns migration_path.
     """
     ensure_base_schema_migration(output_dir)
     migration_sql = build_migration_sql(
         loops,
         supabase_url_placeholder=supabase_url_placeholder,
+        forward_url=forward_url,
+        proxy_secret=proxy_secret,
     )
     return write_migration(migration_sql, output_dir)

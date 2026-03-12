@@ -29,6 +29,18 @@ Push to upstream (Skene Cloud):
 uvx skene push --upstream https://skene.ai/workspace/my-app
 ```
 
+Build migrations locally without pushing (no upstream required):
+
+```bash
+uvx skene push --local
+```
+
+Build migrations locally and bake an ingest URL into the webhook (for self-hosted or custom ingest):
+
+```bash
+uvx skene push --local https://skene.ai --proxy-secret my-secret
+```
+
 ## Flag reference
 
 | Flag | Short | Description |
@@ -38,6 +50,8 @@ uvx skene push --upstream https://skene.ai/workspace/my-app
 | `--loop TEXT` | `-l` | Push only this loop by `loop_id`. If omitted, pushes all loops with Supabase telemetry. |
 | `--upstream TEXT` | `-u` | Upstream workspace URL (e.g. `https://skene.ai/workspace/my-app`). Resolved from `.skene.config` or this flag. |
 | `--push-only` | | Re-push current output without regenerating migrations |
+| `--local [URL]` | | Build schema + telemetry migrations locally without pushing. Optionally provide ingest URL (default: `https://www.skene.ai/api/v1/cloud/ingest/db-trigger`). |
+| `--proxy-secret TEXT` | | Proxy secret for ingest endpoint (use with `--local URL`). Default: `YOUR_PROXY_SECRET` placeholder. |
 
 ## How it works
 
@@ -50,10 +64,10 @@ The command loads all growth loop JSON files from `skene-context/growth-loops/` 
 For each loop with Supabase telemetry, the command generates SQL trigger functions that:
 
 - Create a trigger on the specified table for the specified operation (INSERT, UPDATE, or DELETE)
-- INSERT a row into `skene.event_log` with the captured properties
+- INSERT a row into `skene_growth.event_log` with the captured properties
 - Use idempotent DDL (DROP TRIGGER IF EXISTS before CREATE)
 
-The migration is written to `supabase/migrations/<timestamp>_skene_telemetry.sql`.
+The migration is written to `supabase/migrations/<timestamp>_skene_growth_telemetry.sql`.
 
 ### Step 3: Push to upstream (optional)
 
@@ -69,11 +83,15 @@ Before pushing telemetry migrations, you need the base schema. Run `skene init` 
 uvx skene init
 ```
 
-This creates `supabase/migrations/20260201000000_skene_schema.sql` with:
+This creates `supabase/migrations/20260201000000_skene_growth_schema.sql` with:
 
-- `skene.event_log` — universal sink for allowlisted triggers
-- `skene.failed_events` — dead-letter queue for events exceeding retry limits
-- `skene.enrichment_map` — rules table for metadata enrichment
+- `skene_growth.event_log` — universal sink for allowlisted triggers
+- `skene_growth.failed_events` — dead-letter queue for events exceeding retry limits
+- `skene_growth.enrichment_map` — rules table for metadata enrichment
+- `skene_growth.enrich_event()` — BEFORE INSERT trigger for enrichment
+- `skene_growth.notify_event_log()` — AFTER INSERT trigger that POSTs to ingest URL via pg_net
+
+With `--local https://...`, the webhook URL and proxy secret are baked into the telemetry migration.
 
 ## Telemetry format
 
