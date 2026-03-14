@@ -21,13 +21,9 @@ _TWO_STEPS = [
 
 
 def _make_llm(responses: list[str]) -> AsyncMock:
-    """Create an LLM mock. First N-1 responses go to generate_content_with_usage, last to generate_content."""
+    """Create an LLM mock. All responses go to generate_content_with_usage."""
     llm = AsyncMock()
-    # Section steps use generate_content_with_usage
-    section_responses = responses[:-1]
-    llm.generate_content_with_usage = AsyncMock(side_effect=[(r, None) for r in section_responses])
-    # Harmonization uses generate_content
-    llm.generate_content = AsyncMock(return_value=responses[-1])
+    llm.generate_content_with_usage = AsyncMock(side_effect=[(r, None) for r in responses])
     return llm
 
 
@@ -42,26 +38,11 @@ def _section_response(title: str, content: str) -> str:
 def _tech_exec_response() -> str:
     return json.dumps(
         {
-            "next_build": "Build the activation loop.",
-            "confidence": "85%",
-            "exact_logic": "Step A then B.",
+            "overview": "Build the activation loop. Confidence: 85%",
+            "what_we_building": "1. Item A\n2. Item B",
+            "tasks": "1. Step A\n2. Step B",
             "data_triggers": "Event X fires.",
-            "stack_steps": "Redis + Celery.",
-            "sequence": "Now: A. Next: B. Later: C.",
-        }
-    )
-
-
-def _harmonize_response(
-    exec_summary: str,
-    sections: list[dict],
-    tech_exec: dict,
-) -> str:
-    return json.dumps(
-        {
-            "executive_summary": exec_summary,
-            "sections": sections,
-            "technical_execution": tech_exec,
+            "success_metrics": "Conversion rate >15%",
         }
     )
 
@@ -69,25 +50,12 @@ def _harmonize_response(
 class TestGenerateGrowthPlan:
     @pytest.mark.asyncio
     async def test_calls_llm_for_each_step(self):
-        """Should make 2+N+1+1 LLM calls: exec, N steps, tech exec, harmonize."""
-        tech_exec_data = {
-            "next_build": "Build loop.",
-            "confidence": "80%",
-            "exact_logic": "A then B.",
-            "data_triggers": "Event Y.",
-            "stack_steps": "API calls.",
-            "sequence": "Now/Next/Later",
-        }
-        sections_data = [
-            {"title": "Step One", "content": "Content one."},
-            {"title": "Step Two", "content": "Content two."},
-        ]
+        """Should make 1+N+1 LLM calls: exec, N steps, tech exec."""
         responses = [
             _exec_summary_response("Summary here."),
             _section_response("Step One", "Content one."),
             _section_response("Step Two", "Content two."),
             _tech_exec_response(),
-            _harmonize_response("Summary here.", sections_data, tech_exec_data),
         ]
         llm = _make_llm(responses)
         planner = Planner()
@@ -105,20 +73,10 @@ class TestGenerateGrowthPlan:
     @pytest.mark.asyncio
     async def test_on_step_callback_called_for_each_section(self):
         """on_step should be called N+2 times (exec + steps + tech exec)."""
-        tech_exec_data = {
-            "next_build": "B.",
-            "confidence": "90%",
-            "exact_logic": "E.",
-            "data_triggers": "D.",
-            "stack_steps": "S.",
-            "sequence": "N/N/L.",
-        }
-        sections_data = [{"title": "Step One", "content": "C."}]
         responses = [
             _exec_summary_response(),
             _section_response("Step One", "C."),
             _tech_exec_response(),
-            _harmonize_response("The core summary.", sections_data, tech_exec_data),
         ]
         llm = _make_llm(responses)
         planner = Planner()
@@ -143,66 +101,24 @@ class TestGenerateGrowthPlan:
         """Should use DEFAULT_PLAN_STEPS (4 steps) when plan_steps is not given."""
         from skene.planner.steps import DEFAULT_PLAN_STEPS
 
-        tech_exec_data = {
-            "next_build": "B.",
-            "confidence": "90%",
-            "exact_logic": "E.",
-            "data_triggers": "D.",
-            "stack_steps": "S.",
-            "sequence": "N/N/L.",
-        }
-        sections_data = [{"title": s.title, "content": "content"} for s in DEFAULT_PLAN_STEPS]
         responses = (
             [_exec_summary_response()]
             + [_section_response(s.title, "content") for s in DEFAULT_PLAN_STEPS]
             + [_tech_exec_response()]
-            + [_harmonize_response("summary", sections_data, tech_exec_data)]
         )
         llm = _make_llm(responses)
         planner = Planner()
         _, plan = await planner.generate_growth_plan(llm=llm, manifest_data=_MANIFEST)
-        # exec + 4 sections + tech_exec = 6 calls (harmonize uses generate_content)
         assert llm.generate_content_with_usage.call_count == 6
         assert len(plan.sections) == 4
 
     @pytest.mark.asyncio
-    async def test_harmonization_fallback_on_invalid_response(self):
-        """If harmonization returns invalid JSON, should use assembled plan."""
-        responses = [
-            _exec_summary_response("Exec summary."),
-            _tech_exec_response(),
-            "THIS IS NOT JSON",  # harmonization fails
-        ]
-        llm = _make_llm(responses)
-        planner = Planner()
-        _, plan = await planner.generate_growth_plan(
-            llm=llm,
-            manifest_data=_MANIFEST,
-            plan_steps=[],  # zero dynamic steps
-        )
-        assert plan.executive_summary == "Exec summary."
-        assert plan.sections == []
-
-    @pytest.mark.asyncio
     async def test_returns_markdown_string(self):
         """generate_growth_plan should return a non-empty markdown string."""
-        tech_exec_data = {
-            "next_build": "B.",
-            "confidence": "90%",
-            "exact_logic": "E.",
-            "data_triggers": "D.",
-            "stack_steps": "S.",
-            "sequence": "N.",
-        }
         responses = [
             _exec_summary_response("Summary."),
             _section_response("Step One", "Content."),
             _tech_exec_response(),
-            _harmonize_response(
-                "Summary.",
-                [{"title": "Step One", "content": "Content."}],
-                tech_exec_data,
-            ),
         ]
         llm = _make_llm(responses)
         planner = Planner()

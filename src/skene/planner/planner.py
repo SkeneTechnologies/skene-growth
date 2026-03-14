@@ -4,7 +4,6 @@ Plan generator.
 Creates detailed implementation plans for growth strategies.
 """
 
-import json
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any
@@ -61,7 +60,6 @@ class Planner:
         user_prompt: str | None = None,
         plan_steps: list[PlanStepDefinition] | None = None,
         on_step: Callable[[int, str, str, dict[str, int] | None], None] | None = None,
-        on_harmonize: Callable[[], None] | None = None,
         project_name_from_file: str | None = None,
     ) -> tuple[str, GrowthPlan]:
         """
@@ -69,8 +67,7 @@ class Planner:
 
         Generates Executive Summary, dynamic middle sections (from plan_steps or
         DEFAULT_PLAN_STEPS), and Technical Execution in separate LLM calls. Each
-        section calls on_step when complete. A final harmonization pass validates
-        the assembled plan for coherence.
+        section calls on_step when complete.
 
         Args:
             llm: LLM client for generation
@@ -80,7 +77,6 @@ class Planner:
             user_prompt: Additional user context (optional)
             plan_steps: Step definitions for middle sections; defaults to DEFAULT_PLAN_STEPS
             on_step: Callback invoked after each section with (step_number, title, markdown, usage)
-            on_harmonize: Callback invoked just before the harmonization pass
             project_name_from_file: Project name from manifest file (None = omit from markdown header)
 
         Returns:
@@ -125,28 +121,21 @@ class Planner:
         tech_exec, te_tokens = await self._generate_technical_execution(llm, shared_context, accumulated)
         te_md = (
             f"### {section_index}. Technical Execution\n\n"
-            f"**What is the next activation loop to build?**\n{tech_exec.next_build}\n\n"
-            f"**Confidence:** {tech_exec.confidence}\n\n"
-            f"**Exact Logic:**\n{tech_exec.exact_logic}\n\n"
-            f"**Exact Data Triggers:**\n{tech_exec.data_triggers}\n\n"
-            f"**Exact Stack/Steps:**\n{tech_exec.stack_steps}\n\n"
-            f"**Sequence:**\n{tech_exec.sequence}\n"
+            f"**Overview**\n{tech_exec.overview}\n\n"
+            f"**What We're Building**\n{tech_exec.what_we_building}\n\n"
+            f"**Technical Tasks**\n{tech_exec.tasks}\n\n"
+            f"**Data Triggers**\n{tech_exec.data_triggers}\n\n"
+            f"**Success Metrics**\n{tech_exec.success_metrics}\n"
         )
         accumulated.append(te_md)
         if on_step:
             on_step(llm_call_count, "Technical Execution", te_md, te_tokens)
 
-        # Harmonization pass
-        if on_harmonize:
-            on_harmonize()
-        plan = await self._harmonize(
-            llm=llm,
-            shared_context=shared_context,
-            exec_summary=exec_summary,
+        plan = GrowthPlan(
+            executive_summary=exec_summary,
             sections=raw_sections,
-            tech_exec=tech_exec,
+            technical_execution=tech_exec,
         )
-
         markdown = render_plan_to_markdown(plan, current_time_str, project_name_from_file)
         return markdown, plan
 
@@ -164,9 +153,10 @@ class Planner:
             f"## Project Context\n\n{shared_context}\n\n"
             "---\n\n"
             "## Task: Executive Summary\n\n"
-            "Write the Executive Summary for this growth plan. Apply the Growth Core framework: "
-            "strip the input to fundamental analysis, identify the Global Maximum (ignoring local "
-            "maxima), and state the single highest-leverage utility that drives compounding.\n\n"
+            "Write the Executive Summary for this growth plan in 2-3 sentences maximum. "
+            "Apply the Growth Core framework: strip the input to fundamental analysis, identify "
+            "the Global Maximum (ignoring local maxima), and state the single highest-leverage "
+            "utility that drives compounding.\n\n"
             "Return ONLY a JSON object with one field:\n"
             '{"executive_summary": "<string>"}\n\n'
             "No markdown fences, no explanation."
@@ -211,75 +201,31 @@ class Planner:
             f"## Prior sections (for coherence)\n\n{prior}\n\n"
             "---\n\n"
             "## Task: Technical Execution\n\n"
-            "Based on everything above, produce the Technical Execution blueprint. "
-            "Identify the single most impactful activation loop to build next. Be specific: "
-            "name exact logic changes, data triggers, stack steps, and a Now/Next/Later sequence.\n\n"
-            "Format exact_logic, data_triggers, stack_steps, and sequence as lists "
-            '(e.g. "- Item 1\\n- Item 2" or "1. First\\n2. Second").\n\n'
+            "Produce a focused Technical Execution blueprint. Focus ONLY on the most important "
+            "technical tasks. Be very short and to-the-point. Do NOT use Now/Next/Later or any "
+            "phase grouping.\n\n"
+            "Structure:\n"
+            "- overview: 1-2 sentences stating what we're building and confidence (e.g. '95%').\n"
+            "- what_we_building: Short numbered list (3-5 items) of what we're building.\n"
+            "- tasks: 3-7 most important technical tasks only. Each task: one line, action + file/path. "
+            "Order by implementation dependency. No phase labels.\n"
+            "- data_triggers: Brief list of events/conditions that trigger the flow.\n"
+            "- success_metrics: Brief primary success metrics.\n\n"
             "Return ONLY a JSON object:\n"
-            '{"next_build": "<string>", "confidence": "<string>", "exact_logic": "<string>", '
-            '"data_triggers": "<string>", "stack_steps": "<string>", "sequence": "<string>"}\n\n'
+            '{"overview": "<string>", "what_we_building": "<string>", "tasks": "<string>", '
+            '"data_triggers": "<string>", "success_metrics": "<string>"}\n\n'
             "No markdown fences, no explanation."
         )
         response, tokens = await llm.generate_content_with_usage(prompt)
         data = parse_json_fragment(response)
         te = TechnicalExecution(
-            next_build=str(data.get("next_build", "")),
-            confidence=str(data.get("confidence", "")),
-            exact_logic=str(data.get("exact_logic", "")),
+            overview=str(data.get("overview", "")),
+            what_we_building=str(data.get("what_we_building", "")),
+            tasks=str(data.get("tasks", "")),
             data_triggers=str(data.get("data_triggers", "")),
-            stack_steps=str(data.get("stack_steps", "")),
-            sequence=str(data.get("sequence", "")),
+            success_metrics=str(data.get("success_metrics", "")),
         )
         return (te, tokens)
-
-    async def _harmonize(
-        self,
-        llm: LLMClient,
-        shared_context: str,
-        exec_summary: str,
-        sections: list[PlanSection],
-        tech_exec: TechnicalExecution,
-    ) -> GrowthPlan:
-        """Run a harmonization pass to ensure all sections are coherent and return GrowthPlan."""
-        sections_json = json.dumps(
-            [{"title": s.title, "content": s.content} for s in sections],
-            indent=2,
-        )
-        tech_exec_json = json.dumps(tech_exec.model_dump(), indent=2)
-
-        prompt = (
-            f"{_COUNCIL_ROLE}\n\n"
-            f"## Project Context\n\n{shared_context}\n\n"
-            "---\n\n"
-            "## Task: Harmonization\n\n"
-            "Review all sections of this growth plan. Ensure they are coherent, non-repetitive, "
-            "and build a logical narrative. Update any section content that needs to be "
-            "strengthened, clarified, or de-duplicated. Preserve the titles exactly.\n\n"
-            "Check that all content is easy to read and presented for readability "
-            "(clear structure, appropriate formatting, scannable).\n\n"
-            f"Executive Summary:\n{exec_summary}\n\n"
-            f"Sections:\n{sections_json}\n\n"
-            f"Technical Execution:\n{tech_exec_json}\n\n"
-            "Return ONLY a JSON object matching this schema exactly:\n"
-            '{"executive_summary": "<string>", '
-            '"sections": [{"title": "<string>", "content": "<string>"}, ...], '
-            '"technical_execution": {"next_build": "<string>", "confidence": "<string>", '
-            '"exact_logic": "<string>", "data_triggers": "<string>", '
-            '"stack_steps": "<string>", "sequence": "<string>"}}\n\n'
-            "No markdown fences, no explanation."
-        )
-        response = await llm.generate_content(prompt)
-        try:
-            data = parse_json_fragment(response)
-            return GrowthPlan.model_validate(data)
-        except Exception:
-            # Harmonization failed — return the assembled plan as-is
-            return GrowthPlan(
-                executive_summary=exec_summary,
-                sections=sections,
-                technical_execution=tech_exec,
-            )
 
     def _build_shared_context(
         self,

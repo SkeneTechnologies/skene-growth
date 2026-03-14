@@ -711,7 +711,7 @@ def plan(
 
     # Run async cycle generation - execute and handle output
     async def execute_cycle():
-        memo_content, todo_data = await run_generate_plan(
+        memo_content, _todo_data = await run_generate_plan(
             manifest_path=manifest,
             template_path=template,
             output_path=resolved_output,
@@ -1513,11 +1513,12 @@ async def _build_async(
 
     # Display the technical execution context
     console.print(f"[bold blue]Technical Execution:[/bold blue] {plan}\n")
-    if technical_execution.get("next_build"):
+    display_text = technical_execution.get("overview") or technical_execution.get("next_build")
+    if display_text:
         console.print(
             Panel(
-                technical_execution["next_build"],
-                title="[bold cyan]The Next Build[/bold cyan]",
+                display_text,
+                title="[bold cyan]Technical Execution[/bold cyan]",
                 border_style="cyan",
                 padding=(1, 2),
             )

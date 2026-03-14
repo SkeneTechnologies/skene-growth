@@ -76,7 +76,7 @@ class TestParsePlanStepsWithLlm:
         llm.generate_content = AsyncMock(
             return_value=json.dumps([{"title": f"Step {i}", "instruction": f"Do step {i}."} for i in range(5)])
         )
-        with pytest.raises(PlanStepsParseError, match="Expected 1-4 steps"):
+        with pytest.raises(PlanStepsParseError, match="Expected 0-4 steps"):
             await parse_plan_steps_with_llm(llm, "content")
 
     @pytest.mark.asyncio
@@ -109,6 +109,23 @@ class TestParsePlanStepsWithLlm:
         llm.generate_content = AsyncMock(side_effect=RuntimeError("Connection refused"))
         with pytest.raises(PlanStepsParseError, match="LLM call failed"):
             await parse_plan_steps_with_llm(llm, "content")
+
+    @pytest.mark.asyncio
+    async def test_filters_reserved_titles(self):
+        """Technical Execution and Executive Summary are added automatically; filter from LLM output."""
+        llm = AsyncMock()
+        llm.generate_content = AsyncMock(
+            return_value=json.dumps(
+                [
+                    {"title": "Marketing Strategy", "instruction": "Define campaign."},
+                    {"title": "Technical Execution", "instruction": "Build the system."},
+                    {"title": "Executive Summary", "instruction": "Summarize."},
+                ]
+            )
+        )
+        steps = await parse_plan_steps_with_llm(llm, "content")
+        assert len(steps) == 1
+        assert steps[0].title == "Marketing Strategy"
 
 
 class TestLoadPlanStepsFile:

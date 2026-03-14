@@ -110,6 +110,8 @@ async def parse_plan_steps_with_llm(
     if not isinstance(data, list):
         raise PlanStepsParseError(f"Expected JSON array, got {type(data).__name__}")
 
+    _RESERVED_TITLES = frozenset({"executive summary", "technical execution"})
+
     steps = []
     for item in data:
         if not isinstance(item, dict):
@@ -118,10 +120,12 @@ async def parse_plan_steps_with_llm(
         instruction = item.get("instruction", "").strip()
         if not title or not instruction:
             raise PlanStepsParseError(f"Step missing title or instruction: {item}")
+        if title.lower() in _RESERVED_TITLES:
+            continue  # Executive Summary and Technical Execution are added automatically
         steps.append(PlanStepDefinition(title=title, instruction=instruction))
 
-    if not (1 <= len(steps) <= 4):
-        raise PlanStepsParseError(f"Expected 1-4 steps, got {len(steps)}")
+    if not (0 <= len(steps) <= 4):
+        raise PlanStepsParseError(f"Expected 0-4 steps, got {len(steps)}")
 
     return steps
 
