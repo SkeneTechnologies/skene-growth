@@ -289,123 +289,67 @@ def show_analysis_summary(data: dict, template_data: dict | None = None):
 async def generate_todo_list(
     llm,
     memo_content: str,
-    manifest_data: dict[str, Any],
-    growth_plan: Any | None = None,
-) -> list[dict[str, str]] | None:
-    """Generate an implementation todo list using the structured plan context.
+) -> str | None:
+    """Generate an implementation todo list from the full growth plan.
 
-    Extracts the Technical Execution section from the memo and combines it
-    with the project manifest (tech stack, features) to produce specific,
+    Uses the complete plan markdown (executive summary, all sections,
+    and technical execution) to produce a markdown checklist of
     actionable engineering tasks.
 
     Args:
         llm: LLM client for generation
-        memo_content: Full memo markdown content
-        manifest_data: Project manifest with tech_stack, features, etc.
-        growth_plan: Validated GrowthPlan instance (optional, used if available)
+        memo_content: Full plan markdown content (all sections)
 
     Returns:
-        List of items with 'task' and 'priority' keys, or None on failure.
+        Markdown string (checklist or bulleted list), or None on failure.
     """
-    import re as _re
+    prompt = f"""You are an expert technical product manager and lead software engineer. Your task is to analyze the
+provided technical implementation plan and extract a concise, strictly ordered list of actionable tasks to build
+the feature.
 
-    # Build tech_exec from structured GrowthPlan when available
-    if growth_plan is not None:
-        te = growth_plan.technical_execution
-        tech_exec: dict[str, str] | None = {
-            "next_build": te.next_build,
-            "confidence": te.confidence,
-            "exact_logic": te.exact_logic,
-            "data_triggers": te.data_triggers,
-            "stack_steps": te.stack_steps,
-            "sequence": te.sequence,
-        }
-    else:
-        tech_exec = None
+Analyze the plan and output a to-do list following these strict guidelines:
+1.  **Action-Oriented:** Start every task with a clear action verb (e.g., "Create", "Update", "Refactor",
+    "Manual test").
+2.  **File-Path Specific:** If a task involves writing code, you MUST include the exact file path mentioned in the
+    plan (e.g., `app/path/to/file.tsx`).
+3.  **High-Level but Comprehensive:** Do not list every single line of code or minor detail. Group the logic by file
+    or major architectural boundary (e.g., Server Component vs. Client Component).
+4.  **Summarize Core Logic:** For each file, briefly summarize its primary responsibilities, states, or conditional
+    logic in a few words (e.g., "callback validation, session check, conditional rendering").
+5.  **Sequential Order:** Order the tasks logically how a developer would build them (e.g., Backend/Server logic
+    first, Frontend/UI second, Integration/Testing last).
+6.  **Include Verification:** The final task must ALWAYS be a manual end-to-end testing step that defines the success
+    criteria of the flow based on the plan.
 
-    # Build a compact tech-stack summary the LLM can reference
-    tech_stack_lines = []
-    tech = manifest_data.get("tech_stack", {})
-    for key, value in tech.items():
-        if value:
-            tech_stack_lines.append(f"- {key}: {value}")
-    tech_stack_str = "\n".join(tech_stack_lines) if tech_stack_lines else "Not detected"
+CRITICAL CONSTRAINT — ITEM COUNT:
+- Target: 5 items or fewer.
+- Absolute maximum: 7 items. You MUST NOT output more than 7 items under any circumstances.
+- Merge related work into a single item rather than listing separate sub-tasks.
 
-    project_name = manifest_data.get("project_name", "Project")
+Format the output as a simple Markdown checklist. Output ONLY the checklist, nothing else.
 
-    # Build the Technical Execution context block
-    if tech_exec:
-        tech_exec_block = ""
-        if tech_exec.get("next_build"):
-            tech_exec_block += f"**The Next Build:**\n{tech_exec['next_build']}\n\n"
-        if tech_exec.get("exact_logic"):
-            tech_exec_block += f"**Exact Logic:**\n{tech_exec['exact_logic']}\n\n"
-        if tech_exec.get("data_triggers"):
-            tech_exec_block += f"**Data Triggers:**\n{tech_exec['data_triggers']}\n\n"
-        if tech_exec.get("sequence"):
-            tech_exec_block += f"**Sequence (Now / Next / Later):**\n{tech_exec['sequence']}\n\n"
-        if tech_exec.get("confidence"):
-            tech_exec_block += f"**Confidence:** {tech_exec['confidence']}\n"
-    else:
-        # Fallback: use a truncated memo when extraction fails
-        tech_exec_block = memo_content[:3000] if len(memo_content) > 3000 else memo_content
+Here is the plan to process:
+{memo_content}"""
 
-    prompt = f"""You are a senior engineer creating an implementation todo list for the project "{project_name}".
-
-## Tech Stack
-{tech_stack_str}
-
-## Technical Execution Plan
-{tech_exec_block}
-
-Based on the Technical Execution plan above, produce a focused, ordered todo list
-of engineering tasks to implement this.
-
-Rules for tasks:
-- Each task must be a concrete engineering action (e.g. "Create middleware X in src/...",
-  "Add event Y to analytics service").
-- Reference the actual tech stack (framework, language, tools) in the tasks.
-- Focus on the "Now" items from the Sequence — things to build first.
-- Order tasks by implementation dependency: foundational work first, integration last.
-- Do NOT include meetings, research, or vague items like "plan the architecture".
-- Maximum 8 tasks.
-
-Return ONLY a valid JSON object:
-{{
-  "todos": [
-    {{"task": "...", "priority": "high"}},
-    {{"task": "...", "priority": "medium"}}
-  ]
-}}
-
-priority is "high", "medium", or "low". Return only the JSON object, nothing else."""
+    max_items = 7
 
     try:
         response = await llm.generate_content(prompt)
+        text = (response or "").strip()
+        if not text:
+            return None
 
-        # Extract the first JSON object from the response
-        json_match = _re.search(r"\{[\s\S]*\}", response)
-        if json_match:
-            try:
-                result = json.loads(json_match.group(0))
-                if isinstance(result, dict):
-                    todo_items = result.get("todos", [])
-                    if isinstance(todo_items, list):
-                        validated = [
-                            {
-                                "task": str(item["task"]).strip(),
-                                "priority": item.get("priority", "medium").lower(),
-                            }
-                            for item in todo_items
-                            if isinstance(item, dict) and "task" in item
-                        ]
-                        if validated:
-                            return validated
-            except json.JSONDecodeError:
-                pass
+        lines = text.splitlines()
+        kept: list[str] = []
+        item_count = 0
+        for line in lines:
+            if line.strip().startswith(("-", "*")):
+                item_count += 1
+                if item_count > max_items:
+                    break
+            kept.append(line)
 
-        return None
-
+        return "\n".join(kept).strip() or None
     except Exception:
         return None
 
@@ -430,7 +374,6 @@ async def run_generate_plan(
 
     from skene.llm import create_llm_client
 
-    todo_list = None
     memo_content = None
 
     with Progress(
@@ -565,9 +508,6 @@ async def run_generate_plan(
                     accumulated_chunks.append(markdown_chunk)
                     output_path.write_text("\n".join(accumulated_chunks) + "\n")
 
-                def on_harmonize() -> None:
-                    console.print("[dim]Harmonising...[/dim]")
-
                 project_name_from_file = (
                     manifest_data.get("project_name") if (manifest_path and manifest_path.exists()) else None
                 )
@@ -579,22 +519,27 @@ async def run_generate_plan(
                     user_prompt=user_prompt,
                     plan_steps=plan_steps,
                     on_step=on_step,
-                    on_harmonize=on_harmonize,
                     project_name_from_file=project_name_from_file,
                 )
-                # Overwrite with the harmonized final version
                 output_path.write_text(memo_content)
+
+            progress.update(task, description="Complete!")
+
+            # Generate todo list from the full plan content
+            progress.update(task, description="Generating todo list...")
+            todo_markdown = await generate_todo_list(llm, memo_content)
+
+            # Append todo section to markdown
+            todo_content = (todo_markdown or "").strip()
+            memo_content = memo_content.rstrip() + "\n\n## Todo\n\n" + todo_content + ("\n" if todo_content else "")
+            output_path.write_text(memo_content)
 
             # Save structured JSON alongside markdown (council memo only)
             if growth_plan is not None:
                 json_path = output_path.with_suffix(".json")
-                json_path.write_text(growth_plan.model_dump_json(indent=2))
-
-            progress.update(task, description="Complete!")
-
-            # Generate todo list from memo + structured project context
-            progress.update(task, description="Generating todo list...")
-            todo_list = await generate_todo_list(llm, memo_content, manifest_data, growth_plan=growth_plan)
+                json_data = json.loads(growth_plan.model_dump_json())
+                json_data["todos"] = todo_markdown.strip() if todo_markdown else ""
+                json_path.write_text(json.dumps(json_data, indent=2))
 
             if growth_plan is not None:
                 executive_summary = growth_plan.executive_summary
@@ -611,14 +556,16 @@ async def run_generate_plan(
             # Print summary (Executive Summary + dynamic sections + Technical Execution)
             middle_count = len(growth_plan.sections) if growth_plan else 0
             section_count = 1 + middle_count + 1  # Executive Summary + sections + Technical Execution
-            todo_count = len(todo_list) if todo_list else 0
+            todo_count = sum(
+                1 for line in (todo_markdown or "").splitlines() if line.strip().startswith(("-", "*"))
+            ) or (1 if todo_markdown else 0)
             console.print(f"\n[green]Summary:[/green] {section_count} sections, {todo_count} todo items")
             total_in = sum(u.get("input_tokens", 0) for u in tokens_used)
             total_out = sum(u.get("output_tokens", 0) for u in tokens_used)
             if total_in > 0 or total_out > 0:
-                console.print(f"[dim]Total tokens:[/dim] {total_out:,} out / {total_in:,} in")
+                console.print(f"[dim]Total tokens:[/dim] {total_in:,} in / {total_out:,} out")
 
-            return memo_content, (executive_summary, todo_summary, todo_list)
+            return memo_content, (executive_summary, todo_summary, todo_markdown)
 
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")

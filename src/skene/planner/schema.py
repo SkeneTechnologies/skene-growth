@@ -9,14 +9,13 @@ from pydantic import BaseModel, Field
 
 
 class TechnicalExecution(BaseModel):
-    """Section 7: Technical Execution details."""
+    """Technical Execution: focused, short specifications for implementation."""
 
-    next_build: str = Field(description="What activation loop to build next")
-    confidence: str = Field(description="Confidence level, e.g. '85%'")
-    exact_logic: str = Field(description="Specific flow changes for first-action completion")
-    data_triggers: str = Field(description="Events indicating first meaningful action")
-    stack_steps: str = Field(description="Tools, scripts, or structural changes required")
-    sequence: str = Field(description="Now / Next / Later priorities")
+    overview: str = Field(description="1-2 sentence overview with confidence, e.g. 'Implement X. Confidence: 95%'")
+    what_we_building: str = Field(description="Short numbered list (3-5 items) of what we're building")
+    tasks: str = Field(description="Most important technical tasks only, short numbered list, no phase grouping")
+    data_triggers: str = Field(description="Events/conditions that trigger the flow (brief)")
+    success_metrics: str = Field(description="Primary success metrics (brief)")
 
 
 class PlanSection(BaseModel):
@@ -62,10 +61,11 @@ def render_plan_to_markdown(plan: GrowthPlan, generated_at: str, project_name: s
     lines.append(plan.executive_summary)
     lines.append("")
 
-    # Dynamic sections
-    section_count = len(plan.sections)
+    # Dynamic sections (exclude Technical Execution — it is rendered separately)
+    sections = [s for s in plan.sections if s.title.lower() != "technical execution"]
+    section_count = len(sections)
     te_number = section_count + 1
-    for i, section in enumerate(plan.sections, start=1):
+    for i, section in enumerate(sections, start=1):
         lines.append(f"### {i}. {section.title}")
         lines.append("")
         lines.append(section.content)
@@ -75,17 +75,15 @@ def render_plan_to_markdown(plan: GrowthPlan, generated_at: str, project_name: s
     te = plan.technical_execution
     lines.append(f"### {te_number}. Technical Execution")
     lines.append("")
-    lines.append(f"**What is the next activation loop to build?**\n{te.next_build}")
+    lines.append(f"**Overview**\n{te.overview}")
     lines.append("")
-    lines.append(f"**Confidence:** {te.confidence}")
+    lines.append(f"**What We're Building**\n{te.what_we_building}")
     lines.append("")
-    lines.append(f"**Exact Logic:**\n{te.exact_logic}")
+    lines.append(f"**Technical Tasks**\n{te.tasks}")
     lines.append("")
-    lines.append(f"**Exact Data Triggers:**\n{te.data_triggers}")
+    lines.append(f"**Data Triggers**\n{te.data_triggers}")
     lines.append("")
-    lines.append(f"**Exact Stack/Steps:**\n{te.stack_steps}")
-    lines.append("")
-    lines.append(f"**Sequence:**\n{te.sequence}")
+    lines.append(f"**Success Metrics**\n{te.success_metrics}")
     lines.append("")
 
     return "\n".join(lines)

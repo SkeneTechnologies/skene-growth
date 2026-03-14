@@ -83,7 +83,7 @@ If the Technical Execution section cannot be found, the command exits with an er
 The extracted Technical Execution context is sent to your configured LLM with a meta-prompt. The LLM generates a focused, actionable implementation prompt that:
 
 - States the engineering work based on the Technical Execution context
-- Includes all relevant technical details (logic, triggers, sequence)
+- Includes all relevant technical details (tasks, triggers, success metrics)
 - References the growth plan file for additional context
 - Asks for step-by-step implementation with code examples
 

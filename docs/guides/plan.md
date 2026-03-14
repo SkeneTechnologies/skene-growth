@@ -63,8 +63,7 @@ The plan is generated in multiple steps:
 
 1. **Executive Summary** — Always first. A high-level summary focused on the growth core and global maximum.
 2. **Middle sections** — Configurable. Each section is generated in sequence, with prior sections passed as context for coherence.
-3. **Technical Execution** — Always last. The next activation loop to build, confidence, exact logic, data triggers, stack steps, and sequence.
-4. **Harmonization** — A final pass reviews all sections for coherence, readability, and consistency.
+3. **Technical Execution** — Always last. Overview with confidence, what we're building, most important technical tasks (short, no phase grouping), data triggers, and success metrics.
 
 The system prompt enforces high signal-to-noise, no generic advice, and utility-first thinking. The Technical Execution section feeds directly into the `build` command.
 
