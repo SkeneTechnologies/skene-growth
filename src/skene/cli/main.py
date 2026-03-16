@@ -970,6 +970,17 @@ def status(
         "-m",
         help="LLM model (uses provider default if not provided)",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress output, show errors only",
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Show diagnostic messages and log LLM I/O to ~/.local/state/skene/debug/",
+    ),
 ):
     """
     Show implementation status of growth loop requirements.
@@ -988,6 +999,7 @@ def status(
         skene status ./my-project --context ./my-project/skene-context
         skene status --find-alternatives --api-key "your-key"
     """
+    from skene.output import set_debug, set_quiet
     from skene.validators.loop_validator import (
         ValidationEvent,
         clear_event_listeners,
@@ -995,6 +1007,11 @@ def status(
         register_event_listener,
         validate_all_loops,
     )
+
+    if quiet:
+        set_quiet()
+    elif debug:
+        set_debug()
 
     # Resolve the context directory
     if context is None:
@@ -1185,6 +1202,17 @@ def push(
         "--init",
         help="Create or update the base schema migration only, without building telemetry or pushing.",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress output, show errors only",
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Show diagnostic messages and log LLM I/O to ~/.local/state/skene/debug/",
+    ),
 ):
     """
     Build a Supabase migration from growth loop telemetry into /supabase and push to upstream.
@@ -1217,6 +1245,12 @@ def push(
         push_to_upstream,
     )
     from skene.growth_loops.storage import load_existing_growth_loops
+    from skene.output import set_debug, set_quiet
+
+    if quiet:
+        set_quiet()
+    elif debug:
+        set_debug()
 
     if init:
         written = ensure_base_schema_migration(path.resolve())
