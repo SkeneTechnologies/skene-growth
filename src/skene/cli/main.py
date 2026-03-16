@@ -803,7 +803,7 @@ def chat(
         uvx skene chat ./my-project --provider gemini --model gemini-3-flash-preview
     """
     config = load_config()
-    apply_verbosity(quiet, debug, config.debug)
+    resolved_debug = apply_verbosity(quiet, debug, config.debug)
 
     resolved_api_key = api_key or config.api_key
     resolved_provider = provider or config.provider
