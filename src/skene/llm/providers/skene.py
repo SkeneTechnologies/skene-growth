@@ -17,7 +17,7 @@ from skene.llm.base import LLMClient
 
 DEFAULT_TIMEOUT = 900.0
 DEFAULT_TEMPERATURE = 0.7
-DEFAULT_MAX_TOKENS = 8192
+DEFAULT_MAX_TOKENS = 50000
 PRODUCTION_ENDPOINT = "https://skene.ai/api/v1/chat/completions"
 
 
