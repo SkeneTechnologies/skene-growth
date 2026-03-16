@@ -743,7 +743,6 @@ def plan(
             api_key=resolved_api_key,
             provider=resolved_provider,
             model=resolved_model,
-            verbose=resolved_debug,
             activation=activation,
             context_dir=context_dir_for_loops,
             user_prompt=prompt,

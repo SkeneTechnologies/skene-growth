@@ -363,7 +363,6 @@ async def run_generate_plan(
     api_key: str,
     provider: str,
     model: str,
-    verbose: bool,
     activation: bool = False,
     context_dir: Path | None = None,
     user_prompt: str | None = None,
@@ -574,7 +573,7 @@ async def run_generate_plan(
 
         except Exception as e:
             output_error(str(e))
-            if verbose:
+            if debug:
                 import traceback
 
                 console.print(traceback.format_exc())
