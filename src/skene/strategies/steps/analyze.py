@@ -6,12 +6,11 @@ import json
 import re
 from typing import Any, Type
 
-from loguru import logger
 from pydantic import BaseModel
 
 from skene.codebase import CodebaseExplorer
 from skene.llm import LLMClient
-from skene.output import status
+from skene.output import error, status, warning
 from skene.strategies.context import AnalysisContext, StepResult
 from skene.strategies.steps.base import AnalysisStep
 
@@ -69,7 +68,7 @@ class AnalyzeStep(AnalysisStep):
             file_contents = context.get(self.source_key, {})
 
             if not file_contents:
-                logger.warning(f"AnalyzeStep: No file contents in context key '{self.source_key}'")
+                warning(f"AnalyzeStep: No file contents in context key '{self.source_key}'")
 
             # Build prompt for LLM
             llm_prompt = self._build_prompt(file_contents, context)
@@ -89,7 +88,7 @@ class AnalyzeStep(AnalysisStep):
             )
 
         except Exception as e:
-            logger.error(f"AnalyzeStep failed: {e}")
+            error(f"AnalyzeStep failed: {e}")
             return StepResult(
                 step_name=self.name,
                 error=str(e),
@@ -229,7 +228,7 @@ class AnalyzeStep(AnalysisStep):
             except json.JSONDecodeError:
                 pass
 
-        logger.warning(f"Could not parse analysis response as JSON: {response[:200]}")
+        warning(f"Could not parse analysis response as JSON: {response[:200]}")
         # Return raw response as fallback
         return {"raw_response": response}
 
@@ -240,7 +239,7 @@ class AnalyzeStep(AnalysisStep):
                 validated = self.output_schema.model_validate(data)
                 return validated.model_dump()
             except Exception as e:
-                logger.warning(f"Output validation failed: {e}")
+                warning(f"Output validation failed: {e}")
                 # Return unvalidated data
                 return data
         return data

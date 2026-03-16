@@ -5,11 +5,9 @@ Step for selecting relevant files using LLM.
 import json
 import re
 
-from loguru import logger
-
 from skene.codebase import CodebaseExplorer
 from skene.llm import LLMClient
-from skene.output import debug, status
+from skene.output import debug, error, status, warning
 from skene.strategies.context import AnalysisContext, StepResult
 from skene.strategies.steps.base import AnalysisStep
 
@@ -105,7 +103,7 @@ class SelectFilesStep(AnalysisStep):
             )
 
         except Exception as e:
-            logger.error(f"SelectFilesStep failed: {e}")
+            error(f"SelectFilesStep failed: {e}")
             return StepResult(
                 step_name=self.name,
                 error=str(e),
@@ -203,7 +201,7 @@ class SelectFilesStep(AnalysisStep):
         if matches:
             return matches
 
-        logger.warning(f"Could not parse file selection response: {response[:200]}")
+        warning(f"Could not parse file selection response: {response[:200]}")
         return []
 
     def _filter_excluded_files(self, codebase: CodebaseExplorer, file_paths: list[str]) -> list[str]:
@@ -221,7 +219,7 @@ class SelectFilesStep(AnalysisStep):
                     debug(f"Excluding file: {file_path}")
             except Exception as e:
                 # If path resolution fails, log and skip
-                logger.warning(f"Could not check exclusion for {file_path}: {e}")
+                warning(f"Could not check exclusion for {file_path}: {e}")
                 # Include it by default to avoid breaking the analysis
                 filtered.append(file_path)
         return filtered

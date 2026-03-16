@@ -2,11 +2,9 @@
 Step for reading files into context.
 """
 
-from loguru import logger
-
 from skene.codebase import CodebaseExplorer
 from skene.llm import LLMClient
-from skene.output import status, warning
+from skene.output import error, status, warning
 from skene.strategies.context import AnalysisContext, StepResult
 from skene.strategies.steps.base import AnalysisStep
 
@@ -57,7 +55,7 @@ class ReadFilesStep(AnalysisStep):
             files_to_read = context.get(self.source_key, [])
 
             if not files_to_read:
-                logger.warning(f"ReadFilesStep: No files found in context key '{self.source_key}'")
+                warning(f"ReadFilesStep: No files found in context key '{self.source_key}'")
                 return StepResult(
                     step_name=self.name,
                     data={self.output_key: {}},
@@ -105,7 +103,7 @@ class ReadFilesStep(AnalysisStep):
             )
 
         except Exception as e:
-            logger.error(f"ReadFilesStep failed: {e}")
+            error(f"ReadFilesStep failed: {e}")
             return StepResult(
                 step_name=self.name,
                 error=str(e),
