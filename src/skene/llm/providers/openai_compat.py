@@ -11,6 +11,8 @@ from pydantic import SecretStr
 
 from skene.llm.base import LLMClient
 
+DEFAULT_TIMEOUT = 900.0
+
 
 class OpenAICompatibleClient(LLMClient):
     """
@@ -59,30 +61,24 @@ class OpenAICompatibleClient(LLMClient):
         if base_url:
             client_kwargs["base_url"] = base_url
 
-        self.client = AsyncOpenAI(**client_kwargs)
+        self.client = AsyncOpenAI(timeout=DEFAULT_TIMEOUT, **client_kwargs)
 
-    async def generate_content(
+    async def generate_content_with_usage(
         self,
         prompt: str,
-    ) -> str:
-        """
-        Generate text from the LLM.
-
-        Args:
-            prompt: The prompt to send to the model
-
-        Returns:
-            Generated text as a string
-
-        Raises:
-            RuntimeError: If generation fails
-        """
+    ) -> tuple[str, dict[str, int] | None]:
+        """Generate text and return (content, usage). Usage has output_tokens, input_tokens.
+        Returns None when not in response."""
         try:
             response = await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content.strip()
+            usage = getattr(response, "usage", None)
+            if usage and hasattr(usage, "prompt_tokens") and hasattr(usage, "completion_tokens"):
+                return (content, {"output_tokens": usage.completion_tokens, "input_tokens": usage.prompt_tokens})
+            return (content, None)
         except Exception as e:
             raise RuntimeError(f"Error calling {self.get_provider_name()}: {e}")
 

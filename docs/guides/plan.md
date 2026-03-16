@@ -1,6 +1,6 @@
 # Plan Command
 
-The `plan` command generates a strategic growth plan by feeding your manifest and template data to a "Council of Growth Engineers" -- an LLM system prompt that operates as an elite advisory board focused on first-time user activation.
+The `plan` command generates a strategic growth plan from your manifest and template data. It uses an LLM to produce a structured document focused on first-time user activation, leverage mechanics, and technical execution.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ Generate a growth plan using auto-detected context files:
 uvx skene plan
 ```
 
-The command looks for `growth-manifest.json` and `growth-template.json` in `./skene-context/` (default output from `analyze`), then falls back to the current directory. Neither file is required -- the command runs with whatever context it finds.
+The command looks for `growth-manifest.json` and `growth-template.json` in `./skene-context/` (default output from `analyze`), then falls back to the current directory. Neither file is required — the command runs with whatever context it finds.
 
 Specify context files explicitly:
 
@@ -57,56 +57,88 @@ uvx skene plan --activation
 | `--debug` | | Log all LLM input/output to `.skene/debug/` |
 | `--no-fallback` | | Disable model fallback on rate limits. Retries the same model with exponential backoff instead of switching to a cheaper model. |
 
-## How it works: the Council of Growth Engineers
+## How the plan process works
 
-The plan command uses a specialized system prompt called the **Council of Growth Engineers**. This is not a generic "give me a plan" prompt. The LLM is instructed to role-play as a council operating at the intersection of product, data, and psychology, drawing on decision-making frameworks from elite growth teams at companies like Meta, Airbnb, and Stripe.
+The plan is generated in multiple steps:
 
-The council follows strict rules:
+1. **Executive Summary** — Always first. A high-level summary focused on the growth core and global maximum.
+2. **Middle sections** — Configurable. Each section is generated in sequence, with prior sections passed as context for coherence.
+3. **Technical Execution** — Always last. Overview with confidence, what we're building, most important technical tasks (short, no phase grouping), data triggers, and success metrics.
 
-- **No beginner explanations.** Assumes 99th-percentile competence.
-- **No generic growth hacks.** If the advice appears on a "Top 10" list, it is discarded.
-- **No hedging.** The council picks the winning path and kills weak strategies immediately.
-- **Zero fluff.** Every word must increase signal-to-noise ratio.
-- **Focus on first actions.** The plan targets first-time user activation, not long-term retention.
-- **No demos or hardcoded data.** Solutions must deliver real configuration paths or incremental real value.
+The system prompt enforces high signal-to-noise, no generic advice, and utility-first thinking. The Technical Execution section feeds directly into the `build` command.
 
-The council generates a structured memo covering eight sections:
+## How to influence the sections generated
 
-1. **Executive Summary** -- High-level overview focused on first-time activation
-2. **The CEO's Next Action** -- The single most impactful move to execute in the next 24 hours
-3. **Strip to the Core** -- Reframes the problem as a first-action activation challenge
-4. **The Playbook** -- Hidden mechanics used by elite growth teams
-5. **Engineer the Asymmetric Leverage** -- The one lever that creates 10x activation for 1x input
-6. **Apply Power Dynamics** -- Strategy based on controlling onboarding, first value, activation friction, and action clarity
-7. **Technical Execution** -- Detailed build plan with confidence scores, exact logic, data triggers, and sequencing
-8. **The Memo** -- The complete engineering memo, direct and high-signal
+You can shape the plan in three ways:
 
-The Technical Execution section is particularly important because it feeds directly into the `build` command.
+### 1. `plan-steps.md` — Define custom middle sections
+
+The middle sections (between Executive Summary and Technical Execution) are driven by a `plan-steps.md` file. Place it at `skene-context/plan-steps.md` or in the directory specified by `--context`.
+
+The file can be freeform markdown. The system sends it to the LLM, which interprets your intent and produces structured section definitions. You can use headings, bullet lists, or prose:
+
+```markdown
+## The Growth Core
+Fundamental analysis. Global Maximum vs local maxima.
+
+## The Playbook (What?)
+Invisible Playbook. Moat identification.
+
+## The Average Trap (Why?)
+Common Path failure. V/T compounding logic.
+
+## The Mechanics of Leverage (How?)
+Four powers: Onboarding, Retention, Virality, Friction.
+```
+
+Or a looser style:
+
+```markdown
+# My Plan Focus
+
+I want the plan to cover:
+- A deep analysis of what the core utility is
+- What elite teams would do differently (the invisible playbook)
+- Why the common approach fails and the V/T logic
+- How to engineer leverage across onboarding, retention, virality
+```
+
+If `plan-steps.md` is absent or the LLM cannot parse it, the system falls back to default sections:
+
+1. The Growth Core
+2. The Playbook (What?)
+3. The Average Trap (Why?)
+4. The Mechanics of Leverage (How?)
+
+### 2. `--prompt` — Add context for this run
+
+Use `--prompt` to pass additional instructions that apply to the entire plan:
+
+```bash
+uvx skene-growth plan --prompt "Focus on enterprise customers and PLG motion"
+```
+
+The prompt is included in the context sent to the LLM for every section.
+
+### 3. Manifest and template — Base context
+
+The manifest (`growth-manifest.json`) and template (`growth-template.json`) provide the core context: tech stack, growth features, opportunities, and lifecycle stages. Richer context yields more specific plans.
 
 ## Activation mode
 
-The `--activation` flag switches the system prompt from the Council of Growth Engineers to a **Senior Activation Engineer** perspective. This mode focuses specifically on activation optimization with a different philosophy:
+The `--activation` flag switches to a **Senior Activation Engineer** perspective focused on activation optimization:
 
 ```bash
 uvx skene plan --activation
 ```
 
-The activation engineer operates under the principle of **progressive revelation** -- treating onboarding not as a one-time event but as a continuous evolution of state. Key concepts:
+Key concepts:
 
-- **The 60-Second Rule.** The first minute determines lifetime value. If the user has not felt the impact of value within 60 seconds, the opportunity is lost.
+- **The 60-Second Rule.** The first minute determines lifetime value.
 - **Contextual Configuration.** Configuration is friction. Collect information only at the moment of action.
 - **Data-Driven Correction.** Onboarding flows drift when the product evolves but the flow remains static.
 
-The activation memo follows a different structure:
-
-1. **Strip to the Momentum Core** -- Distinguish between "tour" (weak) and "pathway to power" (strong)
-2. **The Playbook** -- Hidden mechanics from elite onboarding at Stripe, Linear, Vercel
-3. **Engineer the Asymmetric Move** -- The single lever that makes the rest of the product inevitable
-4. **Apply Power Dynamics** -- Control of the clock, state, configuration, and signals
-5. **Technical Execution** -- The onboarding primitive to deploy, with confidence score and exact logic
-6. **The "Generic" Trap** -- Why tooltip tours lead to completion without adoption
-7. **Your Next Action** -- The most impactful technical move for the next 24 hours
-8. **The Memo** -- The engineering memo
+The activation memo follows a different structure (chapters, risks, scorecard) and is saved as markdown. It does not use the same section framework as the standard growth plan.
 
 ## Context files
 
@@ -117,27 +149,24 @@ The plan command auto-detects context files in this order:
 3. Checks the current directory
 
 For the manifest:
+
 - `<context>/growth-manifest.json`
 - `./skene-context/growth-manifest.json`
 - `./growth-manifest.json`
 
 For the template:
+
 - `<context>/growth-template.json`
 - `./skene-context/growth-template.json`
 - `./growth-template.json`
 
-The command also loads any existing **growth loop definitions** from `<context>/growth-loops/`. When previous growth loops are found, the council is instructed not to suggest duplicate features and to focus on complementary opportunities instead.
+The command also loads any existing **growth loop definitions** from `<context>/growth-loops/`. When previous growth loops are found, the plan is instructed not to suggest duplicate features and to focus on complementary opportunities.
 
 ## Output format
 
 The plan is saved as a Markdown file (default: `./skene-context/growth-plan.md`). If the `-o` path points to a directory or has no file extension, the tool appends `growth-plan.md` automatically.
 
-The output includes:
-
-- The full council memo in Markdown format
-- An **Implementation Todo List** displayed in the terminal after generation, showing prioritized tasks extracted from the plan
-
-After generation, the terminal displays the memo content and a summary todo list. The plan file is what the `build` command reads to generate implementation prompts.
+A JSON version (`growth-plan.json`) is saved alongside the markdown for programmatic use. After generation, the terminal displays a summary (section count, todo count, token usage). The plan file is what the `build` command reads to generate implementation prompts.
 
 ## What happens without an API key
 
@@ -163,6 +192,6 @@ debug = true
 
 ## Next steps
 
-- [Build](build.md) -- Turn your growth plan into an implementation prompt and send it to Cursor or Claude
-- [Configuration](configuration.md) -- Set up persistent config so you do not need to pass flags every time
-- [LLM Providers](llm-providers.md) -- Detailed setup for each supported provider
+- [Build](build.md) — Turn your growth plan into an implementation prompt and send it to Cursor or Claude
+- [Configuration](configuration.md) — Set up persistent config so you do not need to pass flags every time
+- [LLM Providers](llm-providers.md) — Detailed setup for each supported provider

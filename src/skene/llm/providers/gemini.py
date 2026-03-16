@@ -18,6 +18,36 @@ DEFAULT_FALLBACK_MODEL = "gemini-2.5-flash"
 # Retry delays in seconds for no-fallback mode (exponential-ish backoff)
 RETRY_DELAYS = [5, 15, 30]
 
+DEFAULT_TIMEOUT = 900.0
+
+
+def _extract_usage(response) -> dict[str, int] | None:
+    """Extract token usage from a Gemini response's usage_metadata.
+
+    The google-genai SDK exposes prompt_token_count, candidates_token_count,
+    thoughts_token_count, cached_content_token_count, and total_token_count.
+    We map these to the common interface (output_tokens / input_tokens) and
+    include thoughts_tokens when the model used thinking.
+    """
+    meta = getattr(response, "usage_metadata", None)
+    if meta is None:
+        return None
+    prompt = getattr(meta, "prompt_token_count", None)
+    candidates = getattr(meta, "candidates_token_count", None)
+    if prompt is None or candidates is None:
+        return None
+    usage: dict[str, int] = {
+        "output_tokens": candidates,
+        "input_tokens": prompt,
+    }
+    thoughts = getattr(meta, "thoughts_token_count", None)
+    if thoughts:
+        usage["thoughts_tokens"] = thoughts
+    cached = getattr(meta, "cached_content_token_count", None)
+    if cached:
+        usage["cached_tokens"] = cached
+    return usage
+
 
 class GoogleGeminiClient(LLMClient):
     """
@@ -66,57 +96,55 @@ class GoogleGeminiClient(LLMClient):
         error_str = str(error)
         return "429" in error_str and "RESOURCE_EXHAUSTED" in error_str
 
-    async def generate_content(
+    async def _call_stream_api(self, model: str, prompt: str):
+        """Start a blocking generate_content_stream call in a thread pool with timeout."""
+        loop = asyncio.get_event_loop()
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: self.client.models.generate_content_stream(model=model, contents=prompt),
+                ),
+                timeout=DEFAULT_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError(f"Google Gemini stream request timed out after {DEFAULT_TIMEOUT:.0f}s (model: {model})")
+
+    async def _call_api(self, model: str, prompt: str):
+        """Run a blocking generate_content call in a thread pool with timeout."""
+        loop = asyncio.get_event_loop()
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    partial(self.client.models.generate_content, model=model, contents=prompt),
+                ),
+                timeout=DEFAULT_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError(f"Google Gemini request timed out after {DEFAULT_TIMEOUT:.0f}s (model: {model})")
+
+    async def generate_content_with_usage(
         self,
         prompt: str,
-    ) -> str:
-        """
-        Generate text from Gemini.
-
-        Automatically retries with fallback model on rate limit errors.
-
-        Args:
-            prompt: The prompt to send to the model
-
-        Returns:
-            Generated text as a string
-
-        Raises:
-            RuntimeError: If generation fails on both primary and fallback models
-        """
+    ) -> tuple[str, dict[str, int] | None]:
+        """Generate text and return (content, usage). Usage has output_tokens, input_tokens.
+        Returns None when not in response."""
         try:
-            # Run the blocking call in a thread pool executor
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                partial(
-                    self.client.models.generate_content,
-                    model=self.model_name,
-                    contents=prompt,
-                ),
-            )
-
-            return response.text.strip()
+            response = await self._call_api(self.model_name, prompt)
+            return (response.text.strip(), _extract_usage(response))
         except Exception as e:
-            # If rate limit error, handle based on no_fallback setting
             if self._is_rate_limit_error(e):
                 if self.no_fallback:
-                    return await self._retry_with_backoff(prompt, stream=False)
+                    content = await self._retry_with_backoff(prompt, stream=False)
+                    return (content, None)
                 logger.warning(
                     f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}"
                 )
                 try:
-                    loop = asyncio.get_event_loop()
-                    response = await loop.run_in_executor(
-                        None,
-                        partial(
-                            self.client.models.generate_content,
-                            model=self.fallback_model,
-                            contents=prompt,
-                        ),
-                    )
+                    response = await self._call_api(self.fallback_model, prompt)
                     logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
-                    return response.text.strip()
+                    return (response.text.strip(), _extract_usage(response))
                 except Exception as fallback_error:
                     raise RuntimeError(
                         f"Error calling Google Gemini (fallback model {self.fallback_model}): {fallback_error}"
@@ -143,19 +171,9 @@ class GoogleGeminiClient(LLMClient):
         """
         model_to_use = self.model_name
         try:
-            # Use generate_content_stream method for streaming
-            # Run the blocking generator creation in thread pool
+            response_stream = await self._call_stream_api(model_to_use, prompt)
             loop = asyncio.get_event_loop()
-            response_stream = await loop.run_in_executor(
-                None,
-                lambda: self.client.models.generate_content_stream(
-                    model=model_to_use,
-                    contents=prompt,
-                ),
-            )
 
-            # Iterate through chunks
-            # Each iteration needs to be run in executor since it's blocking I/O
             def get_next_chunk(iterator):
                 try:
                     return next(iterator), False
@@ -165,34 +183,24 @@ class GoogleGeminiClient(LLMClient):
             chunk_iterator = iter(response_stream)
             while True:
                 chunk, done = await loop.run_in_executor(None, get_next_chunk, chunk_iterator)
-
                 if done:
                     break
-
                 if chunk and hasattr(chunk, "text") and chunk.text:
                     yield chunk.text
 
         except Exception as e:
-            # If rate limit error, handle based on no_fallback setting
             if self._is_rate_limit_error(e) and self.no_fallback:
                 async for chunk in self._retry_stream_with_backoff(prompt):
                     yield chunk
                 return
-            # If rate limit error and haven't tried fallback yet, retry with fallback model
             if self._is_rate_limit_error(e) and model_to_use == self.model_name:
                 logger.warning(
                     f"Rate limit (429) hit on model {self.model_name} during streaming, "
                     f"falling back to {self.fallback_model}"
                 )
                 try:
+                    response_stream = await self._call_stream_api(self.fallback_model, prompt)
                     loop = asyncio.get_event_loop()
-                    response_stream = await loop.run_in_executor(
-                        None,
-                        lambda: self.client.models.generate_content_stream(
-                            model=self.fallback_model,
-                            contents=prompt,
-                        ),
-                    )
 
                     def get_next_chunk(iterator):
                         try:
@@ -204,10 +212,8 @@ class GoogleGeminiClient(LLMClient):
                     logger.info(f"Successfully started streaming with fallback model {self.fallback_model}")
                     while True:
                         chunk, done = await loop.run_in_executor(None, get_next_chunk, chunk_iterator)
-
                         if done:
                             break
-
                         if chunk and hasattr(chunk, "text") and chunk.text:
                             yield chunk.text
                 except Exception as fallback_error:
@@ -223,15 +229,7 @@ class GoogleGeminiClient(LLMClient):
             logger.warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
             await asyncio.sleep(delay)
             try:
-                loop = asyncio.get_event_loop()
-                response = await loop.run_in_executor(
-                    None,
-                    partial(
-                        self.client.models.generate_content,
-                        model=self.model_name,
-                        contents=prompt,
-                    ),
-                )
+                response = await self._call_api(self.model_name, prompt)
                 return response.text.strip()
             except Exception as retry_error:
                 if not self._is_rate_limit_error(retry_error):
@@ -248,14 +246,8 @@ class GoogleGeminiClient(LLMClient):
             )
             await asyncio.sleep(delay)
             try:
+                response_stream = await self._call_stream_api(self.model_name, prompt)
                 loop = asyncio.get_event_loop()
-                response_stream = await loop.run_in_executor(
-                    None,
-                    lambda: self.client.models.generate_content_stream(
-                        model=self.model_name,
-                        contents=prompt,
-                    ),
-                )
 
                 def get_next_chunk(iterator):
                     try:

@@ -124,6 +124,13 @@ const (
 	WelcomeCTA      = "> ENTER <"
 )
 
+// Update notice (welcome view)
+const (
+	UpdateNoticeFormat   = "Update available: %s (current: %s)"
+	UpdateNoticeHintCopy = "Press c to copy update command"
+	UpdateNoticeCopied   = "Copied to clipboard!"
+)
+
 // Auth view
 const (
 	AuthOpeningBrowser  = "Opening browser for Skene authentication"
@@ -175,12 +182,38 @@ const (
 	AnalysisConfigRunButton = "Run Analysis"
 )
 
-// Analyzing view
+// Status labels (used across analyzing view, game, etc.)
 const (
-	AnalyzingFailed   = "Failed"
-	AnalyzingComplete = "Complete"
-	AnalyzingRunning  = "Running..."
-	AnalyzingDone     = "Done"
+	StatusFailed     = "Failed"
+	StatusCompleted  = "Completed"
+	StatusInProgress = "In progress"
+	StatusDone       = "Done"
+
+	StatusIconFailed    = "✗"
+	StatusIconCompleted = "✓"
+)
+
+// Game strings
+const (
+	GameTitle        = "TIME TO"
+	GameOver         = "GAME OVER"
+	GameAutoFire     = "auto-fire is on"
+	GameThrustUp     = "thrust up"
+	GameThrustDown   = "thrust down"
+	GameStatScore    = "Score    "
+	GameStatDistance = "Distance "
+	GameStatDefeated = "Defeated "
+	GameHUDFormat    = " SCORE: %d  HP: %s  DIST: %d "
+)
+
+// Engine phase names
+const (
+	PhaseScanningCodebase  = "Scanning codebase"
+	PhaseDetectingFeatures = "Detecting product features"
+	PhaseGrowthLoops       = "Growth loop analysis"
+	PhaseMonetisation      = "Monetisation analysis"
+	PhaseOpportunities     = "Opportunity modelling"
+	PhaseGeneratingDocs    = "Generating manifests & docs"
 )
 
 // Analysis phase names are now defined in internal/services/growth/engine.go
@@ -222,6 +255,7 @@ const (
 	HelpKeyG         = "g"
 	HelpKeyM         = "m"
 	HelpKeyR         = "r"
+	HelpKeyC         = "c"
 )
 
 // Help descriptions
@@ -254,8 +288,8 @@ const (
 	HelpDescToggleHelp       = "toggle help"
 	HelpDescHelp             = "help"
 	HelpDescNextSteps        = "next steps"
-	HelpDescPlayMiniGame     = "play mini game"
-	HelpDescPlayGame         = "play game"
+	HelpDescPlayMiniGame     = "Kill some time"
+	HelpDescPlayGame         = "Kill some time"
 	HelpDescRetry            = "retry"
 	HelpDescRetryDetection   = "retry detection"
 	HelpDescManualEntry      = "manual entry"
@@ -265,4 +299,8 @@ const (
 	HelpDescToggleOption     = "toggle option"
 	HelpDescOpenFolder       = "open folder"
 	HelpDescTabs             = "tabs"
+	HelpDescCopyUpdateCmd    = "copy update cmd"
+	HelpDescMove             = "move"
+	HelpDescPlayAgain        = "Kill some more time"
+	HelpDescStartGame        = "start"
 )

@@ -8,9 +8,11 @@ import (
 
 	"skene/internal/constants"
 	"skene/internal/game"
+	"github.com/atotto/clipboard"
 	"skene/internal/services/auth"
 	"skene/internal/services/config"
 	"skene/internal/services/growth"
+	"skene/internal/services/versioncheck"
 	"skene/internal/tui/components"
 	"skene/internal/tui/styles"
 	"skene/internal/tui/views"
@@ -95,6 +97,11 @@ type AuthCallbackMsg struct {
 	APIKey string
 	Model  string
 	Error  error
+}
+
+// VersionCheckMsg is sent when the background version check completes
+type VersionCheckMsg struct {
+	Result *versioncheck.Result
 }
 
 // authVerifiedMsg triggers the transition from verifying to success state
@@ -201,6 +208,7 @@ func (a *App) Init() tea.Cmd {
 	var cmds []tea.Cmd
 	cmds = append(cmds, tick())
 	cmds = append(cmds, textinput.Blink)
+	cmds = append(cmds, checkForUpdate())
 	// Initialize welcome animation
 	if a.welcomeView != nil {
 		animCmd := a.welcomeView.InitAnimation()
@@ -288,7 +296,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					phase := a.analyzingView.GetCurrentPhase()
 					if phase == "" {
-						phase = "Analyzing..."
+						phase = constants.StatusInProgress
 					}
 					a.game.SetProgressInfo(phase, false, false)
 				}
@@ -312,6 +320,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, countdown(a.authCountdown-1))
 		}
 
+	case VersionCheckMsg:
+		if msg.Result != nil && a.welcomeView != nil {
+			a.welcomeView.SetUpdateAvailable(msg.Result.NewVersion, msg.Result.UpdateCmd)
+		}
+
 	case AnalysisDoneMsg:
 		err := msg.Error
 		if err == nil && msg.Result != nil && msg.Result.Error != nil {
@@ -326,17 +339,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		if err != nil {
-			suggestion := analysisErrorSuggestion(err)
-			a.showError(&views.ErrorInfo{
-				Code:       constants.ErrorAnalysisFailed,
-				Title:      constants.ErrorAnalysisTitle,
-				Message:    err.Error(),
-				Suggestion: suggestion,
-				Severity:   views.SeverityError,
-				Retryable:  true,
-			})
+			if a.analyzingView != nil {
+				a.analyzingView.SetCommandFailed("")
+			}
 		} else {
-			a.state = StateResults
+			if a.analyzingView != nil {
+				a.analyzingView.SetDone()
+			}
 			if msg.Result != nil {
 				a.resultsView = views.NewResultsViewWithContent(
 					msg.Result.GrowthPlan,
@@ -347,6 +356,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.resultsView = views.NewResultsView()
 			}
 			a.resultsView.SetSize(a.width, a.height)
+			if a.state != StateGame && a.analyzingOrigin == StateAnalysisConfig {
+				a.state = StateResults
+			}
 		}
 
 	case AnalysisPhaseMsg:
@@ -359,7 +371,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.state == StateGame && a.game != nil && a.analyzingView != nil {
 			currentPhase := a.analyzingView.GetCurrentPhase()
 			if currentPhase == "" {
-				currentPhase = "Analyzing..."
+				currentPhase = constants.StatusInProgress
 			}
 			a.game.SetProgressInfo(currentPhase, false, false)
 		}
@@ -532,6 +544,13 @@ func (a *App) handleWelcomeKeys(key string) tea.Cmd {
 		} else {
 			a.state = StateProviderSelect
 			a.providerView.SetSize(a.width, a.height)
+		}
+		return nil
+	case "c":
+		if a.welcomeView != nil && a.welcomeView.HasUpdate() {
+			if clipboard.WriteAll(a.welcomeView.GetUpdateCmd()) == nil {
+				a.welcomeView.SetCopied()
+			}
 		}
 		return nil
 	}
@@ -816,21 +835,31 @@ func (a *App) handleAnalyzingKeys(key string) tea.Cmd {
 			a.analyzingView.ScrollDown(3)
 		}
 	case "g":
-		if a.analyzingView != nil && !a.analyzingView.IsDone() {
+		if a.analyzingView != nil {
 			a.prevState = a.state
 			a.state = StateGame
 			if a.game == nil {
-				a.game = game.NewGame(60, 20)
+				a.game = game.NewGame(a.width, a.height)
 			} else {
 				a.game.Restart()
 			}
-			a.game.SetSize(60, 20)
-			currentPhase := a.analyzingView.GetCurrentPhase()
-			if currentPhase == "" {
-				currentPhase = "Analyzing..."
+			a.game.SetSize(a.width, a.height)
+			if a.analyzingView.HasFailed() {
+				a.game.SetProgressInfo("", true, true)
+			} else if a.analyzingView.IsDone() {
+				a.game.SetProgressInfo("", true, false)
+			} else {
+				currentPhase := a.analyzingView.GetCurrentPhase()
+				if currentPhase == "" {
+					currentPhase = constants.StatusInProgress
+				}
+				a.game.SetProgressInfo(currentPhase, false, false)
 			}
-			a.game.SetProgressInfo(currentPhase, false, false)
 			return game.GameTickCmd()
+		}
+	case "r":
+		if a.analyzingView != nil && a.analyzingView.HasFailed() {
+			return a.startAnalysis()
 		}
 	case "esc":
 		if a.analyzingView == nil {
@@ -839,7 +868,11 @@ func (a *App) handleAnalyzingKeys(key string) tea.Cmd {
 		if a.analyzingView.HasFailed() {
 			a.navigateBackFromAnalyzing()
 		} else if a.analyzingView.IsDone() {
-			a.navigateBackFromAnalyzing()
+			if a.resultsView != nil {
+				a.state = StateResults
+			} else {
+				a.navigateBackFromAnalyzing()
+			}
 		} else {
 			if a.cancelFunc != nil {
 				a.cancelFunc()
@@ -861,8 +894,6 @@ func (a *App) handleResultsKeys(key string) tea.Cmd {
 		a.resultsView.HandleUp()
 	case "down", "j":
 		a.resultsView.HandleDown()
-	case "tab":
-		a.resultsView.HandleTab()
 	case "n", "enter":
 		a.state = StateNextSteps
 		a.nextStepsView = views.NewNextStepsView()
@@ -916,19 +947,9 @@ func (a *App) handleNextStepsKeys(key string) tea.Cmd {
 
 func (a *App) handleErrorKeys(key string) tea.Cmd {
 	switch key {
-	case "left", "h":
-		a.errorView.HandleLeft()
-	case "right", "l":
-		a.errorView.HandleRight()
-	case "enter":
-		btn := a.errorView.GetSelectedButton()
-		switch btn {
-		case "Retry":
+	case "r":
+		if a.errorView != nil && a.errorView.IsRetryable() {
 			a.state = a.prevState
-		case "Go Back":
-			a.navigateBackFromError()
-		case "Quit":
-			return tea.Quit
 		}
 	case "esc":
 		a.navigateBackFromError()
@@ -939,24 +960,25 @@ func (a *App) handleErrorKeys(key string) tea.Cmd {
 func (a *App) handleGameKeys(msg tea.KeyMsg) tea.Cmd {
 	key := msg.String()
 	switch key {
-	case "left", "a":
-		a.game.MoveLeft()
-	case "right", "d":
-		a.game.MoveRight()
-	case " ":
-		a.game.Shoot()
-	case "p":
-		a.game.TogglePause()
+	case "up":
+		a.game.MoveUp()
+	case "down":
+		a.game.MoveDown()
+	case "enter":
+		a.game.Start()
 	case "r":
 		if a.game.IsGameOver() {
-			a.game.Restart()
+			a.game.Start()
 		}
 	case "esc":
-		// Clear progress indicator when exiting game
 		if a.game != nil {
 			a.game.ClearProgressInfo()
 		}
-		a.state = a.prevState
+		if a.prevState == StateAnalyzing && a.resultsView != nil && a.analyzingView != nil && a.analyzingView.IsDone() && !a.analyzingView.HasFailed() && a.analyzingOrigin == StateAnalysisConfig {
+			a.state = StateResults
+		} else {
+			a.state = a.prevState
+		}
 	}
 	return nil
 }
@@ -1007,7 +1029,7 @@ func (a *App) selectProvider() tea.Cmd {
 		// Build the auth URL with the callback parameter
 		authURL := provider.AuthURL
 		if authURL == "" {
-			authURL = "https://www.skene.ai/login"
+			authURL = constants.SkeneKeyURL
 		}
 		authURL = fmt.Sprintf("%s?callback=%s", authURL, callbackServer.GetCallbackURL())
 
@@ -1360,37 +1382,6 @@ func (a *App) detectLocalModels() tea.Cmd {
 	}
 }
 
-// analysisErrorSuggestion returns a contextual suggestion based on the error
-func analysisErrorSuggestion(err error) string {
-	s := err.Error()
-	if containsAny(s, "failed to locate uvx", "failed to download uv") {
-		return "The CLI could not provision the uvx runtime. Check your internet connection and try again."
-	}
-	if containsAny(s, "No module named", "not found: skene", "package not found") {
-		return "The skene package could not be found. Make sure it is published or install it manually."
-	}
-	if containsAny(s, "API key", "401", "unauthorized") {
-		return "Check your API key, ensure it has the required permissions, and try again."
-	}
-	if containsAny(s, "network", "connection", "timeout") {
-		return "Check your network connection and try again."
-	}
-	return "Check the output above for details and try again."
-}
-
-func containsAny(s string, substrs ...string) bool {
-	for _, sub := range substrs {
-		if len(s) >= len(sub) {
-			for i := 0; i <= len(s)-len(sub); i++ {
-				if s[i:i+len(sub)] == sub {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 func (a *App) showError(err *views.ErrorInfo) {
 	a.prevState = a.state
 	a.currentError = err
@@ -1444,7 +1435,7 @@ func (a *App) updateViewSizes() {
 		a.errorView.SetSize(a.width, a.height)
 	}
 	if a.game != nil {
-		a.game.SetSize(60, 20)
+		a.game.SetSize(a.width, a.height)
 	}
 }
 
@@ -1654,6 +1645,12 @@ func tick() tea.Cmd {
 	return tea.Tick(time.Millisecond*50, func(t time.Time) tea.Msg {
 		return TickMsg(t)
 	})
+}
+
+func checkForUpdate() tea.Cmd {
+	return func() tea.Msg {
+		return VersionCheckMsg{Result: versioncheck.Check()}
+	}
 }
 
 func countdown(seconds int) tea.Cmd {

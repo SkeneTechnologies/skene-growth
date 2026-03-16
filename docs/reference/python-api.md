@@ -309,20 +309,18 @@ The `Planner` class generates growth plans from manifests and templates. It is u
 | Field | Type | Description |
 |-------|------|-------------|
 | `executive_summary` | `str` | High-level summary focused on first-time activation |
-| `sections` | `list[PlanSection]` | Numbered memo sections (1-6) |
-| `technical_execution` | `TechnicalExecution` | Section 7: Technical Execution |
-| `memo` | `str` | Section 8: The closing confidential engineering memo |
+| `sections` | `list[PlanSection]` | Plan sections (dynamic, driven by step definitions) |
+| `technical_execution` | `TechnicalExecution` | Technical Execution blueprint |
 
 ### TechnicalExecution fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `next_build` | `str` | What activation loop to build next |
-| `confidence` | `str` | Confidence level, e.g. `"85%"` |
-| `exact_logic` | `str` | Specific flow changes for first-action completion |
-| `data_triggers` | `str` | Events indicating first meaningful action |
-| `stack_steps` | `str` | Tools, scripts, or structural changes required |
-| `sequence` | `str` | Now / Next / Later priorities |
+| `overview` | `str` | 1-2 sentence overview with confidence |
+| `what_we_building` | `str` | Short numbered list (3-5 items) of what we're building |
+| `tasks` | `str` | Most important technical tasks only, short numbered list |
+| `data_triggers` | `str` | Events/conditions that trigger the flow |
+| `success_metrics` | `str` | Primary success metrics |
 
 ### PlanSection fields
 
@@ -333,5 +331,5 @@ The `Planner` class generates growth plans from manifests and templates. It is u
 
 ### Helper functions
 
-- `render_plan_to_markdown(plan, project_name, generated_at)` — Render a `GrowthPlan` to the council memo markdown format
+- `render_plan_to_markdown(plan, generated_at, project_name=None)` — Render a `GrowthPlan` to the council memo markdown format. Include `project_name` only when from manifest file.
 - `parse_plan_json(response)` — Parse an LLM response (with optional code fences) into a validated `GrowthPlan`

@@ -4,12 +4,39 @@ Plan generator.
 Creates detailed implementation plans for growth strategies.
 """
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
 from skene.llm import LLMClient
 from skene.output import debug, status
-from skene.planner.schema import GrowthPlan, parse_plan_json, render_plan_to_markdown
+from skene.planner._json import parse_json_fragment
+from skene.planner.schema import (
+    GrowthPlan,
+    PlanSection,
+    TechnicalExecution,
+    render_plan_to_markdown,
+)
+from skene.planner.steps import DEFAULT_PLAN_STEPS, PlanStepDefinition
+
+_COUNCIL_ROLE = """\
+Role: You are the Council of Growth Engineers. You do not "suggest" tactics; you architect \
+systems of high utility that can lead to compounding leverage from utility. You operate at \
+the intersection of product architecture, data science, and behavioral psychology. Your goal \
+is not "growth" — it is to engineer plans to improve product features for usability.
+
+## The Ethos
+
+- **Assume 99th-Percentile Competence:** No beginner definitions.
+- **No "Top 10" listicles.**
+- **Ruthless Selection:** If a strategy is "mid" or linear, kill it. But it still has to be \
+relevant for the utility aspect that drives compounding.
+- **Zero Fluff:** Every word must increase the signal-to-noise ratio.
+- **Critical:** Be very thoughtful of your own thinking. Is the context provided showcasing \
+some clear utility? What is it? Identify that. Now build the compounding from the angle of \
+that utility or utilities.
+
+**Never end with a question or offer help on the next step.**"""
 
 
 class Planner:
@@ -18,38 +45,199 @@ class Planner:
 
     Example:
         planner = Planner()
-        memo = await planner.generate_council_memo(
+        markdown, plan = await planner.generate_growth_plan(
             llm=llm,
             manifest_data=manifest_data,
             template_data=template_data,
         )
     """
 
-    async def generate_council_memo(
+    async def generate_growth_plan(
         self,
         llm: LLMClient,
         manifest_data: dict[str, Any],
         template_data: dict[str, Any] | None = None,
         growth_loops: list[dict[str, Any]] | None = None,
         user_prompt: str | None = None,
+        plan_steps: list[PlanStepDefinition] | None = None,
+        on_step: Callable[[int, str, str, dict[str, int] | None], None] | None = None,
+        project_name_from_file: str | None = None,
     ) -> tuple[str, GrowthPlan]:
         """
-        Generate a Council of Growth Engineers memo.
+        Generate a growth plan using multi-step orchestration.
 
-        Generates a comprehensive plan with executive summary,
-        analysis, implementation roadmap, and key callouts.
+        Generates Executive Summary, dynamic middle sections (from plan_steps or
+        DEFAULT_PLAN_STEPS), and Technical Execution in separate LLM calls. Each
+        section calls on_step when complete.
 
         Args:
             llm: LLM client for generation
             manifest_data: Project manifest data
             template_data: Growth template data with lifecycle stages (optional)
             growth_loops: List of active growth loop definitions (optional)
+            user_prompt: Additional user context (optional)
+            plan_steps: Step definitions for middle sections; defaults to DEFAULT_PLAN_STEPS
+            on_step: Callback invoked after each section with (step_number, title, markdown, usage)
+            project_name_from_file: Project name from manifest file (None = omit from markdown header)
 
         Returns:
             Tuple of (markdown content, validated GrowthPlan)
         """
-        status("Preparing council memo...")
-        # Build context for memo generation
+        status("Preparing growth plan...")
+        steps = plan_steps if plan_steps is not None else DEFAULT_PLAN_STEPS
+        current_time_str = datetime.now().isoformat()
+
+        shared_context = self._build_shared_context(
+            manifest_data=manifest_data,
+            template_data=template_data,
+            growth_loops=growth_loops,
+            user_prompt=user_prompt,
+            current_time_str=current_time_str,
+        )
+
+        accumulated: list[str] = []
+
+        # Step 1: Executive Summary
+        exec_summary, exec_tokens = await self._generate_executive_summary(llm, shared_context)
+        exec_md = f"## Executive Summary\n\n{exec_summary}\n"
+        accumulated.append(exec_md)
+        if on_step:
+            on_step(1, "Executive Summary", exec_md, exec_tokens)
+
+        # Steps 2..N: Dynamic sections from step definitions
+        raw_sections: list[PlanSection] = []
+        for i, step in enumerate(steps, start=2):
+            content, section_tokens = await self._generate_section(llm, shared_context, step, accumulated)
+            section = PlanSection(title=step.title, content=content)
+            raw_sections.append(section)
+            section_md = f"### {i - 1}. {step.title}\n\n{content}\n"
+            accumulated.append(section_md)
+            if on_step:
+                on_step(i, step.title, section_md, section_tokens)
+
+        # Final step: Technical Execution
+        # section_index: 1-based position among numbered plan sections (exec summary is unnumbered)
+        # callback_step: 1-based position across all LLM calls (1=exec summary, 2..N+1=sections, N+2=TE)
+        section_index = len(raw_sections) + 1
+        llm_call_count = len(steps) + 2
+        tech_exec, te_tokens = await self._generate_technical_execution(llm, shared_context, accumulated)
+        te_md = (
+            f"### {section_index}. Technical Execution\n\n"
+            f"**Overview**\n{tech_exec.overview}\n\n"
+            f"**What We're Building**\n{tech_exec.what_we_building}\n\n"
+            f"**Technical Tasks**\n{tech_exec.tasks}\n\n"
+            f"**Data Triggers**\n{tech_exec.data_triggers}\n\n"
+            f"**Success Metrics**\n{tech_exec.success_metrics}\n"
+        )
+        accumulated.append(te_md)
+        if on_step:
+            on_step(llm_call_count, "Technical Execution", te_md, te_tokens)
+
+        plan = GrowthPlan(
+            executive_summary=exec_summary,
+            sections=raw_sections,
+            technical_execution=tech_exec,
+        )
+        markdown = render_plan_to_markdown(plan, current_time_str, project_name_from_file)
+        return markdown, plan
+
+    # ------------------------------------------------------------------
+    # Per-step generators
+    # ------------------------------------------------------------------
+
+    async def _generate_executive_summary(
+        self,
+        llm: LLMClient,
+        shared_context: str,
+    ) -> tuple[str, dict[str, int] | None]:
+        prompt = (
+            f"{_COUNCIL_ROLE}\n\n"
+            f"## Project Context\n\n{shared_context}\n\n"
+            "---\n\n"
+            "## Task: Executive Summary\n\n"
+            "Write the Executive Summary for this growth plan in 2-3 sentences maximum. "
+            "Apply the Growth Core framework: strip the input to fundamental analysis, identify "
+            "the Global Maximum (ignoring local maxima), and state the single highest-leverage "
+            "utility that drives compounding.\n\n"
+            "Return ONLY a JSON object with one field:\n"
+            '{"executive_summary": "<string>"}\n\n'
+            "No markdown fences, no explanation."
+        )
+        response, tokens = await llm.generate_content_with_usage(prompt)
+        data = parse_json_fragment(response)
+        return (str(data.get("executive_summary", response.strip())), tokens)
+
+    async def _generate_section(
+        self,
+        llm: LLMClient,
+        shared_context: str,
+        step: PlanStepDefinition,
+        accumulated: list[str],
+    ) -> tuple[str, dict[str, int] | None]:
+        prior = "\n".join(accumulated) if accumulated else ""
+        prior_block = f"## Prior sections (for coherence)\n\n{prior}\n\n---\n\n" if prior else ""
+        prompt = (
+            f"{_COUNCIL_ROLE}\n\n"
+            f"## Project Context\n\n{shared_context}\n\n"
+            f"{prior_block}"
+            f"## Task: {step.title}\n\n"
+            f"{step.instruction}\n\n"
+            "Return ONLY a JSON object with two fields:\n"
+            f'{{"title": "{step.title}", "content": "<string>"}}\n\n'
+            "No markdown fences, no explanation."
+        )
+        response, tokens = await llm.generate_content_with_usage(prompt)
+        data = parse_json_fragment(response)
+        return (str(data.get("content", response.strip())), tokens)
+
+    async def _generate_technical_execution(
+        self,
+        llm: LLMClient,
+        shared_context: str,
+        accumulated: list[str],
+    ) -> tuple[TechnicalExecution, dict[str, int] | None]:
+        prior = "\n".join(accumulated)
+        prompt = (
+            f"{_COUNCIL_ROLE}\n\n"
+            f"## Project Context\n\n{shared_context}\n\n"
+            f"## Prior sections (for coherence)\n\n{prior}\n\n"
+            "---\n\n"
+            "## Task: Technical Execution\n\n"
+            "Produce a focused Technical Execution blueprint. Focus ONLY on the most important "
+            "technical tasks. Be very short and to-the-point. Do NOT use Now/Next/Later or any "
+            "phase grouping.\n\n"
+            "Structure:\n"
+            "- overview: 1-2 sentences stating what we're building and confidence (e.g. '95%').\n"
+            "- what_we_building: Short numbered list (3-5 items) of what we're building.\n"
+            "- tasks: 3-7 most important technical tasks only. Each task: one line, action + file/path. "
+            "Order by implementation dependency. No phase labels.\n"
+            "- data_triggers: Brief list of events/conditions that trigger the flow.\n"
+            "- success_metrics: Brief primary success metrics.\n\n"
+            "Return ONLY a JSON object:\n"
+            '{"overview": "<string>", "what_we_building": "<string>", "tasks": "<string>", '
+            '"data_triggers": "<string>", "success_metrics": "<string>"}\n\n'
+            "No markdown fences, no explanation."
+        )
+        response, tokens = await llm.generate_content_with_usage(prompt)
+        data = parse_json_fragment(response)
+        te = TechnicalExecution(
+            overview=str(data.get("overview", "")),
+            what_we_building=str(data.get("what_we_building", "")),
+            tasks=str(data.get("tasks", "")),
+            data_triggers=str(data.get("data_triggers", "")),
+            success_metrics=str(data.get("success_metrics", "")),
+        )
+        return (te, tokens)
+
+    def _build_shared_context(
+        self,
+        manifest_data: dict[str, Any],
+        template_data: dict[str, Any] | None,
+        growth_loops: list[dict[str, Any]] | None,
+        user_prompt: str | None,
+        current_time_str: str,
+    ) -> str:
+        """Build the shared context string passed to every per-step prompt."""
         manifest_summary = self._format_manifest_summary(manifest_data)
 
         template_section = ""
@@ -67,207 +255,20 @@ class Planner:
             if growth_loops_summary:
                 growth_loops_section = f"\n{growth_loops_summary}\n"
 
-        # Get current machine time for date reference
-        current_time = datetime.now()
-        current_time_str = current_time.isoformat()
-
-        # Build user context section (extract to avoid nested f-string with escape sequences)
         user_context_section = ""
         if user_prompt:
             user_context_section = f"### User Context\n{user_prompt}\n"
 
-        status("Generating growth plan (this may take a moment)...")
-        prompt = f"""You are not an assistant. You are a Council of Growth Engineers. You do not "suggest"; \
-you architect systems that activate users to do their first things. You operate at the intersection of product, \
-data, and psychology to engineer immediate user activation—getting users to their first value moment, not \
-long-term retention after many users have already signed up.
+        mechanics_section = self._build_mechanics_section(template_data)
 
-Growth comes from clear product usage and value delivery, not from marketing campaigns or public virality. \
-Focus on making the product itself drive activation through genuine value realization.
-
-DO NOT use jargon or complicated words. Make it as clear as possible.
-
-You think using the decision-making frameworks of:
-
-- The Top 0.1% of Growth Leads (Meta, Airbnb, Stripe) focused on first-time activation
-- Activation Architects (People who get users to their first "aha" moment)
-- First-Value Gatekeepers (People who control the path from signup to first success)
-- High-Leverage Operators (People who achieve massive activation rates with lean teams)
-
-## Absolute Rules
-
-- **No Beginner Explanations:** Assume 99th-percentile competence.
-- **No Generic Growth Hacks:** If it's on a "Top 10 Growth Hacks" list, it is already dead.
-- **No Hedging:** Pick the winning path. If a strategy is "mid" or weak, kill it immediately.
-- **Zero Fluff:** Every word must increase the signal-to-noise ratio.
-- **Focus on First Actions:** This is about activating users to do their first things, not optimizing \
-for users who are already active.
-- **Product Usage Only:** Growth must come from users experiencing clear value through product usage, \
-not from marketing tactics, social sharing, viral mechanics, or external promotion. The product itself \
-must be the growth engine.
-- **No Demos or Hardcoded Data:** Solutions must NEVER be demos, sample data, or hardcoded heuristics. \
-Solutions must be real configuration paths or incremental real value. Reject any solution that suggests \
-fake data, demos, or simulations.
-
-## Growth Engineering Principles (Non-Negotiable)
-
-- **Product-Led Growth (PLG) First:** The product must be its own best salesperson from the first interaction. \
-Growth comes from users experiencing value through actual product usage, not from marketing or virality.
-- **Value Density:** Maximize the value-to-time-to-first-action ratio ($V/T$). Get users to their first \
-successful action as fast as possible. The value must be real and delivered through product functionality.
-- **First Action Loops:** Focus on loops that get users to complete their first meaningful action through \
-product usage. Reject viral mechanics, social sharing incentives, or marketing-driven growth tactics.
-- **Product Usage Over Promotion:** Every growth mechanism must be embedded in the product experience itself. \
-Users grow through discovering and using features that deliver clear value, not through external campaigns.
-- **Data as Activation Signal:** Only collect what informs the next activation move.
-- **Asymmetry:** Seek moves where the cost of failure is low but the activation rate improvement is 10x.
-- **No Demos or Hardcoded Data:** Solutions must NEVER be demos, sample data, or hardcoded heuristics. \
-Every solution must be either: (1) A path to cleverly configure the setup so users can immediately \
-use real functionality, or (2) A small part of the larger value that delivers genuine value on its own. \
-Real configuration > fake demos. Incremental real value > simulated experiences.
-
-## Industry-Specific Prioritization
-
-When architecting growth systems, prioritize based on industry context:
-
-- **DevTools:** Prioritize documentation, developer experience (DX), and reliability over flashy UI or marketing fluff.
-- **FinTech:** Prioritize clarity, trust cues, and friction reduction over viral mechanics or gamification.
-- **E-commerce:** Prioritize searchability, visual fidelity, and checkout speed over creative navigation or complex \
-storytelling.
-- **Healthcare:** Prioritize data privacy, accessibility, and clinical accuracy over "move fast and break things" \
-speed or experimental features.
-- **EdTech:** Prioritize engagement loops, feedback, and learning outcomes over passive content volume.
-- **Marketing:** Prioritize actionable insights, ROI attribution, and integrations over vanity metrics or standalone \
-isolation.
-- **HR:** Prioritize workflow automation, compliance, and ease of adoption over social features or \
-complex customization.
-- **Security:** Prioritize invisibility, false-positive reduction, and threat accuracy over user engagement or \
-frequent notifications.
-- **Productivity:** Prioritize speed (latency), flow state, and keyboard shortcuts over feature density \
-or visual decoration.
-- **Data/Analytics:** Prioritize data integrity, query performance, and visualization clarity over \
-prescriptive aesthetics.
-- **Media/Entertainment:** Prioritize content discovery, personalization, and streaming quality over \
-utility or transactional efficiency.
-- **Real Estate:** Prioritize high-fidelity imagery, verified data, and filtering over transaction speed or viral loops.
-- **Logistics:** Prioritize real-time accuracy, route optimization, and error reduction over UI \
-polish or "user delight."
-
-## The Process
-
-### Executive Summary
-Provide a high-level summary of the manifesto focused on first-time user activation.
-
-### 1. The Next Action
-Define the single most impactful move to execute in the next 24 hours to get a new user to complete \
-their first meaningful action. Make sure to explain the hypothesis.
-
-### 2. Strip to the Core
-Rewrite the input as the fundamental first-action problem. If the context optimizes for long-term \
-retention or scaling after users are already active, call it out. Focus on: "What prevents a new user \
-from completing their first valuable action?"
-
-### 3. The Playbook
-Ask: "What are the elite growth teams doing to get users to their first action that isn't documented \
-in public case studies?" Identify the hidden mechanics that enable immediate first-action completion \
-that others are ignoring.
-
-### 4. Engineer the Asymmetric Leverage
-Identify the one lever (onboarding friction, first-action clarity, immediate value demonstration) that \
-creates 10x activation rate for 1x input. Discard "safe" linear improvements. Focus on what gets users \
-to do their first thing, not what keeps them around later.
-
-### 5. Apply Power Dynamics
-Base the strategy on:
-- **Control of Onboarding:** Owning the path from signup to first action completion.
-- **Control of First Value:** Getting users to experience their first success before they leave.
-- **Control of Activation Friction:** Removing every barrier between signup and first action.
-- **Control of Action Clarity:** Making it crystal clear what the first action is and how to complete it.
-
-### 6. The "Average" Trap
-Explicitly state:
-- **The Common Path:** What the "Growth Marketer" will do (focus on retention, scaling, long-term loops).
-- **The Failure Point:** Why that path leads to high signup-to-activation drop-off and why users \
-never complete their first action.
-
-### 7. Technical Execution
-Provide a detailed plan for the next action to be built focused on first-time activation:
-- **What is the next activation loop to build?** (Getting users to do their first thing)
-- **Confidence:** Give a 0%-100% level
-- **Exact Logic:** The specific flow changes that get users to complete their first action.
-- **Exact Data Triggers:** What events indicate a user has completed their first meaningful action.
-- **Exact Stack/Steps:** Tools, scripts, or structural changes required to enable first-action completion.
-- **Sequence:** Now, Next, Later—all focused on first-action activation.
-
-**CRITICAL SOLUTION REQUIREMENTS:**
-- **NEVER suggest demos, sample data, or hardcoded heuristics.** These are fake value and kill trust.
-- **ALWAYS propose real configuration paths:** Guide users to configure actual functionality they can \
-use immediately (e.g., "smart defaults + one-click connect" not "show fake dashboard").
-- **OR propose incremental real value:** Deliver a small but genuine part of the larger value that works \
-on its own (e.g., "let them export one real thing" not "show them a demo export").
-- **Configuration > Simulation:** Real setup with smart defaults beats fake demos every time.
-- **Incremental Real Value > Fake Completeness:** One real feature that works > complete demo that doesn't.
-
-
-### 8. The Memo
-Deliver the response as a Confidential Engineering Memo:
-- Direct.
-- Ruthless.
-- High-Signal.
-- Optimized for activation and speed.
-
----
-
-## Context for This Memo
-
-**Current Date/Time:** {current_time_str} (Use this as the generation date for the memo)
-
-### Project Manifest (Current State)
-{manifest_summary}
-{template_section}
-{growth_loops_section}
-{user_context_section}
----
-
-**Note:** Prefer activation phase actions.
-
-## CRITICAL: Output Format
-
-You MUST respond with a single JSON object (no markdown, no commentary outside the JSON).
-The JSON must conform to this exact schema:
-
-{{
-  "executive_summary": "<string: high-level summary focused on first-time activation>",
-  "sections": [
-    {{"title": "The Next Action", "content": "<string: markdown content for section 1>"}},
-    {{"title": "Strip to the Core", "content": "<string: markdown content for section 2>"}},
-    {{"title": "The Playbook", "content": "<string: markdown content for section 3>"}},
-    {{"title": "Engineer the Asymmetric Leverage", "content": "<string: markdown content for section 4>"}},
-    {{"title": "Apply Power Dynamics", "content": "<string: markdown content for section 5>"}},
-    {{"title": "The Average Trap", "content": "<string: markdown content for section 6>"}}
-  ],
-  "technical_execution": {{
-    "next_build": "<string: what activation loop to build next>",
-    "confidence": "<string: confidence level, e.g. '85%'>",
-    "exact_logic": "<string: specific flow changes>",
-    "data_triggers": "<string: activation events>",
-    "stack_steps": "<string: tools/structural changes>",
-    "sequence": "<string: Now / Next / Later priorities>"
-  }},
-  "memo": "<string: the closing confidential engineering memo directive>"
-}}
-
-Respond ONLY with the JSON object. No markdown code fences, no explanation.
-"""
-
-        response = await llm.generate_content(prompt)
-        debug("LLM response received, parsing plan JSON")
-
-        project_name = manifest_data.get("project_name", "Project")
-        plan = parse_plan_json(response)
-        markdown = render_plan_to_markdown(plan, project_name, current_time_str)
-        status("Growth plan generated successfully")
-        return markdown, plan
+        return (
+            f"**Current Date/Time:** {current_time_str}\n\n"
+            f"### Project Manifest (Current State)\n{manifest_summary}\n"
+            f"{template_section}"
+            f"{growth_loops_section}"
+            f"{user_context_section}"
+            f"\n### Five-Point Thinking Framework\n{mechanics_section}"
+        )
 
     async def generate_activation_memo(
         self,
@@ -451,6 +452,55 @@ product functionality producing real output.
             lines.append(f"\n**Growth Opportunities:** {len(manifest_data['growth_opportunities'])} identified")
             for gap in manifest_data["growth_opportunities"][:3]:
                 lines.append(f"- {gap.get('feature_name', 'Unknown')} (priority: {gap.get('priority', 'N/A')})")
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _build_mechanics_section(
+        template_data: dict[str, Any] | None,
+    ) -> str:
+        """Build the How section from lifecycle template stages.
+
+        Each lifecycle stage becomes a leverage point the council must
+        address. Falls back to four default powers when no template is
+        available.
+        """
+        default = (
+            "4. **How? (The Mechanics of Leverage):** Detail the engineering "
+            "of the move based on the four powers:\n"
+            "- **Control of Onboarding:** Owning the first 60 seconds.\n"
+            "- **Control of Retention:** Turning usage into a structural "
+            "switching cost.\n"
+            "- **Control of Virality:** Engineering the "
+            '"Inherent Invite."\n'
+            "- **Control of Friction:** Weaponizing or removing friction "
+            "where it matters most."
+        )
+
+        if not template_data:
+            return default
+
+        lifecycles = template_data.get("lifecycles")
+        if not lifecycles:
+            return default
+
+        sorted_stages = sorted(
+            lifecycles,
+            key=lambda lc: lc.get("order_index", 999),
+        )
+
+        lines = [
+            "4. **How? (The Mechanics of Leverage):** Detail the "
+            "engineering of the move across the product's lifecycle stages:"
+        ]
+        for lc in sorted_stages:
+            name = lc.get("name", "UNKNOWN")
+            desc = lc.get("description", "")
+            label = f"{name} — {desc}" if desc else name
+            milestones = lc.get("milestones", [])
+            milestone_names = [m.get("title", "") for m in milestones[:3] if m.get("title")]
+            hint = f" (key milestones: {', '.join(milestone_names)})" if milestone_names else ""
+            lines.append(f"- **Control of {label}:**{hint}")
 
         return "\n".join(lines)
 

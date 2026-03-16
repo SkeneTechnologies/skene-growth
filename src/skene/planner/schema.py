@@ -9,14 +9,13 @@ from pydantic import BaseModel, Field
 
 
 class TechnicalExecution(BaseModel):
-    """Section 7: Technical Execution details."""
+    """Technical Execution: focused, short specifications for implementation."""
 
-    next_build: str = Field(description="What activation loop to build next")
-    confidence: str = Field(description="Confidence level, e.g. '85%'")
-    exact_logic: str = Field(description="Specific flow changes for first-action completion")
-    data_triggers: str = Field(description="Events indicating first meaningful action")
-    stack_steps: str = Field(description="Tools, scripts, or structural changes required")
-    sequence: str = Field(description="Now / Next / Later priorities")
+    overview: str = Field(description="1-2 sentence overview with confidence, e.g. 'Implement X. Confidence: 95%'")
+    what_we_building: str = Field(description="Short numbered list (3-5 items) of what we're building")
+    tasks: str = Field(description="Most important technical tasks only, short numbered list, no phase grouping")
+    data_triggers: str = Field(description="Events/conditions that trigger the flow (brief)")
+    success_metrics: str = Field(description="Primary success metrics (brief)")
 
 
 class PlanSection(BaseModel):
@@ -27,28 +26,30 @@ class PlanSection(BaseModel):
 
 
 class GrowthPlan(BaseModel):
-    """Complete structured council memo."""
+    """Complete structured growth plan."""
 
     executive_summary: str = Field(description="High-level summary focused on first-time activation")
-    sections: list[PlanSection] = Field(description="Numbered memo sections (1-6)")
-    technical_execution: TechnicalExecution = Field(description="Section 7: Technical Execution")
-    memo: str = Field(description="Section 8: The closing confidential engineering memo")
+    sections: list[PlanSection] = Field(description="Plan sections (dynamic, driven by step definitions)")
+    technical_execution: TechnicalExecution = Field(description="Technical Execution blueprint")
 
 
-def render_plan_to_markdown(plan: GrowthPlan, project_name: str, generated_at: str) -> str:
+def render_plan_to_markdown(plan: GrowthPlan, generated_at: str, project_name: str | None = None) -> str:
     """Render a GrowthPlan to the markdown memo format.
 
     Args:
         plan: Validated GrowthPlan instance
-        project_name: Name of the project
         generated_at: ISO timestamp string
+        project_name: Project name from manifest file (None = omit from output)
 
     Returns:
         Markdown string matching the council memo format
     """
     lines: list[str] = []
 
-    lines.append(f"# Council of Growth Engineers — {project_name}")
+    if project_name:
+        lines.append(f"# Growth Plan: {project_name} #")
+    else:
+        lines.append("# Growth Plan #")
     lines.append(f"**Generated:** {generated_at}")
     lines.append("")
     lines.append("---")
@@ -60,34 +61,29 @@ def render_plan_to_markdown(plan: GrowthPlan, project_name: str, generated_at: s
     lines.append(plan.executive_summary)
     lines.append("")
 
-    # Numbered sections (1-6)
-    for i, section in enumerate(plan.sections, start=1):
+    # Dynamic sections (exclude Technical Execution — it is rendered separately)
+    sections = [s for s in plan.sections if s.title.lower() != "technical execution"]
+    section_count = len(sections)
+    te_number = section_count + 1
+    for i, section in enumerate(sections, start=1):
         lines.append(f"### {i}. {section.title}")
         lines.append("")
         lines.append(section.content)
         lines.append("")
 
-    # Section 7: Technical Execution
+    # Technical Execution
     te = plan.technical_execution
-    lines.append("### 7. Technical Execution")
+    lines.append(f"### {te_number}. Technical Execution")
     lines.append("")
-    lines.append(f"**What is the next activation loop to build?**\n{te.next_build}")
+    lines.append(f"**Overview**\n{te.overview}")
     lines.append("")
-    lines.append(f"**Confidence:** {te.confidence}")
+    lines.append(f"**What We're Building**\n{te.what_we_building}")
     lines.append("")
-    lines.append(f"**Exact Logic:**\n{te.exact_logic}")
+    lines.append(f"**Technical Tasks**\n{te.tasks}")
     lines.append("")
-    lines.append(f"**Exact Data Triggers:**\n{te.data_triggers}")
+    lines.append(f"**Data Triggers**\n{te.data_triggers}")
     lines.append("")
-    lines.append(f"**Exact Stack/Steps:**\n{te.stack_steps}")
-    lines.append("")
-    lines.append(f"**Sequence:**\n{te.sequence}")
-    lines.append("")
-
-    # Section 8: The Memo
-    lines.append("### 8. The Memo")
-    lines.append("")
-    lines.append(plan.memo)
+    lines.append(f"**Success Metrics**\n{te.success_metrics}")
     lines.append("")
 
     return "\n".join(lines)

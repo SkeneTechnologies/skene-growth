@@ -23,9 +23,9 @@ class FakeLLM(LLMClient):
         self.response = response
         self.last_prompt: str | None = None
 
-    async def generate_content(self, prompt: str) -> str:
+    async def generate_content_with_usage(self, prompt: str) -> tuple[str, dict[str, int] | None]:
         self.last_prompt = prompt
-        return self.response
+        return (self.response, None)
 
     async def generate_content_stream(self, prompt: str):
         self.last_prompt = prompt

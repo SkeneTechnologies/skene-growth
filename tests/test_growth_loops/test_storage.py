@@ -20,26 +20,38 @@ from skene.growth_loops.storage import (
 class TestDeriveLoopName:
     """Tests for derive_loop_name function."""
 
-    def test_extracts_first_line(self):
-        """Should extract the first non-empty line from next_build."""
-        technical_execution = {"next_build": "Discovery Engine\nA powerful search feature\nWith advanced filtering"}
+    def test_extracts_first_line_from_overview(self):
+        """Should extract the first non-empty line from overview."""
+        technical_execution = {"overview": "Discovery Engine. Confidence: 85%"}
+        result = derive_loop_name(technical_execution)
+        assert result == "Discovery Engine. Confidence: 85%"
+
+    def test_prefers_overview_over_legacy_next_build(self):
+        """Should prefer overview when both present."""
+        technical_execution = {"overview": "New feature", "next_build": "Legacy"}
+        result = derive_loop_name(technical_execution)
+        assert result == "New feature"
+
+    def test_fallback_to_next_build_when_overview_missing(self):
+        """Should fall back to next_build for legacy plans."""
+        technical_execution = {"next_build": "Discovery Engine\nA powerful search feature"}
         result = derive_loop_name(technical_execution)
         assert result == "Discovery Engine"
 
     def test_handles_leading_whitespace(self):
         """Should handle leading/trailing whitespace."""
-        technical_execution = {"next_build": "  \n  \n  Phase 1: Share Flag  \n  Other content  "}
+        technical_execution = {"overview": "  \n  \n  Phase 1: Share Flag  \n  Other content  "}
         result = derive_loop_name(technical_execution)
         assert result == "Phase 1: Share Flag"
 
     def test_fallback_on_empty(self):
-        """Should return fallback if next_build is empty."""
-        technical_execution = {"next_build": "   \n  \n  "}
+        """Should return fallback if overview/next_build is empty."""
+        technical_execution = {"overview": "   \n  \n  "}
         result = derive_loop_name(technical_execution)
         assert result == "growth_loop"
 
     def test_fallback_on_missing(self):
-        """Should return fallback if next_build is missing."""
+        """Should return fallback if overview and next_build are missing."""
         technical_execution = {}
         result = derive_loop_name(technical_execution)
         assert result == "growth_loop"

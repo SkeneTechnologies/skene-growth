@@ -70,8 +70,8 @@ def extract_technical_execution(plan_path: Path) -> dict[str, str] | None:
         plan_path: Path to the growth-plan.md file (JSON sibling is read)
 
     Returns:
-        Dictionary with 'next_build', 'confidence', 'exact_logic',
-        'data_triggers', 'stack_steps', 'sequence' or None if not found
+        Dictionary with overview, what_we_building, tasks, data_triggers,
+        success_metrics (or legacy next_build, exact_logic, sequence)
     """
     data = _load_growth_plan_json(plan_path)
     if data is None:
@@ -80,11 +80,13 @@ def extract_technical_execution(plan_path: Path) -> dict[str, str] | None:
     if te is None:
         return None
     return {
-        "next_build": te.get("next_build", ""),
-        "confidence": te.get("confidence", ""),
-        "exact_logic": te.get("exact_logic", ""),
+        "overview": te.get("overview", ""),
+        "what_we_building": te.get("what_we_building", ""),
+        "tasks": te.get("tasks", ""),
         "data_triggers": te.get("data_triggers", ""),
-        "stack_steps": te.get("stack_steps", ""),
+        "success_metrics": te.get("success_metrics", ""),
+        "next_build": te.get("next_build", ""),
+        "exact_logic": te.get("exact_logic", ""),
         "sequence": te.get("sequence", ""),
     }
 
@@ -124,19 +126,25 @@ async def build_prompt_with_llm(
     # Prepare the context for the LLM - include all engineering content
     context_parts = []
 
-    if technical_execution.get("next_build"):
-        context_parts.append(f"What We're Building: {technical_execution['next_build']}")
+    if technical_execution.get("overview"):
+        context_parts.append(f"Overview: {technical_execution['overview']}")
+    elif technical_execution.get("next_build"):
+        context_parts.append(f"Overview: {technical_execution['next_build']}")
 
-    if technical_execution.get("confidence"):
-        context_parts.append(f"Confidence: {technical_execution['confidence']}")
+    if technical_execution.get("what_we_building"):
+        context_parts.append(f"What We're Building:\n{technical_execution['what_we_building']}")
 
-    if technical_execution.get("exact_logic"):
-        context_parts.append(f"Exact Logic:\n{technical_execution['exact_logic']}")
+    if technical_execution.get("tasks"):
+        context_parts.append(f"Technical Tasks:\n{technical_execution['tasks']}")
+    elif technical_execution.get("exact_logic"):
+        context_parts.append(f"Technical Tasks:\n{technical_execution['exact_logic']}")
 
     if technical_execution.get("data_triggers"):
         context_parts.append(f"Data Triggers:\n{technical_execution['data_triggers']}")
 
-    if technical_execution.get("sequence"):
+    if technical_execution.get("success_metrics"):
+        context_parts.append(f"Success Metrics:\n{technical_execution['success_metrics']}")
+    elif technical_execution.get("sequence"):
         context_parts.append(f"Sequence:\n{technical_execution['sequence']}")
 
     context = "\n\n".join(context_parts) if context_parts else "No additional context available."
@@ -154,8 +162,8 @@ async def build_prompt_with_llm(
         f"Generate a clear, concise prompt that:\n"
         f"1. States the engineering work to be completed based on the "
         f"Technical Execution context\n"
-        f"2. Includes all relevant technical context (What We're Building, "
-        f"Confidence, Logic, Data Triggers, Sequence)\n"
+        f"2. Includes all relevant technical context (Overview, What We're Building, "
+        f"Technical Tasks, Data Triggers, Success Metrics)\n"
         f"3. References the growth plan file for additional context using "
         f"@{plan_path}\n"
         f"4. Asks for step-by-step implementation with code examples\n"
@@ -205,19 +213,25 @@ def build_prompt_from_template(plan_path: Path, technical_execution: dict[str, s
     # Build technical context - include all engineering content
     context_parts = []
 
-    if technical_execution.get("next_build"):
-        context_parts.append(f"**What We're Building:** {technical_execution['next_build']}")
+    if technical_execution.get("overview"):
+        context_parts.append(f"**Overview:** {technical_execution['overview']}")
+    elif technical_execution.get("next_build"):
+        context_parts.append(f"**Overview:** {technical_execution['next_build']}")
 
-    if technical_execution.get("confidence"):
-        context_parts.append(f"**Confidence:** {technical_execution['confidence']}")
+    if technical_execution.get("what_we_building"):
+        context_parts.append(f"**What We're Building:**\n{technical_execution['what_we_building']}")
 
-    if technical_execution.get("exact_logic"):
-        context_parts.append(f"**Exact Logic:**\n{technical_execution['exact_logic']}")
+    if technical_execution.get("tasks"):
+        context_parts.append(f"**Technical Tasks:**\n{technical_execution['tasks']}")
+    elif technical_execution.get("exact_logic"):
+        context_parts.append(f"**Technical Tasks:**\n{technical_execution['exact_logic']}")
 
     if technical_execution.get("data_triggers"):
         context_parts.append(f"**Data Triggers:**\n{technical_execution['data_triggers']}")
 
-    if technical_execution.get("sequence"):
+    if technical_execution.get("success_metrics"):
+        context_parts.append(f"**Success Metrics:**\n{technical_execution['success_metrics']}")
+    elif technical_execution.get("sequence"):
         context_parts.append(f"**Sequence:**\n{technical_execution['sequence']}")
 
     context = "\n\n".join(context_parts) if context_parts else ""

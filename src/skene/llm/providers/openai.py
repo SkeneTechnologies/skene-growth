@@ -52,39 +52,32 @@ class OpenAIClient(OpenAICompatibleClient):
         self.fallback_model = fallback_model or DEFAULT_FALLBACK_MODEL
         self.no_fallback = no_fallback
 
-    async def generate_content(
+    async def generate_content_with_usage(
         self,
         prompt: str,
-    ) -> str:
-        """
-        Generate text from OpenAI.
-
-        Automatically retries with fallback model on rate limit errors.
-
-        Args:
-            prompt: The prompt to send to the model
-
-        Returns:
-            Generated text as a string
-
-        Raises:
-            RuntimeError: If generation fails on both primary and fallback models
-        """
+    ) -> tuple[str, dict[str, int] | None]:
         try:
             from openai import RateLimitError
         except ImportError:
-            RateLimitError = Exception  # Fallback if import fails
+            RateLimitError = Exception
+
+        def _extract_usage(response) -> dict[str, int] | None:
+            usage = getattr(response, "usage", None)
+            if usage and hasattr(usage, "prompt_tokens") and hasattr(usage, "completion_tokens"):
+                return {"output_tokens": usage.completion_tokens, "input_tokens": usage.prompt_tokens}
+            return None
 
         try:
             response = await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return response.choices[0].message.content.strip()
+            return (response.choices[0].message.content.strip(), _extract_usage(response))
         except RateLimitError as e:
             logger.warning(f"RateLimitError on {self.model_name}: {e}")
             if self.no_fallback:
-                return await self._retry_with_backoff(prompt)
+                content = await self._retry_with_backoff(prompt)
+                return (content, None)
             logger.warning(f"Falling back to {self.fallback_model}")
             try:
                 response = await self.client.chat.completions.create(
@@ -92,7 +85,7 @@ class OpenAIClient(OpenAICompatibleClient):
                     messages=[{"role": "user", "content": prompt}],
                 )
                 logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
-                return response.choices[0].message.content.strip()
+                return (response.choices[0].message.content.strip(), _extract_usage(response))
             except Exception as fallback_error:
                 raise RuntimeError(f"Error calling OpenAI (fallback model {self.fallback_model}): {fallback_error}")
         except Exception as e:

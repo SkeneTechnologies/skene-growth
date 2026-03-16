@@ -361,8 +361,8 @@ func GetProviders() []Provider {
 			Description: "Google's Gemini models",
 			RequiresKey: true,
 			Models: []Model{
-				{ID: "gemini-3-pro", Name: "gemini-3-pro", Description: "Most capable Gemini model"},
-				{ID: "gemini-3-flash", Name: "gemini-3-flash", Description: "Fast and efficient"},
+				{ID: "gemini-3-pro-preview", Name: "gemini-3-pro", Description: "Most capable Gemini model"},
+				{ID: "gemini-3-flash-preview", Name: "gemini-3-flash", Description: "Fast and efficient"},
 				{ID: "gemini-2.5-pro", Name: "gemini-2.5-pro", Description: "Advanced reasoning"},
 			},
 		},

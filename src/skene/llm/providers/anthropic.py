@@ -16,6 +16,8 @@ DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5"
 # Retry delays in seconds for no-fallback mode (exponential-ish backoff)
 RETRY_DELAYS = [5, 15, 30]
 
+DEFAULT_TIMEOUT = 900.0
+
 
 class AnthropicClient(LLMClient):
     """
@@ -56,30 +58,30 @@ class AnthropicClient(LLMClient):
         self.model_name = model_name
         self.fallback_model = fallback_model or DEFAULT_FALLBACK_MODEL
         self.no_fallback = no_fallback
-        self.client = AsyncAnthropic(api_key=api_key.get_secret_value())
+        self.client = AsyncAnthropic(api_key=api_key.get_secret_value(), timeout=DEFAULT_TIMEOUT)
 
-    async def generate_content(
+    async def generate_content_with_usage(
         self,
         prompt: str,
-    ) -> str:
-        """
-        Generate text from Anthropic.
-
-        Automatically retries with fallback model on rate limit errors.
-
-        Args:
-            prompt: The prompt to send to the model
-
-        Returns:
-            Generated text as a string
-
-        Raises:
-            RuntimeError: If generation fails on both primary and fallback models
-        """
+    ) -> tuple[str, dict[str, int] | None]:
+        """Generate text and return (content, usage). Usage has output_tokens, input_tokens.
+        Returns None when not in response."""
         try:
             from anthropic import RateLimitError
         except ImportError:
-            RateLimitError = Exception  # Fallback if import fails
+
+            class FallbackRateLimitError(Exception):
+                """Fallback error used when anthropic.RateLimitError is unavailable."""
+
+                pass
+
+            RateLimitError = FallbackRateLimitError
+
+        def _usage_from_response(response) -> dict[str, int] | None:
+            usage = getattr(response, "usage", None)
+            if usage and hasattr(usage, "input_tokens") and hasattr(usage, "output_tokens"):
+                return {"output_tokens": usage.output_tokens, "input_tokens": usage.input_tokens}
+            return None
 
         try:
             response = await self.client.messages.create(
@@ -87,11 +89,12 @@ class AnthropicClient(LLMClient):
                 max_tokens=8192,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return response.content[0].text.strip()
+            return (response.content[0].text.strip(), _usage_from_response(response))
         except RateLimitError as e:
             logger.warning(f"RateLimitError on {self.model_name}: {e}")
             if self.no_fallback:
-                return await self._retry_with_backoff(prompt)
+                content = await self._retry_with_backoff(prompt)
+                return (content, None)
             logger.warning(f"Falling back to {self.fallback_model}")
             try:
                 response = await self.client.messages.create(
@@ -100,7 +103,7 @@ class AnthropicClient(LLMClient):
                     messages=[{"role": "user", "content": prompt}],
                 )
                 logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
-                return response.content[0].text.strip()
+                return (response.content[0].text.strip(), _usage_from_response(response))
             except Exception as fallback_error:
                 raise RuntimeError(f"Error calling Anthropic (fallback model {self.fallback_model}): {fallback_error}")
         except Exception as e:

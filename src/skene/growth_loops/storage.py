@@ -37,24 +37,22 @@ def derive_loop_name(technical_execution: dict[str, str]) -> str:
     """
     Extract the loop name from technical execution data.
 
-    Takes the first non-empty line from the "next_build" field.
+    Uses overview or first line of what_we_building. Supports legacy next_build.
 
     Args:
-        technical_execution: Dictionary containing "next_build" and other fields
+        technical_execution: Dictionary with overview, what_we_building, or next_build
 
     Returns:
         Loop name string, or "growth_loop" as fallback
     """
-    next_build = technical_execution.get("next_build", "")
-    if not next_build:
-        return "growth_loop"
-
-    # Get first non-empty line
-    for line in next_build.split("\n"):
-        line = line.strip()
-        if line:
-            return line
-
+    for key in ("overview", "what_we_building", "next_build"):
+        val = technical_execution.get(key, "")
+        if not val:
+            continue
+        for line in val.split("\n"):
+            line = line.strip()
+            if line:
+                return line
     return "growth_loop"
 
 
@@ -227,19 +225,25 @@ async def generate_loop_definition_with_llm(
     # Build context from technical execution
     context_parts = []
 
-    if technical_execution.get("next_build"):
-        context_parts.append(f"**What We're Building:**\n{technical_execution['next_build']}")
+    if technical_execution.get("overview"):
+        context_parts.append(f"**Overview:** {technical_execution['overview']}")
+    elif technical_execution.get("next_build"):
+        context_parts.append(f"**Overview:** {technical_execution['next_build']}")
 
-    if technical_execution.get("confidence"):
-        context_parts.append(f"**Confidence:** {technical_execution['confidence']}")
+    if technical_execution.get("what_we_building"):
+        context_parts.append(f"**What We're Building:**\n{technical_execution['what_we_building']}")
 
-    if technical_execution.get("exact_logic"):
-        context_parts.append(f"**Exact Logic:**\n{technical_execution['exact_logic']}")
+    if technical_execution.get("tasks"):
+        context_parts.append(f"**Technical Tasks:**\n{technical_execution['tasks']}")
+    elif technical_execution.get("exact_logic"):
+        context_parts.append(f"**Technical Tasks:**\n{technical_execution['exact_logic']}")
 
     if technical_execution.get("data_triggers"):
         context_parts.append(f"**Data Triggers:**\n{technical_execution['data_triggers']}")
 
-    if technical_execution.get("sequence"):
+    if technical_execution.get("success_metrics"):
+        context_parts.append(f"**Success Metrics:**\n{technical_execution['success_metrics']}")
+    elif technical_execution.get("sequence"):
         context_parts.append(f"**Sequence:**\n{technical_execution['sequence']}")
 
     context = "\n\n".join(context_parts)
@@ -489,7 +493,11 @@ Return ONLY the JSON object, no markdown code fences, no explanations. The JSON 
         return {
             "loop_id": loop_id,
             "name": loop_name,
-            "description": technical_execution.get("next_build", "Growth loop implementation")[:500],
+            "description": (
+                technical_execution.get("overview")
+                or technical_execution.get("next_build")
+                or "Growth loop implementation"
+            )[:500],
             "linked_feature": loop_name,
             "linked_feature_id": derive_feature_id(loop_name),
             "growth_pillars": [],
