@@ -94,10 +94,7 @@ class TestGenerateGrowthPlan:
         """Should use DEFAULT_PLAN_STEPS (4 steps) when plan_steps is not given."""
         from skene.planner.steps import DEFAULT_PLAN_STEPS
 
-        responses = (
-            [_section_response(s.title, "content") for s in DEFAULT_PLAN_STEPS]
-            + [_tech_exec_response()]
-        )
+        responses = [_section_response(s.title, "content") for s in DEFAULT_PLAN_STEPS] + [_tech_exec_response()]
         llm = _make_llm(responses)
         planner = Planner()
         _, plan = await planner.generate_growth_plan(llm=llm, manifest_data=_MANIFEST)

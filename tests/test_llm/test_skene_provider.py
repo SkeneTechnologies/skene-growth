@@ -1,7 +1,7 @@
 from pydantic import SecretStr
 
 from skene.llm.factory import create_llm_client
-from skene.llm.providers.skene import SkeneClient, PRODUCTION_ENDPOINT
+from skene.llm.providers.skene import PRODUCTION_ENDPOINT, SkeneClient
 
 
 class _MockResponse:
