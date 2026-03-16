@@ -10,10 +10,7 @@ from rich.table import Table
 
 from skene.llm import LLMClient
 from skene.output import console
-from skene.output import error as output_error
-from skene.output import status as output_status
-from skene.output import success as output_success
-from skene.output import warning as output_warning
+from skene.output import error, status, success, warning
 
 
 async def _show_progress_indicator(stop_event: asyncio.Event) -> None:
@@ -101,7 +98,7 @@ async def run_analysis(
             )
 
             if not result.success:
-                output_error("Analysis failed")
+                error("Analysis failed")
                 if debug and result.data:
                     console.print(json.dumps(result.data, indent=2, default=json_serializer))
                 return None, None
@@ -125,7 +122,7 @@ async def run_analysis(
             return result, manifest_data
 
         except Exception as e:
-            output_error(str(e))
+            error(str(e))
             if debug:
                 import traceback
 
@@ -176,7 +173,7 @@ async def run_features_analysis(
             )
 
             if not result.success:
-                output_error("Features analysis failed")
+                error("Features analysis failed")
                 if debug and result.data:
                     console.print(json.dumps(result.data, indent=2, default=json_serializer))
                 return None, None
@@ -196,7 +193,7 @@ async def run_features_analysis(
             progress.update(task, description="Complete!")
             return result, manifest_data
         except Exception as e:
-            output_error(str(e))
+            error(str(e))
             if debug:
                 import traceback
 
@@ -434,7 +431,7 @@ async def run_generate_plan(
 
             # Connect to LLM
             progress.update(task, description="Connecting to LLM provider...")
-            output_status(f"Connecting to LLM provider ({provider}/{model})")
+            status(f"Connecting to LLM provider ({provider}/{model})")
             llm = create_llm_client(
                 provider, SecretStr(api_key), model, debug=debug, base_url=base_url, no_fallback=no_fallback
             )
@@ -442,7 +439,7 @@ async def run_generate_plan(
             # Generate memo
             memo_type = "activation memo" if activation else "growth plan"
             progress.update(task, description=f"Generating {memo_type}...")
-            output_status(f"Generating {memo_type}")
+            status(f"Generating {memo_type}")
             from skene.planner import DEFAULT_PLAN_STEPS, Planner, load_plan_steps
 
             planner = Planner()
@@ -478,19 +475,19 @@ async def run_generate_plan(
 
                 plan_steps_path = find_plan_steps_path(base_dir)
                 if plan_steps_path:
-                    output_success(f"Plan steps: {plan_steps_path}")
+                    success(f"Plan steps: {plan_steps_path}")
                     try:
                         plan_steps = await load_plan_steps(context_dir=base_dir, llm=llm)
-                        output_success(f"Inferred {len(plan_steps)} custom section(s):")
+                        success(f"Inferred {len(plan_steps)} custom section(s):")
                         for i, step in enumerate(plan_steps, 1):
-                            output_status(f"  {i}. {step.title}")
+                            status(f"  {i}. {step.title}")
                     except PlanStepsParseError as exc:
-                        output_warning(f"Could not parse plan-steps.md: {exc}")
-                        output_warning("Falling back to default sections")
+                        warning(f"Could not parse plan-steps.md: {exc}")
+                        warning("Falling back to default sections")
                         plan_steps = DEFAULT_PLAN_STEPS
                 else:
                     plan_steps = DEFAULT_PLAN_STEPS
-                    output_status(f"No plan-steps.md found, using {len(plan_steps)} default section(s)")
+                    status(f"No plan-steps.md found, using {len(plan_steps)} default section(s)")
 
                 accumulated_chunks: list[str] = []
 
@@ -507,7 +504,7 @@ async def run_generate_plan(
                         inp = usage.get("input_tokens", 0)
                         out = usage.get("output_tokens", 0)
                         suffix = f" ({out:,} out / {inp:,} in)"
-                    output_success(f"Generated section: {title}{suffix}")
+                    success(f"Generated section: {title}{suffix}")
                     accumulated_chunks.append(markdown_chunk)
                     output_path.write_text("\n".join(accumulated_chunks) + "\n")
 
@@ -530,7 +527,7 @@ async def run_generate_plan(
 
             # Generate todo list from the full plan content
             progress.update(task, description="Generating todo list...")
-            output_status("Generating todo list")
+            status("Generating todo list")
             todo_markdown = await generate_todo_list(llm, memo_content)
 
             # Append todo section to markdown
@@ -563,16 +560,16 @@ async def run_generate_plan(
             todo_count = sum(
                 1 for line in (todo_markdown or "").splitlines() if line.strip().startswith(("-", "*"))
             ) or (1 if todo_markdown else 0)
-            output_success(f"Summary: {section_count} sections, {todo_count} todo items")
+            success(f"Summary: {section_count} sections, {todo_count} todo items")
             total_in = sum(u.get("input_tokens", 0) for u in tokens_used)
             total_out = sum(u.get("output_tokens", 0) for u in tokens_used)
             if total_in > 0 or total_out > 0:
-                output_status(f"Total tokens: {total_in:,} in / {total_out:,} out")
+                status(f"Total tokens: {total_in:,} in / {total_out:,} out")
 
             return memo_content, (executive_summary, todo_summary, todo_markdown)
 
         except Exception as e:
-            output_error(str(e))
+            error(str(e))
             if debug:
                 import traceback
 

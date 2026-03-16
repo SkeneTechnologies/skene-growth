@@ -5,8 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from skene.output import error as output_error
-from skene.output import warning
+from skene.output import error, warning
 
 
 def decline_plan(context: Optional[Path], output: Path) -> Path | None:
@@ -24,7 +23,7 @@ def decline_plan(context: Optional[Path], output: Path) -> Path | None:
     elif not plan_path.suffix:
         plan_path = plan_path / "growth-plan.md"
     if not plan_path.exists():
-        output_error("No growth plan found to decline.")
+        error("No growth plan found to decline.")
         return None
 
     plans_dir = plan_path.parent / "plans" / "declined"

@@ -20,10 +20,7 @@ from skene.config import (
 )
 from skene.growth_loops.upstream import _api_base_from_upstream, _workspace_slug_from_url, validate_token
 from skene.output import console
-from skene.output import error as output_error
-from skene.output import status as output_status
-from skene.output import success as output_success
-from skene.output import warning as output_warning
+from skene.output import error, status, success, warning
 
 
 def cmd_login(upstream_url: str | None = None) -> None:
@@ -44,7 +41,7 @@ def cmd_login(upstream_url: str | None = None) -> None:
             hint = f"\n[dim]No .skene.config in {Path.cwd()} or parent dirs.[/dim]"
 
         console.print(hint)
-        output_error(
+        error(
             "No upstream URL provided.\n"
             "Pass via --upstream or add to .skene.config:\n"
             '  upstream = "https://skene.ai/workspace/your-workspace"'
@@ -60,7 +57,7 @@ def cmd_login(upstream_url: str | None = None) -> None:
         config_api_key = config_api_key.strip()
         if config_api_key and validate_token(api_base, config_api_key):
             token = config_api_key
-            output_success("Using API key from config.")
+            success("Using API key from config.")
 
     if not token:
         console.print("----------------------------------------------------------------")
@@ -71,24 +68,24 @@ def cmd_login(upstream_url: str | None = None) -> None:
         console.print(f"{api_key_url}")
         token = getpass.getpass("Paste your upstream API Key: ")
         if not token or not token.strip():
-            output_error("No API key provided. Login cancelled.")
+            error("No API key provided. Login cancelled.")
             raise typer.Exit(1)
         if not validate_token(api_base, token.strip()):
-            output_error("Invalid API key or connection failed.")
+            error("Invalid API key or connection failed.")
             raise typer.Exit(1)
         token = token.strip()
 
     config_path = save_upstream_to_config(url, workspace, token)
-    output_success(f"Logged in to {workspace}.\n  Config: {config_path}")
+    success(f"Logged in to {workspace}.\n  Config: {config_path}")
 
 
 def cmd_logout() -> None:
     """Remove upstream credentials from .skene.config."""
     removed = remove_upstream_from_config()
     if removed:
-        output_success(f"Logged out. Removed upstream credentials from {removed}")
+        success(f"Logged out. Removed upstream credentials from {removed}")
     else:
-        output_status("No upstream credentials found in .skene.config.")
+        status("No upstream credentials found in .skene.config.")
 
 
 def cmd_login_status() -> None:
@@ -98,8 +95,8 @@ def cmd_login_status() -> None:
     workspace = config.get("workspace", "")
 
     if not upstream:
-        output_warning("Not logged in.  No upstream in .skene.config.")
-        output_status("Run: skene login --upstream https://skene.ai/workspace/your-workspace")
+        warning("Not logged in.  No upstream in .skene.config.")
+        status("Run: skene login --upstream https://skene.ai/workspace/your-workspace")
         return
 
     api_key, api_key_source = resolve_upstream_api_key_with_source(config)

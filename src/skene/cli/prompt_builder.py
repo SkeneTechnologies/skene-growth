@@ -10,8 +10,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from skene.output import console
-from skene.output import status as output_status
-from skene.output import warning as output_warning
+from skene.output import status, warning
 
 
 def _load_growth_plan_json(plan_path: Path) -> dict | None:
@@ -189,8 +188,8 @@ async def build_prompt_with_llm(
             generated_prompt = "\n".join(lines[1:-1]) if len(lines) > 2 else generated_prompt
         return generated_prompt
     except Exception as e:
-        output_warning(f"LLM prompt generation failed: {e}")
-        output_status("Falling back to template...")
+        warning(f"LLM prompt generation failed: {e}")
+        status("Falling back to template...")
         return build_prompt_from_template(plan_path, technical_execution)
     finally:
         # Stop progress indicator
