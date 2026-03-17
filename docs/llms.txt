@@ -42,18 +42,11 @@ skene features export [PATH]
   Export feature registry in json, csv, or markdown format.
   Flags: -c/--context, -f/--format, -o/--output
 
-skene chat [PATH]
-  Interactive terminal chat with function calling. LLM invokes skene tools.
-  Flags: --api-key, -p/--provider, -m/--model, --base-url, -q/--quiet, --max-steps, --tool-output-limit, --debug
-
 skene config
   Manage configuration. --init creates config file, --show displays current values, no flags for interactive editing.
 
 skene validate MANIFEST
   Validate a growth-manifest.json against the schema.
-
-skene-mcp
-  MCP server exposing 12 tools for AI assistants (Claude Desktop, Claude Code).
 
 ## LLM Providers
 
@@ -90,15 +83,6 @@ product-docs.md — User-facing feature documentation (with --product-docs flag)
 Growth Manifest (v1.0): project_name, description, tech_stack (framework, language, database, auth, deployment, package_manager, services), industry (primary, secondary, confidence, evidence), current_growth_features (feature_name, file_path, detected_intent, confidence_score, entry_point, growth_potential), growth_opportunities (feature_name, description, priority), revenue_leakage (issue, file_path, impact, recommendation)
 
 Docs Manifest (v2.0): Extends v1.0 with product_overview (tagline, value_proposition, target_audience) and features (name, description, file_path, usage_example, category). Generated with --product-docs flag.
-
-## MCP Tools
-
-Tier 1 (quick, no LLM): get_codebase_overview, search_codebase
-Tier 2 (analysis, cached): analyze_tech_stack, analyze_product_overview, analyze_growth_hubs, analyze_features, analyze_industry
-Tier 3 (generation): generate_manifest, generate_growth_template, write_analysis_outputs
-Utility: get_manifest, clear_cache
-
-Cache: SKENE_CACHE_ENABLED (true), SKENE_CACHE_DIR (~/.cache/skene-mcp), SKENE_CACHE_TTL (3600s)
 
 ## Python API
 

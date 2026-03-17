@@ -13,7 +13,7 @@ For in-depth usage of individual commands, see the [guides](../guides/analyze.md
 | `--version`, `-V` | Show version and exit |
 | `--help` | Show help message and exit |
 
-When invoked with no arguments, `skene` prints help and exits. The shorthand `skene` (without `-growth`) defaults to the `chat` command instead.
+When invoked with no arguments, `skene` prints help and exits.
 
 ---
 
@@ -195,42 +195,6 @@ See the [status guide](../guides/status.md) for detailed usage.
 
 ---
 
-## `chat`
-
-Interactive terminal chat with access to skene analysis tools.
-
-```
-skene chat [PATH] [OPTIONS]
-```
-
-### Arguments
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `PATH` | `.` | Path to codebase directory |
-
-### Options
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--api-key TEXT` | | `$SKENE_API_KEY` or config | API key for the LLM provider |
-| `--provider TEXT` | `-p` | config value | LLM provider: `openai`, `gemini`, `anthropic`/`claude`, `lmstudio`, `ollama`, `generic` |
-| `--model TEXT` | `-m` | provider default | LLM model name |
-| `--base-url TEXT` | | `$SKENE_BASE_URL` or config | Base URL for OpenAI-compatible API endpoint. Required when provider is `generic`. |
-| `--max-steps INT` | | `4` | Maximum number of tool calls the LLM can make per user request |
-| `--tool-output-limit INT` | | `4000` | Maximum characters of tool output kept in conversation context |
-| `--quiet` | `-q` | `false` | Suppress output, show errors only |
-| `--debug` | | `false` | Show diagnostic messages and log LLM I/O to `~/.local/state/skene/debug/` |
-
-### Behavior notes
-
-- When using the `skene` shorthand (not `skene`), running without a subcommand defaults to `chat`.
-- Requires an API key unless using a local provider.
-
-See the [chat guide](../guides/chat.md) for detailed usage.
-
----
-
 ## `validate`
 
 Validate a `growth-manifest.json` file against the GrowthManifest schema.
@@ -408,29 +372,12 @@ See the [features guide](../guides/features.md) for detailed usage.
 
 ---
 
-## `generate` (deprecated)
-
-This command is deprecated and will be removed. Use `analyze --product-docs` instead.
-
-```
-skene generate [OPTIONS]
-```
-
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--manifest PATH` | `-m` | Path to `growth-manifest.json` |
-| `--output PATH` | `-o` | Output directory (default: `./skene-docs`) |
-
-The command prints a deprecation warning and exits with code 1.
-
----
-
 ## Environment Variables
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
-| `SKENE_API_KEY` | `analyze`, `plan`, `build`, `chat`, `status` | API key for the LLM provider. Equivalent to `--api-key`. |
-| `SKENE_BASE_URL` | `analyze`, `plan`, `build`, `chat` | Base URL for OpenAI-compatible endpoints. Equivalent to `--base-url`. |
+| `SKENE_API_KEY` | `analyze`, `plan`, `build`, `status` | API key for the LLM provider. Equivalent to `--api-key`. |
+| `SKENE_BASE_URL` | `analyze`, `plan`, `build` | Base URL for OpenAI-compatible endpoints. Equivalent to `--base-url`. |
 | `SKENE_PROVIDER` | config loading | LLM provider override at the environment level. |
 | `SKENE_UPSTREAM_API_KEY` | `push`, `login` | API key for upstream authentication. |
 | `SKENE_DEBUG` | all commands | Enable debug mode (`true`/`false`). |
@@ -470,9 +417,6 @@ uvx skene plan --activation
 
 # Validate a manifest
 uvx skene validate ./skene-context/growth-manifest.json
-
-# Interactive chat
-uvx skene chat . -p openai -m gpt-4o
 
 # Check growth loop implementation status
 uvx skene status

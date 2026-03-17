@@ -41,7 +41,7 @@ After installation, the `skene` and `skene` commands are available on your PATH:
 
 ```bash
 skene analyze .
-skene chat
+skene plan
 ```
 
 ---
@@ -70,7 +70,7 @@ pip install -e .
 To include all optional dependencies:
 
 ```bash
-pip install -e ".[mcp,ui]"
+pip install -e ".[ui]"
 ```
 
 ---
@@ -81,19 +81,14 @@ Install extras for additional functionality:
 
 | Extra | What it adds |
 |-------|--------------|
-| `mcp` | MCP server support (`skene-mcp` entry point). Adds `mcp>=1.0.0` and `xxhash>=3.0`. |
 | `ui` | Interactive terminal prompts via `questionary>=2.0`. |
 
 ```bash
-# With uvx (use --from to specify extras)
-uvx --from "skene[mcp]" skene-mcp
-
 # With uv
-uv pip install skene[mcp]
+uv pip install skene[ui]
 
 # With pip
-pip install skene[mcp]
-pip install skene[mcp,ui]
+pip install skene[ui]
 ```
 
 ---
