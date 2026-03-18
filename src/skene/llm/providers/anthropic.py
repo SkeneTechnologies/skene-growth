@@ -5,10 +5,10 @@ Anthropic LLM client implementation.
 import asyncio
 from typing import AsyncGenerator, Optional
 
-from loguru import logger
 from pydantic import SecretStr
 
 from skene.llm.base import LLMClient
+from skene.output import debug, warning
 
 # Default fallback model for rate limiting (429 errors)
 DEFAULT_FALLBACK_MODEL = "claude-haiku-4-5"
@@ -91,18 +91,18 @@ class AnthropicClient(LLMClient):
             )
             return (response.content[0].text.strip(), _usage_from_response(response))
         except RateLimitError as e:
-            logger.warning(f"RateLimitError on {self.model_name}: {e}")
+            warning(f"RateLimitError on {self.model_name}: {e}")
             if self.no_fallback:
                 content = await self._retry_with_backoff(prompt)
                 return (content, None)
-            logger.warning(f"Falling back to {self.fallback_model}")
+            warning(f"Falling back to {self.fallback_model}")
             try:
                 response = await self.client.messages.create(
                     model=self.fallback_model,
                     max_tokens=8192,
                     messages=[{"role": "user", "content": prompt}],
                 )
-                logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
+                debug(f"Successfully generated content using fallback model {self.fallback_model}")
                 return (response.content[0].text.strip(), _usage_from_response(response))
             except Exception as fallback_error:
                 raise RuntimeError(f"Error calling Anthropic (fallback model {self.fallback_model}): {fallback_error}")
@@ -143,20 +143,20 @@ class AnthropicClient(LLMClient):
                     yield text
 
         except RateLimitError as e:
-            logger.warning(f"RateLimitError on {self.model_name} during streaming: {e}")
+            warning(f"RateLimitError on {self.model_name} during streaming: {e}")
             if self.no_fallback:
                 async for text in self._retry_stream_with_backoff(prompt):
                     yield text
                 return
             if model_to_use == self.model_name:
-                logger.warning(f"Falling back to {self.fallback_model}")
+                warning(f"Falling back to {self.fallback_model}")
                 try:
                     async with self.client.messages.stream(
                         model=self.fallback_model,
                         max_tokens=8192,
                         messages=[{"role": "user", "content": prompt}],
                     ) as stream:
-                        logger.info(f"Successfully started streaming with fallback model {self.fallback_model}")
+                        debug(f"Successfully started streaming with fallback model {self.fallback_model}")
                         async for text in stream.text_stream:
                             yield text
                 except Exception as fallback_error:
@@ -176,7 +176,7 @@ class AnthropicClient(LLMClient):
             RateLimitError = Exception
 
         for attempt, delay in enumerate(RETRY_DELAYS, 1):
-            logger.warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
+            warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
             await asyncio.sleep(delay)
             try:
                 response = await self.client.messages.create(
@@ -199,7 +199,7 @@ class AnthropicClient(LLMClient):
             RateLimitError = Exception
 
         for attempt, delay in enumerate(RETRY_DELAYS, 1):
-            logger.warning(
+            warning(
                 f"Rate limit (429) on {self.model_name} during streaming, "
                 f"retry {attempt}/{len(RETRY_DELAYS)} in {delay}s"
             )

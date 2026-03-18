@@ -11,9 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
-
 from skene.llm.base import LLMClient
+from skene.output import debug, success, warning
 
 EXAMPLE_TEMPLATES_DIR = Path("src") / "templates"
 
@@ -33,9 +32,9 @@ def load_example_templates() -> list[dict[str, Any]]:
             try:
                 template_data = json.loads(template_file.read_text())
                 example_templates.append(template_data)
-                logger.debug(f"Loaded example template: {template_file.name}")
+                debug(f"Loaded example template: {template_file.name}")
             except Exception as e:
-                logger.warning(f"Failed to load template {template_file}: {e}")
+                warning(f"Failed to load template {template_file}: {e}")
 
     return example_templates
 
@@ -148,7 +147,7 @@ def _validate_template_structure(template: dict[str, Any]) -> None:
         raise ValueError("Template 'lifecycles' must be an array")
 
     if len(template["lifecycles"]) < 3 or len(template["lifecycles"]) > 7:
-        logger.warning(f"Template has {len(template['lifecycles'])} lifecycles (recommended: 3-7)")
+        warning(f"Template has {len(template['lifecycles'])} lifecycles (recommended: 3-7)")
 
     # Validate each lifecycle
     for i, lifecycle in enumerate(template["lifecycles"]):
@@ -165,9 +164,7 @@ def _validate_template_structure(template: dict[str, Any]) -> None:
             raise ValueError(f"Lifecycle '{lifecycle_name}' milestones must be an array")
 
         if len(lifecycle["milestones"]) < 3 or len(lifecycle["milestones"]) > 7:
-            logger.warning(
-                f"Lifecycle '{lifecycle_name}' has {len(lifecycle['milestones'])} milestones (recommended: 3-7)"
-            )
+            warning(f"Lifecycle '{lifecycle_name}' has {len(lifecycle['milestones'])} milestones (recommended: 3-7)")
 
         # CRITICAL: Validate metrics array exists
         if not isinstance(lifecycle.get("metrics"), list):
@@ -177,7 +174,7 @@ def _validate_template_structure(template: dict[str, Any]) -> None:
             )
 
         if len(lifecycle["metrics"]) < 3 or len(lifecycle["metrics"]) > 5:
-            logger.warning(f"Lifecycle '{lifecycle_name}' has {len(lifecycle['metrics'])} metrics (recommended: 3-5)")
+            warning(f"Lifecycle '{lifecycle_name}' has {len(lifecycle['metrics'])} metrics (recommended: 3-5)")
 
         # Validate each metric has required fields
         for j, metric in enumerate(lifecycle["metrics"]):
@@ -191,8 +188,8 @@ def _validate_template_structure(template: dict[str, Any]) -> None:
     if not isinstance(template.get("metadata"), dict):
         raise ValueError("Template 'metadata' must be an object")
 
-    logger.info(f"✓ Generated template '{template['title']}' with {len(template['lifecycles'])} lifecycle stages")
-    logger.info("✓ All lifecycles include required metrics arrays")
+    debug(f"✓ Generated template '{template['title']}' with {len(template['lifecycles'])} lifecycle stages")
+    debug("✓ All lifecycles include required metrics arrays")
 
 
 async def generate_growth_template(
@@ -215,7 +212,7 @@ async def generate_growth_template(
     example_templates = load_example_templates()
     prompt = _build_prompt(manifest_data, business_type, example_templates)
 
-    logger.info(f"Generating custom growth template{' for ' + business_type if business_type else ''}...")
+    debug(f"Generating custom growth template{' for ' + business_type if business_type else ''}...")
     response = await llm.generate_content(prompt)
 
     parsed = _parse_json_response(response)
@@ -227,7 +224,7 @@ async def generate_growth_template(
 
     template_name = parsed.get("title", parsed.get("name", "Unknown"))
     stage_count = len(parsed.get("lifecycles", parsed.get("keywordMappings", {})))
-    logger.success(f"Generated template: {template_name} with {stage_count} stages")
+    success(f"Generated template: {template_name} with {stage_count} stages")
     return parsed
 
 
@@ -251,6 +248,6 @@ def write_growth_template_outputs(
     # Write JSON file
     json_path = output_dir / "growth-template.json"
     json_path.write_text(json.dumps(template_data, indent=2))
-    logger.info(f"Wrote growth template to {json_path}")
+    debug(f"Wrote growth template to {json_path}")
 
     return json_path

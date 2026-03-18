@@ -6,10 +6,10 @@ import asyncio
 from functools import partial
 from typing import AsyncGenerator, Optional
 
-from loguru import logger
 from pydantic import SecretStr
 
 from skene.llm.base import LLMClient
+from skene.output import debug, warning
 
 # Default fallback model for rate limiting (429 errors)
 # Using stable 2.5-flash as fallback (works with both v1 and v1beta APIs)
@@ -138,12 +138,10 @@ class GoogleGeminiClient(LLMClient):
                 if self.no_fallback:
                     content = await self._retry_with_backoff(prompt, stream=False)
                     return (content, None)
-                logger.warning(
-                    f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}"
-                )
+                warning(f"Rate limit (429) hit on model {self.model_name}, falling back to {self.fallback_model}")
                 try:
                     response = await self._call_api(self.fallback_model, prompt)
-                    logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
+                    debug(f"Successfully generated content using fallback model {self.fallback_model}")
                     return (response.text.strip(), _extract_usage(response))
                 except Exception as fallback_error:
                     raise RuntimeError(
@@ -194,7 +192,7 @@ class GoogleGeminiClient(LLMClient):
                     yield chunk
                 return
             if self._is_rate_limit_error(e) and model_to_use == self.model_name:
-                logger.warning(
+                warning(
                     f"Rate limit (429) hit on model {self.model_name} during streaming, "
                     f"falling back to {self.fallback_model}"
                 )
@@ -209,7 +207,7 @@ class GoogleGeminiClient(LLMClient):
                             return None, True
 
                     chunk_iterator = iter(response_stream)
-                    logger.info(f"Successfully started streaming with fallback model {self.fallback_model}")
+                    debug(f"Successfully started streaming with fallback model {self.fallback_model}")
                     while True:
                         chunk, done = await loop.run_in_executor(None, get_next_chunk, chunk_iterator)
                         if done:
@@ -226,7 +224,7 @@ class GoogleGeminiClient(LLMClient):
     async def _retry_with_backoff(self, prompt: str, stream: bool = False) -> str:
         """Retry the same model with exponential backoff on rate limit errors."""
         for attempt, delay in enumerate(RETRY_DELAYS, 1):
-            logger.warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
+            warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
             await asyncio.sleep(delay)
             try:
                 response = await self._call_api(self.model_name, prompt)
@@ -240,7 +238,7 @@ class GoogleGeminiClient(LLMClient):
     async def _retry_stream_with_backoff(self, prompt: str) -> AsyncGenerator[str, None]:
         """Retry streaming with the same model using exponential backoff."""
         for attempt, delay in enumerate(RETRY_DELAYS, 1):
-            logger.warning(
+            warning(
                 f"Rate limit (429) on {self.model_name} during streaming, "
                 f"retry {attempt}/{len(RETRY_DELAYS)} in {delay}s"
             )

@@ -5,10 +5,10 @@ OpenAI LLM client implementation.
 import asyncio
 from typing import AsyncGenerator, Optional
 
-from loguru import logger
 from pydantic import SecretStr
 
 from skene.llm.providers.openai_compat import OpenAICompatibleClient
+from skene.output import debug, warning
 
 # Default fallback model for rate limiting (429 errors)
 DEFAULT_FALLBACK_MODEL = "gpt-4o-mini"
@@ -75,17 +75,17 @@ class OpenAIClient(OpenAICompatibleClient):
             content = response.choices[0].message.content.strip()
             return (content, self._usage_from_response(response))
         except RateLimitError as e:
-            logger.warning(f"RateLimitError on {self.model_name}: {e}")
+            warning(f"RateLimitError on {self.model_name}: {e}")
             if self.no_fallback:
                 content = await self._retry_with_backoff(prompt)
                 return (content, None)
-            logger.warning(f"Falling back to {self.fallback_model}")
+            warning(f"Falling back to {self.fallback_model}")
             try:
                 response = await self.client.chat.completions.create(
                     model=self.fallback_model,
                     messages=[{"role": "user", "content": prompt}],
                 )
-                logger.info(f"Successfully generated content using fallback model {self.fallback_model}")
+                debug(f"Successfully generated content using fallback model {self.fallback_model}")
                 content = response.choices[0].message.content.strip()
                 return (content, self._usage_from_response(response))
             except Exception as fallback_error:
@@ -129,20 +129,20 @@ class OpenAIClient(OpenAICompatibleClient):
                     yield chunk.choices[0].delta.content
 
         except RateLimitError as e:
-            logger.warning(f"RateLimitError on {self.model_name} during streaming: {e}")
+            warning(f"RateLimitError on {self.model_name} during streaming: {e}")
             if self.no_fallback:
                 async for chunk in self._retry_stream_with_backoff(prompt):
                     yield chunk
                 return
             if model_to_use == self.model_name:
-                logger.warning(f"Falling back to {self.fallback_model}")
+                warning(f"Falling back to {self.fallback_model}")
                 try:
                     stream = await self.client.chat.completions.create(
                         model=self.fallback_model,
                         messages=[{"role": "user", "content": prompt}],
                         stream=True,
                     )
-                    logger.info(f"Successfully started streaming with fallback model {self.fallback_model}")
+                    debug(f"Successfully started streaming with fallback model {self.fallback_model}")
                     async for chunk in stream:
                         if chunk.choices and chunk.choices[0].delta.content:
                             yield chunk.choices[0].delta.content
@@ -163,7 +163,7 @@ class OpenAIClient(OpenAICompatibleClient):
             RateLimitError = Exception
 
         for attempt, delay in enumerate(RETRY_DELAYS, 1):
-            logger.warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
+            warning(f"Rate limit (429) on {self.model_name}, retry {attempt}/{len(RETRY_DELAYS)} in {delay}s")
             await asyncio.sleep(delay)
             try:
                 response = await self.client.chat.completions.create(
@@ -185,7 +185,7 @@ class OpenAIClient(OpenAICompatibleClient):
             RateLimitError = Exception
 
         for attempt, delay in enumerate(RETRY_DELAYS, 1):
-            logger.warning(
+            warning(
                 f"Rate limit (429) on {self.model_name} during streaming, "
                 f"retry {attempt}/{len(RETRY_DELAYS)} in {delay}s"
             )

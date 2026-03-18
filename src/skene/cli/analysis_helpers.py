@@ -5,13 +5,11 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from skene.llm import LLMClient
-
-console = Console()
+from skene.output import console, error, status, success, warning
 
 
 async def _show_progress_indicator(stop_event: asyncio.Event) -> None:
@@ -44,7 +42,7 @@ async def run_analysis(
     path: Path,
     output: Path,
     llm: LLMClient,
-    verbose: bool,
+    debug: bool,
     product_docs: Optional[bool] = False,
     exclude_folders: Optional[list[str]] = None,
 ):
@@ -99,8 +97,8 @@ async def run_analysis(
             )
 
             if not result.success:
-                console.print("[red]Analysis failed[/red]")
-                if verbose and result.data:
+                error("Analysis failed")
+                if debug and result.data:
                     console.print(json.dumps(result.data, indent=2, default=json_serializer))
                 return None, None
 
@@ -123,8 +121,8 @@ async def run_analysis(
             return result, manifest_data
 
         except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
-            if verbose:
+            error(str(e))
+            if debug:
                 import traceback
 
                 console.print(traceback.format_exc())
@@ -135,7 +133,7 @@ async def run_features_analysis(
     path: Path,
     output: Path,
     llm: LLMClient,
-    verbose: bool,
+    debug: bool,
     exclude_folders: Optional[list[str]] = None,
 ):
     """
@@ -174,8 +172,8 @@ async def run_features_analysis(
             )
 
             if not result.success:
-                console.print("[red]Analysis failed[/red]")
-                if verbose and result.data:
+                error("Features analysis failed")
+                if debug and result.data:
                     console.print(json.dumps(result.data, indent=2, default=json_serializer))
                 return None, None
 
@@ -194,8 +192,8 @@ async def run_features_analysis(
             progress.update(task, description="Complete!")
             return result, manifest_data
         except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
-            if verbose:
+            error(str(e))
+            if debug:
                 import traceback
 
                 console.print(traceback.format_exc())
@@ -361,7 +359,6 @@ async def run_generate_plan(
     api_key: str,
     provider: str,
     model: str,
-    verbose: bool,
     activation: bool = False,
     context_dir: Path | None = None,
     user_prompt: str | None = None,
@@ -433,6 +430,7 @@ async def run_generate_plan(
 
             # Connect to LLM
             progress.update(task, description="Connecting to LLM provider...")
+            status(f"Connecting to LLM provider ({provider}/{model})")
             llm = create_llm_client(
                 provider, SecretStr(api_key), model, debug=debug, base_url=base_url, no_fallback=no_fallback
             )
@@ -440,6 +438,7 @@ async def run_generate_plan(
             # Generate memo
             memo_type = "activation memo" if activation else "growth plan"
             progress.update(task, description=f"Generating {memo_type}...")
+            status(f"Generating {memo_type}")
             from skene.planner import DEFAULT_PLAN_STEPS, Planner, load_plan_steps
 
             planner = Planner()
@@ -475,19 +474,19 @@ async def run_generate_plan(
 
                 plan_steps_path = find_plan_steps_path(base_dir)
                 if plan_steps_path:
-                    console.print(f"[green]Plan steps:[/green] {plan_steps_path}")
+                    success(f"Plan steps: {plan_steps_path}")
                     try:
                         plan_steps = await load_plan_steps(context_dir=base_dir, llm=llm)
-                        console.print(f"[green]Inferred {len(plan_steps)} custom section(s):[/green]")
+                        success(f"Inferred {len(plan_steps)} custom section(s):")
                         for i, step in enumerate(plan_steps, 1):
-                            console.print(f"  {i}. {step.title}")
+                            status(f"  {i}. {step.title}")
                     except PlanStepsParseError as exc:
-                        console.print(f"[yellow]Could not parse plan-steps.md: {exc}[/yellow]")
-                        console.print("[yellow]Falling back to default sections[/yellow]")
+                        warning(f"Could not parse plan-steps.md: {exc}")
+                        warning("Falling back to default sections")
                         plan_steps = DEFAULT_PLAN_STEPS
                 else:
                     plan_steps = DEFAULT_PLAN_STEPS
-                    console.print(f"[dim]No plan-steps.md found, using {len(plan_steps)} default section(s)[/dim]")
+                    status(f"No plan-steps.md found, using {len(plan_steps)} default section(s)")
 
                 accumulated_chunks: list[str] = []
 
@@ -504,7 +503,7 @@ async def run_generate_plan(
                         inp = usage.get("input_tokens", 0)
                         out = usage.get("output_tokens", 0)
                         suffix = f" ({out:,} out / {inp:,} in)"
-                    console.print(f"[green]Generated section:[/green] {title}{suffix}")
+                    success(f"Generated section: {title}{suffix}")
                     accumulated_chunks.append(markdown_chunk)
                     output_path.write_text("\n".join(accumulated_chunks) + "\n")
 
@@ -527,6 +526,7 @@ async def run_generate_plan(
 
             # Generate todo list from the full plan content
             progress.update(task, description="Generating todo list...")
+            status("Generating todo list")
             todo_markdown = await generate_todo_list(llm, memo_content)
 
             # Append todo section to markdown
@@ -559,17 +559,17 @@ async def run_generate_plan(
             todo_count = sum(
                 1 for line in (todo_markdown or "").splitlines() if line.strip().startswith(("-", "*"))
             ) or (1 if todo_markdown else 0)
-            console.print(f"\n[green]Summary:[/green] {section_count} sections, {todo_count} todo items")
+            success(f"Summary: {section_count} sections, {todo_count} todo items")
             total_in = sum(u.get("input_tokens", 0) for u in tokens_used)
             total_out = sum(u.get("output_tokens", 0) for u in tokens_used)
             if total_in > 0 or total_out > 0:
-                console.print(f"[dim]Total tokens:[/dim] {total_in:,} in / {total_out:,} out")
+                status(f"Total tokens: {total_in:,} in / {total_out:,} out")
 
             return memo_content, (executive_summary, todo_summary, todo_markdown)
 
         except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
-            if verbose:
+            error(str(e))
+            if debug:
                 import traceback
 
                 console.print(traceback.format_exc())

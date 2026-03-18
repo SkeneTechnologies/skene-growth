@@ -11,12 +11,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from rich.console import Console
-
 from skene.feature_registry import derive_feature_id
 from skene.llm.base import LLMClient
-
-console = Console()
+from skene.output import console, warning
 
 
 async def _show_progress_indicator(stop_event: asyncio.Event) -> None:
@@ -576,8 +573,6 @@ def load_existing_growth_loops(base_dir: Path) -> list[dict[str, Any]]:
     Returns:
         List of growth loop definition dictionaries, sorted by timestamp (newest first)
     """
-    from loguru import logger
-
     loops_dir = base_dir / "growth-loops"
 
     # Return empty list if directory doesn't exist
@@ -611,10 +606,10 @@ def load_existing_growth_loops(base_dir: Path) -> list[dict[str, Any]]:
             growth_loops.append(loop_data)
 
         except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse growth loop JSON {json_file}: {e}")
+            warning(f"Failed to parse growth loop JSON {json_file}: {e}")
             continue
         except Exception as e:
-            logger.warning(f"Failed to read growth loop file {json_file}: {e}")
+            warning(f"Failed to read growth loop file {json_file}: {e}")
             continue
 
     # Sort by timestamp (newest first)
