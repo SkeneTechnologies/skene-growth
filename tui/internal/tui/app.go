@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"skene/internal/constants"
@@ -418,7 +419,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.configMgr.SetUpstreamAPIKey(msg.APIKey)
 			a.configMgr.SetModel(constants.SkeneDefaultModel)
 			if msg.Upstream != "" {
-				a.configMgr.SetUpstream(msg.Upstream)
+				a.configMgr.SetUpstream(buildUpstreamURL(msg.Upstream))
 			}
 
 			if a.authView != nil {
@@ -1679,6 +1680,19 @@ func resolveSkeneAuthURL() string {
 		return constants.SkeneTestAuthURL
 	}
 	return constants.SkeneAuthURL
+}
+
+// buildUpstreamURL constructs the full upstream URL from a workspace slug.
+// If the slug is already a full URL it is returned as-is.
+func buildUpstreamURL(slug string) string {
+	if strings.HasPrefix(slug, "http://") || strings.HasPrefix(slug, "https://") {
+		return slug
+	}
+	base := "https://www.skene.ai"
+	if isSkeneTestMode() {
+		base = "http://localhost:3000"
+	}
+	return base + "/workspace/" + slug
 }
 
 // skeneBaseURL returns the Skene API base URL for the Python CLI.

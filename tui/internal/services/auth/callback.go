@@ -14,7 +14,7 @@ import (
 type CallbackResult struct {
 	APIKey   string `json:"api_key"`
 	Model    string `json:"model,omitempty"`
-	Upstream string `json:"upstream,omitempty"`
+	Upstream string `json:"slug,omitempty"`
 	Error    string `json:"error,omitempty"`
 }
 
@@ -124,7 +124,7 @@ func (cs *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request)
 	case "GET":
 		result.APIKey = r.URL.Query().Get("api_key")
 		result.Model = r.URL.Query().Get("model")
-		result.Upstream = r.URL.Query().Get("upstream")
+		result.Upstream = r.URL.Query().Get("slug")
 		result.Error = r.URL.Query().Get("error")
 
 	case "POST":

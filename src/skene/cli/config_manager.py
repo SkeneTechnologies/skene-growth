@@ -325,13 +325,11 @@ def show_config_status(cfg, project_cfg, user_cfg):
     upstream_val = cfg.upstream or "[dim]Not set[/dim]"
     upstream_source = "config" if cfg.upstream else "-"
     values_table.add_row("upstream", upstream_val, upstream_source)
-    if cfg.upstream:
-        api_key, api_key_source = resolve_upstream_api_key_with_source(cfg)
-        if api_key:
-            masked = api_key[:4] + "..." + api_key[-4:] if len(api_key) > 8 else "***"
-            values_table.add_row("upstream_api_key", masked, api_key_source)
-        else:
-            values_table.add_row("upstream_api_key", "[dim]Not set[/dim]", "-")
+
+    api_key, api_key_source = resolve_upstream_api_key_with_source(cfg)
+    if api_key:
+        masked = api_key[:4] + "..." + api_key[-4:] if len(api_key) > 8 else "***"
+        values_table.add_row("upstream_api_key", masked, api_key_source)
     else:
         values_table.add_row("upstream_api_key", "[dim]Not set[/dim]", "-")
 
