@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from skene.llm import LLMClient
+from skene.output import debug, status
 from skene.planner._json import parse_json_fragment
 from skene.planner.schema import (
     GrowthPlan,
@@ -82,6 +83,7 @@ class Planner:
         Returns:
             Tuple of (markdown content, validated GrowthPlan)
         """
+        status("Preparing growth plan...")
         steps = plan_steps if plan_steps is not None else DEFAULT_PLAN_STEPS
         current_time_str = datetime.now().isoformat()
 
@@ -241,11 +243,13 @@ class Planner:
 
         template_section = ""
         if template_data:
+            debug("Including growth template context")
             template_summary = self._format_template_summary(template_data)
             template_section = f"\n### Growth Journey (Lifecycle Template)\n{template_summary}\n"
 
         growth_loops_section = ""
         if growth_loops:
+            debug(f"Including {len(growth_loops)} growth loop(s) as context")
             from skene.growth_loops.storage import format_growth_loops_summary
 
             growth_loops_summary = format_growth_loops_summary(growth_loops)
@@ -292,16 +296,19 @@ class Planner:
         Returns:
             Markdown content for the memo
         """
+        status("Preparing activation memo...")
         # Build context for memo generation
         manifest_summary = self._format_manifest_summary(manifest_data)
 
         template_section = ""
         if template_data:
+            debug("Including growth template context")
             template_summary = self._format_template_summary(template_data)
             template_section = f"\n### Growth Journey (Lifecycle Template)\n{template_summary}\n"
 
         growth_loops_section = ""
         if growth_loops:
+            debug(f"Including {len(growth_loops)} growth loop(s) as context")
             from skene.growth_loops.storage import format_growth_loops_summary
 
             growth_loops_summary = format_growth_loops_summary(growth_loops)
@@ -317,6 +324,7 @@ class Planner:
         if user_prompt:
             user_context_section = f"### User Context\n{user_prompt}\n"
 
+        status("Generating activation memo (this may take a moment)...")
         prompt = f"""You write internal strategy memos. Your job is to produce a Value Realisation \
 Plan — a step-by-step activation strategy told from the customer's perspective as a journey.
 
@@ -416,6 +424,7 @@ product functionality producing real output.
 """
 
         response = await llm.generate_content(prompt)
+        status("Activation memo generated successfully")
         return response
 
     def _format_manifest_summary(self, manifest_data: dict[str, Any]) -> str:

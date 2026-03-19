@@ -10,10 +10,10 @@ Default endpoint: http://localhost:11434/v1
 import os
 from typing import Optional
 
-from loguru import logger
 from pydantic import SecretStr
 
 from skene.llm.providers.openai_compat import OpenAICompatibleClient
+from skene.output import debug
 
 # Default Ollama server URL
 DEFAULT_BASE_URL = "http://localhost:11434/v1"
@@ -61,7 +61,7 @@ class OllamaClient(OpenAICompatibleClient):
             default_api_key="ollama",
         )
 
-        logger.debug(f"Ollama client initialized with base_url: {self.base_url}")
+        debug(f"Ollama client initialized with base_url: {self.base_url}")
 
     def get_provider_name(self) -> str:
         """Return the provider name."""

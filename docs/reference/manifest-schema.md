@@ -11,7 +11,7 @@ skene outputs a structured JSON file called `growth-manifest.json` that captures
 | **1.0** | `GrowthManifest` | Standard PLG analysis output. Contains tech stack, growth features, opportunities, and revenue leakage. |
 | **2.0** | `DocsManifest` | Extended manifest for documentation generation. Inherits all v1.0 fields and adds `product_overview` and `features`. |
 
-The `analyze` command produces a v1.0 manifest by default. When run with the `--product-docs` flag (or via the `generate_manifest` MCP tool with `product_docs: true`), it produces a v2.0 manifest instead.
+The `analyze` command produces a v1.0 manifest by default. When run with the `--product-docs` flag, it produces a v2.0 manifest instead.
 
 Both versions are defined as Pydantic models in `src/skene/manifest/schema.py`.
 
@@ -282,10 +282,6 @@ By default, the manifest is written to `./skene-context/growth-manifest.json`. Y
 ```bash
 uvx skene analyze . --output ./my-manifest.json
 ```
-
-### 2. The `generate_manifest` MCP tool
-
-When using skene as an [MCP server](../integrations/mcp-server.md), the `generate_manifest` tool produces the same output programmatically. It accepts pre-computed analysis results for individual phases (tech stack, industry, features) or auto-analyzes any missing phases. Set the `product_docs` parameter to `true` to generate a v2.0 `DocsManifest`.
 
 ## Notes on `generated_at`
 

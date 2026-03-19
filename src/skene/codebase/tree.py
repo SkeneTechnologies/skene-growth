@@ -5,9 +5,8 @@ Directory tree building utilities.
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
-
 from skene.codebase.filters import DEFAULT_EXCLUDE_FOLDERS
+from skene.output import debug, error, warning
 
 
 def build_directory_tree(
@@ -98,14 +97,14 @@ def build_directory_tree(
                         parent_list.append(item)
 
             except PermissionError:
-                logger.warning(f"Permission denied accessing: {current_path}")
+                warning(f"Permission denied accessing: {current_path}")
             except Exception as e:
-                logger.error(f"Error processing directory {current_path}: {e}")
+                error(f"Error processing directory {current_path}: {e}")
 
         return root_items
 
     folder_path = Path(folder_path) if isinstance(folder_path, str) else folder_path
-    logger.info(f"Building directory tree for: {folder_path}")
+    debug(f"Building directory tree for: {folder_path}")
     tree = _build_tree_iterative(folder_path)
-    logger.debug(f"Built directory tree with {len(tree)} top-level items")
+    debug(f"Built directory tree with {len(tree)} top-level items")
     return tree

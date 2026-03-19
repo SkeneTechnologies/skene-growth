@@ -16,7 +16,6 @@ Configuration files (optional):
 
 import asyncio
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -24,7 +23,6 @@ from typing import Any, Optional
 import click
 import typer
 from pydantic import SecretStr
-from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
@@ -58,6 +56,8 @@ from skene.cli.prompt_builder import (
 from skene.cli.sample_report import show_sample_report
 from skene.config import default_model_for_provider, load_config, resolve_upstream_token
 from skene.growth_loops.schema_sql import DB_TRIGGER_PATH
+from skene.output import apply_verbosity, console, error, success, warning
+from skene.output import status as output_status
 from skene.planner import find_plan_steps_path
 
 # Command order and groups for --help
@@ -72,7 +72,6 @@ _COMMAND_ORDER = [
     "login",
     "logout",
     "features",
-    "chat",
 ]
 
 
@@ -93,7 +92,6 @@ app = typer.Typer(
     cls=SectionedHelpGroup,
 )
 
-console = Console()
 
 _OPENAI_COMPAT_PROVIDERS = ("generic", "openai-compatible", "openai_compatible")
 _LOCAL_NO_KEY_PROVIDERS = (
@@ -204,11 +202,11 @@ def analyze(
         envvar="SKENE_BASE_URL",
         help="Base URL for API endpoint (required for generic; optional for skene local dev)",
     ),
-    verbose: bool = typer.Option(
+    quiet: bool = typer.Option(
         False,
-        "-v",
-        "--verbose",
-        help="Enable verbose output",
+        "-q",
+        "--quiet",
+        help="Suppress status messages; show only errors and final results",
     ),
     product_docs: bool = typer.Option(
         False,
@@ -233,7 +231,7 @@ def analyze(
     debug: bool = typer.Option(
         False,
         "--debug",
-        help="Log all LLM input/output to .skene/debug/",
+        help="Show diagnostic messages and log all LLM input/output to ~/.local/state/skene/debug/",
     ),
     no_fallback: bool = typer.Option(
         False,
@@ -278,6 +276,7 @@ def analyze(
     """
     # Load config with fallbacks
     config = load_config()
+    resolved_debug = apply_verbosity(quiet, debug, config.debug)
 
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
@@ -315,19 +314,19 @@ def analyze(
     # Generic provider requires base_url; skene uses production by default
     if _requires_base_url(resolved_provider):
         if not resolved_base_url:
-            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            error("The 'generic' provider requires --base-url to be set.")
             raise typer.Exit(1)
 
     # If no API key and not using local provider, show sample report or require key
     if not resolved_api_key and not is_local_provider:
         if features:
-            console.print(
-                "[yellow]No API key provided.[/yellow] Feature analysis requires an LLM.\n"
+            warning(
+                "No API key provided. Feature analysis requires an LLM.\n"
                 "Set --api-key, SKENE_API_KEY env var, or add to .skene.config"
             )
             raise typer.Exit(1)
-        console.print(
-            "[yellow]No API key provided.[/yellow] Showing sample growth analysis preview.\n"
+        warning(
+            "No API key provided. Showing sample growth analysis preview.\n"
             "For full AI-powered analysis, set --api-key, SKENE_API_KEY env var, or add to .skene.config\n"
         )
         show_sample_report(path, output, exclude_folders=exclude if exclude else None)
@@ -356,9 +355,6 @@ def analyze(
         # Merge CLI excludes with config excludes (deduplicate)
         exclude_folders = list(set(exclude_folders + exclude))
 
-    # Resolve debug flag (CLI overrides config)
-    resolved_debug = debug or config.debug
-
     # Run async analysis - execute and handle output
 
     from skene.llm import create_llm_client
@@ -379,13 +375,13 @@ def analyze(
                 path,
                 resolved_output,
                 llm,
-                verbose,
+                resolved_debug,
                 exclude_folders=exclude_folders if exclude_folders else None,
             )
             registry_path = resolved_output.parent / "feature-registry.json"
             if result is None:
                 raise typer.Exit(1)
-            console.print(f"\n[green]Success![/green] Feature registry updated: {registry_path}")
+            success(f"Feature registry updated: {registry_path}")
             if manifest_data:
                 show_features_summary(manifest_data)
         else:
@@ -393,7 +389,7 @@ def analyze(
                 path,
                 resolved_output,
                 llm,
-                verbose,
+                resolved_debug,
                 product_docs,
                 exclude_folders=exclude_folders if exclude_folders else None,
             )
@@ -412,41 +408,13 @@ def analyze(
             )
 
             # Show summary
-            console.print(f"\n[green]Success![/green] Manifest saved to: {resolved_output}")
+            success(f"Manifest saved to: {resolved_output}")
 
             # Show quick stats if available
             if result.data:
                 show_analysis_summary(result.data, template_data)
 
     asyncio.run(execute_analysis())
-
-
-@app.command(deprecated=True, hidden=True)
-def generate(
-    manifest: Optional[Path] = typer.Option(
-        None,
-        "-m",
-        "--manifest",
-        help="Path to growth-manifest.json (auto-detected if not specified)",
-    ),
-    output_dir: Path = typer.Option(
-        "./skene-docs",
-        "-o",
-        "--output",
-        help="Output directory for generated documentation",
-    ),
-):
-    """
-    [DEPRECATED] Use 'analyze --product-docs' instead.
-
-    This command has been consolidated into the analyze command.
-    """
-    console.print(
-        "[yellow]Warning:[/yellow] The 'generate' command is deprecated.\n"
-        "Use 'skene analyze --product-docs' instead.\n"
-        "This command will be removed in v0.2.0."
-    )
-    raise typer.Exit(1)
 
 
 @app.command()
@@ -497,11 +465,11 @@ def plan(
         envvar="SKENE_BASE_URL",
         help="Base URL for API endpoint (required for generic; optional for skene local dev)",
     ),
-    verbose: bool = typer.Option(
+    quiet: bool = typer.Option(
         False,
-        "-v",
-        "--verbose",
-        help="Enable verbose output",
+        "-q",
+        "--quiet",
+        help="Suppress status messages; show only errors and final results",
     ),
     activation: bool = typer.Option(
         False,
@@ -516,7 +484,7 @@ def plan(
     debug: bool = typer.Option(
         False,
         "--debug",
-        help="Log all LLM input/output to .skene/debug/",
+        help="Show diagnostic messages and log all LLM input/output to ~/.local/state/skene/debug/",
     ),
     no_fallback: bool = typer.Option(
         False,
@@ -551,6 +519,7 @@ def plan(
     """
     # Load config with fallbacks
     config = load_config()
+    resolved_debug = apply_verbosity(quiet, debug, config.debug)
 
     # Apply config defaults
     resolved_api_key = api_key or config.api_key
@@ -564,10 +533,10 @@ def plan(
     # Validate context directory if provided
     if context:
         if not context.exists():
-            console.print(f"[red]Error:[/red] Context directory does not exist: {context}")
+            error(f"Context directory does not exist: {context}")
             raise typer.Exit(1)
         if not context.is_dir():
-            console.print(f"[red]Error:[/red] Context path is not a directory: {context}")
+            error(f"Context path is not a directory: {context}")
             raise typer.Exit(1)
 
     # Auto-detect manifest (growth-manifest.json is the standard name from analyze)
@@ -618,15 +587,15 @@ def plan(
     # Generic provider requires base_url; skene uses production by default
     if _requires_base_url(resolved_provider):
         if not resolved_base_url:
-            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            error("The 'generic' provider requires --base-url to be set.")
             raise typer.Exit(1)
 
     # If no API key and not using local provider, show sample report
     if not resolved_api_key and not is_local_provider:
         # Determine path for sample report (use context dir if provided, else current dir)
         sample_path = context if context else Path(".")
-        console.print(
-            "[yellow]No API key provided.[/yellow] Showing sample growth plan preview.\n"
+        warning(
+            "No API key provided. Showing sample growth plan preview.\n"
             "For full AI-powered plan generation, set --api-key, SKENE_API_KEY env var, "
             "or add to .skene.config\n"
         )
@@ -718,9 +687,6 @@ def plan(
 
     console.print(Panel.fit("\n".join(panel_lines), title="skene"))
 
-    # Resolve debug flag (CLI overrides config)
-    resolved_debug = debug or config.debug
-
     # Run async cycle generation - execute and handle output
     async def execute_cycle():
         memo_content, _todo_data = await run_generate_plan(
@@ -730,7 +696,6 @@ def plan(
             api_key=resolved_api_key,
             provider=resolved_provider,
             model=resolved_model,
-            verbose=verbose,
             activation=activation,
             context_dir=context_dir_for_loops,
             user_prompt=prompt,
@@ -742,114 +707,9 @@ def plan(
         if memo_content is None:
             raise typer.Exit(1)
 
-        console.print(f"\n[green]Success![/green] Growth plan saved to: {resolved_output}")
+        success(f"Growth plan saved to: {resolved_output}")
 
     asyncio.run(execute_cycle())
-
-
-@app.command(rich_help_panel="experimental")
-def chat(
-    path: Path = typer.Argument(
-        ".",
-        help="Path to codebase to analyze",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        resolve_path=True,
-    ),
-    api_key: Optional[str] = typer.Option(
-        None,
-        "--api-key",
-        envvar="SKENE_API_KEY",
-        help="API key for LLM provider (or set SKENE_API_KEY env var)",
-    ),
-    provider: Optional[str] = typer.Option(
-        None,
-        "--provider",
-        "-p",
-        help="LLM provider to use (openai, gemini, anthropic/claude, ollama, generic, skene)",
-    ),
-    model: Optional[str] = typer.Option(
-        None,
-        "--model",
-        "-m",
-        help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
-    ),
-    base_url: Optional[str] = typer.Option(
-        None,
-        "--base-url",
-        envvar="SKENE_BASE_URL",
-        help="Base URL for API endpoint (required for generic; optional for skene local dev)",
-    ),
-    max_steps: int = typer.Option(
-        4,
-        "--max-steps",
-        help="Maximum tool calls per user request",
-    ),
-    tool_output_limit: int = typer.Option(
-        4000,
-        "--tool-output-limit",
-        help="Max tool output characters kept in context",
-    ),
-    debug: bool = typer.Option(
-        False,
-        "--debug",
-        help="Log all LLM input/output to .skene/debug/",
-    ),
-):
-    """
-    Interactive terminal chat that invokes skene tools.
-
-    Examples:
-
-        uvx skene chat . --api-key "your-key"
-        # Or: uvx skene chat . --api-key "your-key"
-        uvx skene chat ./my-project --provider gemini --model gemini-3-flash-preview
-    """
-    config = load_config()
-
-    resolved_api_key = api_key or config.api_key
-    resolved_provider = provider or config.provider
-    resolved_base_url = base_url or config.base_url
-    if model:
-        resolved_model = model
-    else:
-        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
-
-    is_local_provider = _is_local_provider(resolved_provider)
-
-    # Generic provider requires base_url; skene uses production by default
-    if _requires_base_url(resolved_provider):
-        if not resolved_base_url:
-            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
-            raise typer.Exit(1)
-
-    if not resolved_api_key:
-        if is_local_provider:
-            resolved_api_key = resolved_provider
-        else:
-            console.print(
-                "[yellow]Warning:[/yellow] No API key provided. "
-                "Set --api-key, SKENE_API_KEY env var, or add to .skene.config"
-            )
-            raise typer.Exit(1)
-
-    # Resolve debug flag (CLI overrides config)
-    resolved_debug = debug or config.debug
-
-    from skene.cli.chat import run_chat
-
-    run_chat(
-        console=console,
-        repo_path=path,
-        api_key=resolved_api_key,
-        provider=resolved_provider,
-        model=resolved_model,
-        max_steps=max_steps,
-        tool_output_limit=tool_output_limit,
-        debug=resolved_debug,
-        base_url=resolved_base_url,
-    )
 
 
 @app.command(rich_help_panel="manage")
@@ -871,7 +731,7 @@ def validate(
         uvx skene validate ./growth-manifest.json
         # Or: uvx skene validate ./growth-manifest.json
     """
-    console.print(f"Validating: {manifest}")
+    output_status(f"Validating: {manifest}")
 
     try:
         # Load JSON
@@ -882,7 +742,7 @@ def validate(
 
         manifest_obj = GrowthManifest(**data)
 
-        console.print("[green]Valid![/green] Manifest conforms to schema.")
+        success("Manifest conforms to schema.")
 
         # Show summary
         table = Table(title="Manifest Summary")
@@ -898,10 +758,10 @@ def validate(
         console.print(table)
 
     except json.JSONDecodeError as e:
-        console.print(f"[red]Invalid JSON:[/red] {e}")
+        error(f"Invalid JSON: {e}")
         raise typer.Exit(1)
     except Exception as e:
-        console.print(f"[red]Validation failed:[/red] {e}")
+        error(f"Validation failed: {e}")
         raise typer.Exit(1)
 
 
@@ -944,6 +804,17 @@ def status(
         "-m",
         help="LLM model (uses provider default if not provided)",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress output, show errors only",
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Show diagnostic messages and log LLM I/O to ~/.local/state/skene/debug/",
+    ),
 ):
     """
     Show implementation status of growth loop requirements.
@@ -970,6 +841,8 @@ def status(
         validate_all_loops,
     )
 
+    apply_verbosity(quiet, debug)
+
     # Resolve the context directory
     if context is None:
         # Auto-detect: look for skene-context relative to path
@@ -982,15 +855,14 @@ def status(
                 context = candidate
                 break
         if context is None:
-            console.print(
-                "[red]Could not find skene-context/growth-loops/ directory.[/red]\n"
-                "Use --context to specify the path explicitly."
+            error(
+                "Could not find skene-context/growth-loops/ directory.\nUse --context to specify the path explicitly."
             )
             raise typer.Exit(1)
 
     loops_dir = context / "growth-loops"
     if not loops_dir.is_dir():
-        console.print(f"[red]Growth loops directory not found:[/red] {loops_dir}")
+        error(f"Growth loops directory not found: {loops_dir}")
         raise typer.Exit(1)
 
     # Setup LLM client if find_alternatives is enabled
@@ -1005,9 +877,8 @@ def status(
         resolved_model = model or config.model
 
         if not resolved_api_key:
-            console.print(
-                "[yellow]Warning:[/yellow] --find-alternatives requires an API key.\n"
-                "Provide --api-key or set SKENE_API_KEY environment variable."
+            warning(
+                "--find-alternatives requires an API key.\nProvide --api-key or set SKENE_API_KEY environment variable."
             )
             raise typer.Exit(1)
 
@@ -1017,14 +888,14 @@ def status(
                 api_key=SecretStr(resolved_api_key),
                 model_name=resolved_model,
             )
-            console.print("[dim]💡 Semantic matching enabled (finding alternative implementations)[/dim]")
+            output_status("Semantic matching enabled (finding alternative implementations)")
         except Exception as exc:
-            console.print(f"[red]Failed to initialize LLM client:[/red] {exc}")
+            error(f"Failed to initialize LLM client: {exc}")
             raise typer.Exit(1)
 
-    console.print(f"[dim]Project root:[/dim] {path}")
-    console.print(f"[dim]Context dir:[/dim]  {context}")
-    console.print(f"[dim]Loops dir:[/dim]    {loops_dir}")
+    output_status(f"Project root: {path}")
+    output_status(f"Context dir:  {context}")
+    output_status(f"Loops dir:    {loops_dir}")
     console.print()
 
     # Register event listener for simple text output
@@ -1032,18 +903,18 @@ def status(
         """Display validation events as simple text messages."""
         if event == ValidationEvent.LOOP_VALIDATION_STARTED:
             loop_name = payload.get("loop_name", "Unknown Loop")
-            console.print(f"Validating {loop_name}...")
+            output_status(f"Validating {loop_name}...")
         elif event == ValidationEvent.REQUIREMENT_MET:
             req_type = payload.get("type", "")
             if req_type == "file":
                 file_path = payload.get("path", "")
-                console.print(f"  File requirement met: {file_path}...")
+                output_status(f"  File requirement met: {file_path}...")
             elif req_type == "function":
                 func_name = payload.get("name", "")
-                console.print(f"  Function requirement met: {func_name}...")
+                output_status(f"  Function requirement met: {func_name}...")
         elif event == ValidationEvent.LOOP_COMPLETED:
             loop_name = payload.get("loop_name", "Unknown Loop")
-            console.print(f"Loop complete: {loop_name}...")
+            output_status(f"Loop complete: {loop_name}...")
         # Skip VALIDATION_TIME event - not user-facing
 
     register_event_listener(event_listener)
@@ -1161,6 +1032,17 @@ def push(
         "--init",
         help="Create or update the base schema migration only, without building telemetry or pushing.",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress output, show errors only",
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Show diagnostic messages and log LLM I/O to ~/.local/state/skene/debug/",
+    ),
 ):
     """
     Build a Supabase migration from growth loop telemetry into /supabase and push to upstream.
@@ -1194,20 +1076,22 @@ def push(
     )
     from skene.growth_loops.storage import load_existing_growth_loops
 
+    apply_verbosity(quiet, debug)
+
     if init:
         written = ensure_base_schema_migration(path.resolve())
-        console.print(f"[green]Schema migration:[/green] {written}")
-        console.print("[dim]Run supabase db push to apply.[/dim]")
+        success(f"Schema migration: {written}")
+        output_status("Run supabase db push to apply.")
         return
 
     if ingest_url and not local:
-        console.print("[red]--ingest-url can only be used with --local.[/red]")
+        error("--ingest-url can only be used with --local.")
         raise typer.Exit(1)
     if local and upstream:
-        console.print("[red]--local and --upstream cannot be used together.[/red]")
+        error("--local and --upstream cannot be used together.")
         raise typer.Exit(1)
     if local and push_only:
-        console.print("[red]--local and --push-only cannot be used together.[/red]")
+        error("--local and --push-only cannot be used together.")
         raise typer.Exit(1)
 
     config = load_config()
@@ -1225,9 +1109,8 @@ def push(
                 context = candidate
                 break
         if context is None and not push_only and not local:
-            console.print(
-                "[red]Could not find skene-context/growth-loops/ directory.[/red]\n"
-                "Use --context to specify the path explicitly."
+            error(
+                "Could not find skene-context/growth-loops/ directory.\nUse --context to specify the path explicitly."
             )
             raise typer.Exit(1)
     if (push_only or local) and context is None:
@@ -1244,11 +1127,11 @@ def push(
             if loop_id:
                 loops_with_telemetry = [loop for loop in loops_with_telemetry if loop.get("loop_id") == loop_id]
                 if not loops_with_telemetry:
-                    console.print(f"[red]No loop with loop_id '{loop_id}' has Supabase telemetry.[/red]")
+                    error(f"No loop with loop_id '{loop_id}' has Supabase telemetry.")
                     raise typer.Exit(1)
         if not loops_with_telemetry and not local:
-            console.print(
-                "[yellow]No growth loops with Supabase telemetry found.[/yellow]\n"
+            warning(
+                "No growth loops with Supabase telemetry found.\n"
                 "Add telemetry with type 'supabase' (table, operation, properties) via skene build."
             )
             raise typer.Exit(1)
@@ -1263,16 +1146,15 @@ def push(
     secret = proxy_secret or "YOUR_PROXY_SECRET"
 
     if local and not (ingest_url and ingest_url.strip()):
-        console.print("[dim]Building migration files with default Skene.ai upstream ingest for reference.[/dim]")
-        console.print(
-            "[dim]For self-hosted trigger ingests, use: "
-            "[bold]skene push --local --ingest-url https://your-ingest.example.com[/bold].[/dim]"
+        output_status("Building migration files with default Skene.ai upstream ingest for reference.")
+        output_status(
+            "For self-hosted trigger ingests, use: skene push --local --ingest-url https://your-ingest.example.com"
         )
-        console.print("[dim]To push to upstream managed by Skene.ai, use [bold]skene login[/bold].[/dim]")
+        output_status("To push to upstream managed by Skene.ai, use skene login.")
 
     try:
         schema_path = ensure_base_schema_migration(path)
-        console.print(f"[green]Schema:[/green] {schema_path}")
+        success(f"Schema: {schema_path}")
 
         if not push_only:
             migration_path = build_loops_to_supabase(
@@ -1281,7 +1163,7 @@ def push(
                 forward_url=forward_url,
                 proxy_secret=secret,
             )
-            console.print(f"[green]Telemetry:[/green] {migration_path}")
+            success(f"Telemetry: {migration_path}")
         else:
             ctx = context or path / "skene-context"
             if (ctx / "growth-loops").is_dir():
@@ -1299,15 +1181,15 @@ def push(
                         None,
                     )
                     if telemetry:
-                        console.print(f"[green]Telemetry:[/green] {telemetry}")
+                        success(f"Telemetry: {telemetry}")
                 if (ctx / "growth-loops").is_dir():
-                    console.print(f"[green]Growth loops:[/green] {ctx / 'growth-loops'}")
+                    success(f"Growth loops: {ctx / 'growth-loops'}")
             if not resolved_token:
-                console.print("[yellow]No token. Run skene login to authenticate.[/yellow]")
+                warning("No token. Run skene login to authenticate.")
             else:
                 loops_dir = ctx / "growth-loops" if ctx.exists() else None
                 if loops_dir and loops_dir.exists():
-                    console.print(f"[green]Growth loops:[/green] {loops_dir}")
+                    success(f"Growth loops: {loops_dir}")
                 result = push_to_upstream(
                     project_root=path,
                     upstream_url=resolved_upstream,
@@ -1323,21 +1205,21 @@ def push(
                         f"growth-loops ({growth_loops_count} file{suffix})",
                         "telemetry.sql",
                     ]
-                    console.print(
-                        f"[green]Pushed to upstream[/green] commit_hash={result.get('commit_hash', '?')} "
+                    success(
+                        f"Pushed to upstream commit_hash={result.get('commit_hash', '?')} "
                         f"(package: {', '.join(sent_parts)})"
                     )
                 else:
                     msg = result.get("message", "Push failed.")
                     if result.get("error") == "auth":
-                        console.print(f"[red]{msg}[/red]")
+                        error(msg)
                     else:
-                        console.print(f"[yellow]{msg}[/yellow]")
+                        warning(msg)
 
         if not push_only and resolved_upstream:
-            console.print("\n[dim]Upstream parses the package (growth loops + telemetry.sql) and deploys.[/dim]\n")
+            output_status("Upstream parses the package (growth loops + telemetry.sql) and deploys.")
     except Exception as e:
-        console.print(f"[red]Deploy failed:[/red] {e}")
+        error(f"Deploy failed: {e}")
         raise typer.Exit(1)
 
 
@@ -1378,10 +1260,16 @@ def build(
         envvar="SKENE_BASE_URL",
         help="Base URL for API endpoint (required for generic; optional for skene local dev)",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress status messages; show only errors and final results",
+    ),
     debug: bool = typer.Option(
         False,
         "--debug",
-        help="Log all LLM input/output to .skene/debug/",
+        help="Show diagnostic messages and log all LLM input/output to ~/.local/state/skene/debug/",
     ),
     no_fallback: bool = typer.Option(
         False,
@@ -1437,14 +1325,19 @@ def build(
     Configuration:
         Set api_key and provider in .skene.config or ~/.config/skene/config
     """
+    config = load_config()
+    resolved_debug = apply_verbosity(quiet, debug, config.debug)
+
     # Validate --target value if provided
     valid_targets = {"cursor", "claude", "show", "file"}
     if target is not None and target not in valid_targets:
-        console.print(f"[red]Error:[/red] Invalid target '{target}'. Valid options: {', '.join(sorted(valid_targets))}")
+        error(f"Invalid target '{target}'. Valid options: {', '.join(sorted(valid_targets))}")
         raise typer.Exit(1)
 
     # Run async logic
-    asyncio.run(_build_async(plan, context, api_key, provider, model, debug, target, base_url, no_fallback, feature))
+    asyncio.run(
+        _build_async(plan, context, api_key, provider, model, resolved_debug, target, base_url, no_fallback, feature)
+    )
 
 
 async def _build_async(
@@ -1460,8 +1353,8 @@ async def _build_async(
     bias_feature: Optional[str] = None,
 ):
     """Async implementation of build command."""
-    # Load config to get LLM settings
     config = load_config()
+    resolved_debug = debug
     api_key = api_key or config.api_key
     provider = provider or config.provider
     base_url = base_url or config.base_url
@@ -1469,13 +1362,13 @@ async def _build_async(
     # Generic provider requires base_url; skene uses production by default
     if provider and _requires_base_url(provider):
         if not base_url:
-            console.print("[red]Error:[/red] The 'generic' provider requires --base-url to be set.")
+            error(f"The {provider} provider requires --base-url to be set.")
             raise typer.Exit(1)
 
     # Validate LLM configuration
     if not api_key or not provider:
-        console.print(
-            "[red]Error:[/red] LLM configuration required.\n\n"
+        error(
+            "LLM configuration required.\n\n"
             "Please set api_key and provider in one of:\n"
             "  1. .skene.config (in current directory)\n"
             "  2. ~/.config/skene/config\n"
@@ -1493,10 +1386,10 @@ async def _build_async(
         # If context is specified, check there first
         if context:
             if not context.exists():
-                console.print(f"[red]Error:[/red] Context directory does not exist: {context}")
+                error(f"Context directory does not exist: {context}")
                 raise typer.Exit(1)
             if not context.is_dir():
-                console.print(f"[red]Error:[/red] Context path is not a directory: {context}")
+                error(f"Context path is not a directory: {context}")
                 raise typer.Exit(1)
             default_paths.append(context / "growth-plan.md")
 
@@ -1515,13 +1408,13 @@ async def _build_async(
 
     # Validate plan file exists
     if plan is None or not plan.exists():
-        console.print(
-            "[red]Error:[/red] Growth plan not found.\n\n"
+        error(
+            "Growth plan not found.\n\n"
             "Please ensure a growth plan exists at one of:\n"
             "  - ./skene-context/growth-plan.md (default)\n"
             "  - ./growth-plan.md\n"
             "  - Or specify a custom path with --plan\n\n"
-            "Generate a plan first with: [cyan]skene plan[/cyan]"
+            "Generate a plan first with: skene plan"
         )
         raise typer.Exit(1)
 
@@ -1529,10 +1422,10 @@ async def _build_async(
     technical_execution = extract_technical_execution(plan)
 
     if not technical_execution:
-        console.print(
-            "[red]Error:[/red] Could not extract Technical Execution section from growth plan.\n"
+        error(
+            "Could not extract Technical Execution section from growth plan.\n"
             "Please ensure a growth-plan.json file exists alongside your growth-plan.md.\n"
-            "Re-generate the plan with: [cyan]skene plan[/cyan]\n"
+            "Re-generate the plan with: skene plan\n"
         )
         raise typer.Exit(1)
 
@@ -1545,14 +1438,13 @@ async def _build_async(
 
         from skene.llm import create_llm_client
 
-        resolved_debug = debug or config.debug
         llm = create_llm_client(
             provider, SecretStr(api_key), model, base_url=base_url, debug=resolved_debug, no_fallback=no_fallback
         )
         console.print("")
-        console.print(f"[dim]Using {provider} ({model})[/dim]\n")
+        output_status(f"Using {provider} ({model})")
     except Exception as e:
-        console.print(f"[red]Error:[/red] Failed to create LLM client: {e}")
+        error(f"Failed to create LLM client: {e}")
         raise typer.Exit(1)
 
     # Display the technical execution context
@@ -1596,8 +1488,7 @@ async def _build_async(
         features = load_features_for_build(base_output_dir)
 
         # Generate loop definition with LLM (telemetry format depends on run_target)
-        console.print("\n[dim]Please wait...Generating growth loop definition...[/dim]")
-        console.print("")
+        output_status("Generating growth loop definition")
         loop_definition = await generate_loop_definition_with_llm(
             llm=llm,
             technical_execution=technical_execution,
@@ -1629,12 +1520,12 @@ async def _build_async(
             payload=loop_definition,
         )
 
-        console.print(f"[dim]Saved growth loop to: {saved_path}[/dim]\n")
+        output_status(f"Saved growth loop to: {saved_path}")
 
     except Exception as e:
         # Don't fail the whole build if storage fails
-        console.print(f"[yellow]Warning:[/yellow] Failed to save growth loop: {e}")
-        if config.verbose:
+        warning(f"Failed to save growth loop: {e}")
+        if resolved_debug:
             import traceback
 
             console.print(traceback.format_exc())
@@ -1689,50 +1580,48 @@ async def _build_async(
                 target = "cursor"
 
     # 4. Prompt build
-    console.print("\n[dim]Generating implementation prompt...[/dim]\n")
+    output_status("Generating implementation prompt")
     try:
         prompt = await build_prompt_with_llm(plan.resolve(), technical_execution, llm)
     except Exception as e:
-        console.print(f"[yellow]Warning:[/yellow] LLM prompt generation failed: {e}")
-        console.print("[dim]Falling back to template...[/dim]\n")
+        warning(f"LLM prompt generation failed: {e}")
+        output_status("Falling back to template...")
         prompt = build_prompt_from_template(plan.resolve(), technical_execution)
 
     # Save prompt to a file for cross-platform consumption
     prompt_output_dir = plan.parent if plan else Path(config.output_dir)
     prompt_file = save_prompt_to_file(prompt, prompt_output_dir)
-    console.print(f"[dim]Prompt saved to: {prompt_file}[/dim]")
-
     # Execute based on target
     if target == "file":
         # Non-interactive: just save the prompt file and exit
-        console.print(f"\n[green]✓[/green] Prompt saved to: {prompt_file}")
+        success(f"Prompt saved to: {prompt_file}")
 
     elif target == "show":
         console.print("\n")
         console.print(Panel(prompt, title="[bold]Full Prompt[/bold]", border_style="blue", padding=(1, 2)))
-        console.print(f"\n[green]✓[/green] Prompt saved to: {prompt_file}")
-        console.print("[dim]Copy and use as needed.[/dim]\n")
+        success(f"Prompt saved to: {prompt_file}")
+        output_status("Copy and use as needed.")
 
     elif target == "cursor":
-        console.print("\n[dim]Opening Cursor with deep link...[/dim]")
+        output_status("Opening Cursor with deep link...")
         try:
             open_cursor_deeplink(prompt_file, project_root=Path.cwd())
-            console.print("[green]Success![/green] Cursor should now open with your prompt.")
-            console.print(f"[dim]Prompt file: {prompt_file}[/dim]\n")
+            success("Cursor should now open with your prompt.")
+            output_status(f"Prompt file: {prompt_file}")
         except RuntimeError as e:
-            console.print(f"\n[red]Error:[/red] {e}\n")
-            console.print(f"[yellow]Prompt saved to:[/yellow] {prompt_file}")
-            console.print("[dim]You can open this file in Cursor manually.[/dim]\n")
+            error(str(e))
+            warning(f"Prompt saved to: {prompt_file}")
+            output_status("You can open this file in Cursor manually.")
             raise typer.Exit(1)
 
     elif target == "claude":
-        console.print("\n[dim]Launching Claude...[/dim]\n")
+        output_status("Launching Claude...")
         try:
             run_claude(prompt_file)
         except RuntimeError as e:
-            console.print(f"\n[red]Error:[/red] {e}\n")
-            console.print(f"[yellow]Prompt saved to:[/yellow] {prompt_file}")
-            console.print("[dim]You can run Claude manually with the saved prompt file.[/dim]\n")
+            error(str(e))
+            warning(f"Prompt saved to: {prompt_file}")
+            output_status("You can run Claude manually with the saved prompt file.")
             raise typer.Exit(1)
 
 
@@ -1773,6 +1662,8 @@ def config(
     """
     from skene.config import find_project_config, find_user_config, load_config
 
+    # NOTE: config command uses console.print throughout (not output functions)
+    # because it's an interactive TUI — formatted display, prompts, and wizard output.
     if init:
         config_path = Path(".skene.config")
         if config_path.exists():
@@ -1815,238 +1706,18 @@ def config(
             console.print(f"[green]  Base URL:[/green] {base_url}")
         console.print(f"[green]  API Key:[/green] {'Set' if new_api_key else 'Not set'}")
     except Exception as e:
-        console.print(f"[red]Error saving configuration:[/red] {e}")
+        error(f"Error saving configuration: {e}")
         raise typer.Exit(1)
 
 
-def _run_chat_default(
-    path: Path = typer.Argument(
-        ".",
-        help="Path to codebase to analyze",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        resolve_path=True,
-    ),
-    api_key: Optional[str] = typer.Option(
-        None,
-        "--api-key",
-        envvar="SKENE_API_KEY",
-        help="API key for LLM provider (or set SKENE_API_KEY env var)",
-    ),
-    provider: Optional[str] = typer.Option(
-        None,
-        "--provider",
-        "-p",
-        help="LLM provider to use (openai, gemini, anthropic/claude, ollama, generic, skene)",
-    ),
-    model: Optional[str] = typer.Option(
-        None,
-        "--model",
-        "-m",
-        help="LLM model name (e.g., gemini-3-flash-preview for v1beta API)",
-    ),
-    max_steps: int = typer.Option(
-        4,
-        "--max-steps",
-        help="Maximum tool calls per user request",
-    ),
-    tool_output_limit: int = typer.Option(
-        4000,
-        "--tool-output-limit",
-        help="Max tool output characters kept in context",
-    ),
-):
-    """Interactive terminal chat that invokes skene tools."""
-    # Auto-create user config on first run if no config exists
-    from skene.config import find_project_config, find_user_config
-
-    user_cfg = find_user_config()
-    project_cfg = find_project_config()
-
-    if not user_cfg and not project_cfg:
-        # Create user config directory if it doesn't exist
-        config_home = os.environ.get("XDG_CONFIG_HOME")
-        if config_home:
-            config_dir = Path(config_home) / "skene"
-        else:
-            config_dir = Path.home() / ".config" / "skene"
-
-        config_dir.mkdir(parents=True, exist_ok=True)
-        config_path = config_dir / "config"
-
-        # Create sample config
-        create_sample_config(config_path)
-        console.print(
-            f"[green]Created config file:[/green] {config_path}\n"
-            "[dim]Edit this file to add your API key and customize settings.[/dim]\n"
-        )
-
-    config = load_config()
-
-    resolved_api_key = api_key or config.api_key
-    resolved_provider = provider or config.provider
-    if model:
-        resolved_model = model
-    else:
-        resolved_model = config.get("model") or default_model_for_provider(resolved_provider)
-
-    is_local_provider = resolved_provider.lower() in (
-        "lmstudio",
-        "lm-studio",
-        "lm_studio",
-        "ollama",
-    )
-
-    if not resolved_api_key:
-        if is_local_provider:
-            resolved_api_key = resolved_provider
-        else:
-            # Find which config file exists to show helpful message
-            config_file = find_project_config() or find_user_config()
-            if config_file:
-                console.print(
-                    f"[yellow]Warning:[/yellow] No API key provided. "
-                    "While that is ok, without api-key, Skene will not use advanced AI-analysis tools.\n"
-                    f"To enable AI features, add your API key to: [cyan]{config_file}[/cyan]\n"
-                    "Or set --api-key flag or SKENE_API_KEY env var."
-                )
-            else:
-                console.print(
-                    "[yellow]Warning:[/yellow] No API key provided. "
-                    "While that is ok, without api-key, Skene will not use advanced AI-analysis tools.\n"
-                    "To enable AI features, set --api-key, SKENE_API_KEY env var, or create a config file:\n"
-                    "  ~/.config/skene/config (user-level)\n"
-                    "  ./.skene.config (project-level)"
-                )
-            raise typer.Exit(1)
-
-    from skene.cli.chat import run_chat
-
-    run_chat(
-        console=console,
-        repo_path=path,
-        api_key=resolved_api_key,
-        provider=resolved_provider,
-        model=resolved_model,
-        max_steps=max_steps,
-        tool_output_limit=tool_output_limit,
-    )
-
-
 def skene_entry_point():
-    """Entry point for 'skene' command - includes all commands, defaults to chat."""
-    # Create a typer app for the skene command that includes all commands
-    skene_app = typer.Typer(
-        name="skene",
-        help="PLG analysis toolkit for codebases. Analyze code, detect growth opportunities.",
-        add_completion=False,
-        no_args_is_help=False,
-        cls=SectionedHelpGroup,
-    )
-
-    # Add commands in order: analyze, plan, build, status, push | manage | experimental
-    skene_app.command()(analyze)
-    skene_app.command()(plan)
-    skene_app.command()(build)
-    skene_app.command()(status)
-    skene_app.command()(push)
-    skene_app.command(rich_help_panel="manage")(config)
-    skene_app.command(rich_help_panel="manage")(validate)
-    skene_app.command(rich_help_panel="manage")(login)
-    skene_app.command(rich_help_panel="manage")(logout)
-    skene_app.add_typer(features_app, name="features", rich_help_panel="manage")
-    skene_app.command(rich_help_panel="experimental")(chat)
-
-    # Add callback to handle default case (no subcommand) - launches chat
-    # Added AFTER commands so subcommands take precedence
-    # No arguments in callback to avoid conflicts with subcommands
-    @skene_app.callback(invoke_without_command=True)
-    def default_callback(
-        ctx: typer.Context,
-        version: bool = typer.Option(
-            None,
-            "--version",
-            "-V",
-            callback=version_callback,
-            is_eager=True,
-            help="Show version and exit.",
-        ),
-    ):
-        """Default: Launch interactive chat. Use subcommands for other operations."""
-        # Only invoke chat if no subcommand was provided
-        if ctx.invoked_subcommand is None:
-            # Parse all arguments manually from sys.argv
-            import sys
-
-            path_arg = "."
-            api_key_arg = None
-            provider_arg = None
-            model_arg = None
-            max_steps_arg = 4
-            tool_output_limit_arg = 4000
-
-            args = sys.argv[1:]  # Skip script name
-            i = 0
-            while i < len(args):
-                arg = args[i]
-                if arg in ["--api-key"] and i + 1 < len(args):
-                    api_key_arg = args[i + 1]
-                    i += 2
-                elif arg in ["--provider", "-p"] and i + 1 < len(args):
-                    provider_arg = args[i + 1]
-                    i += 2
-                elif arg in ["--model", "-m"] and i + 1 < len(args):
-                    model_arg = args[i + 1]
-                    i += 2
-                elif arg == "--max-steps" and i + 1 < len(args):
-                    max_steps_arg = int(args[i + 1])
-                    i += 2
-                elif arg == "--tool-output-limit" and i + 1 < len(args):
-                    tool_output_limit_arg = int(args[i + 1])
-                    i += 2
-                elif arg.startswith("--api-key="):
-                    api_key_arg = arg.split("=", 1)[1]
-                    i += 1
-                elif arg.startswith("--provider=") or arg.startswith("-p="):
-                    provider_arg = arg.split("=", 1)[1]
-                    i += 1
-                elif arg.startswith("--model=") or arg.startswith("-m="):
-                    model_arg = arg.split("=", 1)[1]
-                    i += 1
-                elif not arg.startswith("-"):
-                    # Found a non-option argument - this is the path
-                    path_arg = arg
-                    i += 1
-                else:
-                    i += 1
-
-            # Check environment variable for API key if not provided
-            if not api_key_arg:
-                api_key_arg = os.environ.get("SKENE_API_KEY")
-
-            _run_chat_default(
-                Path(path_arg),
-                api_key_arg,
-                provider_arg,
-                model_arg,
-                max_steps_arg,
-                tool_output_limit_arg,
-            )
-
-    _run_cli(skene_app)
+    """Entry point for 'skene' command."""
+    _run_cli(app)
 
 
 def skene_growth_entry():
     """Entry point for 'skene-growth' command (development). Use 'skene' for production."""
     _run_cli(app)
-
-
-def skene_growth_mcp_entry():
-    """Entry point for 'skene-growth-mcp' command (development). Use 'skene-mcp' for production."""
-    from skene.mcp.server import main as mcp_main
-
-    mcp_main()
 
 
 if __name__ == "__main__":

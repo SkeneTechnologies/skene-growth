@@ -8,7 +8,7 @@ requires-python = ">=3.11,<4"
 authors = [
     { name = "Skene Technologies" }
 ]
-keywords = ["plg", "growth", "codebase", "analysis", "documentation", "llm", "mcp", "mcp-server", "ai-tools", "developer-tools"]
+keywords = ["plg", "growth", "codebase", "analysis", "documentation", "llm", "ai-tools", "developer-tools"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -33,19 +33,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-mcp = [
-    "mcp>=1.0.0",
-    "xxhash>=3.0",
-]
 ui = [
     "questionary>=2.0",
 ]
 
 [project.scripts]
 skene = "skene.cli.main:skene_entry_point"
-skene-mcp = "skene.mcp:main"
 skene-growth = "skene.cli.main:skene_growth_entry"
-skene-growth-mcp = "skene.cli.main:skene_growth_mcp_entry"
 
 [project.urls]
 Homepage = "https://www.skene.ai"

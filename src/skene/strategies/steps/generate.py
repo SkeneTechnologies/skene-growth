@@ -7,11 +7,11 @@ import re
 from datetime import datetime
 from typing import Any, Type
 
-from loguru import logger
 from pydantic import BaseModel
 
 from skene.codebase import CodebaseExplorer
 from skene.llm import LLMClient
+from skene.output import error, warning
 from skene.strategies.context import AnalysisContext, StepResult
 from skene.strategies.steps.base import AnalysisStep
 
@@ -77,7 +77,7 @@ class GenerateStep(AnalysisStep):
             )
 
         except Exception as e:
-            logger.error(f"GenerateStep failed: {e}")
+            error(f"GenerateStep failed: {e}")
             return StepResult(
                 step_name=self.name,
                 error=str(e),
@@ -193,7 +193,7 @@ class GenerateStep(AnalysisStep):
             except json.JSONDecodeError:
                 pass
 
-        logger.warning(f"Could not parse generation response as JSON: {response[:200]}")
+        warning(f"Could not parse generation response as JSON: {response[:200]}")
         return {"raw_response": response}
 
     def _unwrap_items(self, data: Any) -> Any:
@@ -248,7 +248,7 @@ class GenerateStep(AnalysisStep):
 
                 return validated_dict
             except Exception as e:
-                logger.warning(f"Output validation failed: {e}")
+                warning(f"Output validation failed: {e}")
                 return data
         return data
 
@@ -267,9 +267,9 @@ class GenerateStep(AnalysisStep):
                         if full_path.exists() and full_path.is_file():
                             validated_features.append(feature)
                         else:
-                            logger.warning(f"Removing feature with non-existent file_path: {file_path}")
+                            warning(f"Removing feature with non-existent file_path: {file_path}")
                     except Exception as e:
-                        logger.warning(f"Error validating file_path {file_path}: {e}")
+                        warning(f"Error validating file_path {file_path}: {e}")
                         # Keep the feature but log the warning
                         validated_features.append(feature)
                 else:
@@ -287,13 +287,13 @@ class GenerateStep(AnalysisStep):
                         if full_path.exists() and full_path.is_file():
                             validated_leakage.append(leakage)
                         else:
-                            logger.warning(f"Removing revenue_leakage with non-existent file_path: {file_path}")
+                            warning(f"Removing revenue_leakage with non-existent file_path: {file_path}")
                             # Remove file_path but keep the leakage entry
                             leakage_copy = leakage.copy()
                             leakage_copy["file_path"] = None
                             validated_leakage.append(leakage_copy)
                     except Exception as e:
-                        logger.warning(f"Error validating file_path {file_path}: {e}")
+                        warning(f"Error validating file_path {file_path}: {e}")
                         validated_leakage.append(leakage)
                 else:
                     validated_leakage.append(leakage)
@@ -310,13 +310,13 @@ class GenerateStep(AnalysisStep):
                         if full_path.exists() and full_path.is_file():
                             validated_features.append(feature)
                         else:
-                            logger.warning(f"Removing feature with non-existent file_path: {file_path}")
+                            warning(f"Removing feature with non-existent file_path: {file_path}")
                             # Remove file_path but keep the feature entry
                             feature_copy = feature.copy()
                             feature_copy["file_path"] = None
                             validated_features.append(feature_copy)
                     except Exception as e:
-                        logger.warning(f"Error validating file_path {file_path}: {e}")
+                        warning(f"Error validating file_path {file_path}: {e}")
                         validated_features.append(feature)
                 else:
                     validated_features.append(feature)

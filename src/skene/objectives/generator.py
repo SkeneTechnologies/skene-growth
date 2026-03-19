@@ -12,9 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
-
 from skene.llm.base import LLMClient
+from skene.output import debug, success, warning
 
 
 def _build_prompt(
@@ -122,7 +121,7 @@ def _parse_json_response(response: str) -> list[dict[str, Any]]:
 def _validate_objectives(objectives: list[dict[str, Any]]) -> None:
     """Validate that objectives have required fields."""
     if len(objectives) != 3:
-        logger.warning(f"Expected 3 objectives, got {len(objectives)}")
+        warning(f"Expected 3 objectives, got {len(objectives)}")
 
     required_fields = ["lifecycle", "metric", "target", "tolerance"]
     for i, obj in enumerate(objectives):
@@ -190,7 +189,7 @@ async def generate_objectives(
     """
     prompt = _build_prompt(manifest_data, template_data, quarter, guidance)
 
-    logger.info(f"Generating growth objectives{' for ' + quarter if quarter else ''}...")
+    debug(f"Generating growth objectives{' for ' + quarter if quarter else ''}...")
     response = await llm.generate_content(prompt)
 
     objectives = _parse_json_response(response)
@@ -198,7 +197,7 @@ async def generate_objectives(
 
     markdown = _format_markdown(objectives, quarter)
 
-    logger.success(f"Generated {len(objectives)} growth objectives")
+    success(f"Generated {len(objectives)} growth objectives")
     return markdown
 
 
@@ -220,5 +219,5 @@ def write_objectives_output(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(markdown_content)
 
-    logger.info(f"Wrote growth objectives to {output_path}")
+    debug(f"Wrote growth objectives to {output_path}")
     return output_path

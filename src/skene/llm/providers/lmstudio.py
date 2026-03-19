@@ -8,10 +8,10 @@ Default endpoint: http://localhost:1234/v1
 import os
 from typing import Optional
 
-from loguru import logger
 from pydantic import SecretStr
 
 from skene.llm.providers.openai_compat import OpenAICompatibleClient
+from skene.output import debug
 
 # Default LM Studio server URL
 DEFAULT_BASE_URL = "http://localhost:1234/v1"
@@ -57,7 +57,7 @@ class LMStudioClient(OpenAICompatibleClient):
             default_api_key="lm-studio",
         )
 
-        logger.debug(f"LM Studio client initialized with base_url: {self.base_url}")
+        debug(f"LM Studio client initialized with base_url: {self.base_url}")
 
     def get_provider_name(self) -> str:
         """Return the provider name."""

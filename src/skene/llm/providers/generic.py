@@ -7,10 +7,10 @@ by specifying a custom base URL and API key.
 
 from typing import Optional
 
-from loguru import logger
 from pydantic import SecretStr
 
 from skene.llm.providers.openai_compat import OpenAICompatibleClient
+from skene.output import debug
 
 
 class GenericClient(OpenAICompatibleClient):
@@ -57,7 +57,7 @@ class GenericClient(OpenAICompatibleClient):
 
         self._provider_name = provider_name or "generic"
 
-        logger.debug(f"Generic client initialized with base_url: {self.base_url}")
+        debug(f"Generic client initialized with base_url: {self.base_url}")
 
     def get_provider_name(self) -> str:
         """Return the provider name."""

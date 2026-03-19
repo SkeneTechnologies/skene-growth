@@ -22,16 +22,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
-from loguru import logger
-from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
 from skene.growth_loops.storage import load_existing_growth_loops
-
-console = Console()
-
+from skene.output import console, debug, warning
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -169,7 +165,7 @@ def _emit(event: ValidationEvent, payload: dict[str, Any]) -> None:
         try:
             listener(event, payload)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Event listener error for {}: {}", event.value, exc)
+            warning(f"Event listener error for {event.value}: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +179,7 @@ def _parse_ast(file_path: Path) -> ast.Module | None:
         source = file_path.read_text(encoding="utf-8")
         return ast.parse(source, filename=str(file_path))
     except (SyntaxError, UnicodeDecodeError, OSError) as exc:
-        logger.debug("AST parse failed for {}: {}", file_path, exc)
+        debug(f"AST parse failed for {file_path}: {exc}")
         return None
 
 
@@ -404,7 +400,7 @@ async def find_semantic_matches(
             }
         )
 
-    logger.debug("Searching for alternatives to '{}' ({} candidates)", req_name, len(candidates))
+    debug(f"Searching for alternatives to '{req_name}' ({len(candidates)} candidates)")
 
     prompt = f"""You are analyzing code requirements. A growth loop requires a function with these specifications:
 
@@ -474,7 +470,7 @@ Return ONLY valid JSON, no markdown, no explanations."""
         return matches
 
     except Exception as exc:
-        logger.debug("LLM semantic matching failed: {}", exc)
+        debug(f"LLM semantic matching failed: {exc}")
         return []
 
 
@@ -740,7 +736,7 @@ async def validate_function_requirement(
         try:
             alternatives = await find_semantic_matches(func_req, all_functions, llm_client)
         except Exception as exc:
-            logger.debug("Failed to find semantic matches: {}", exc)
+            debug(f"Failed to find semantic matches: {exc}")
 
     return FunctionValidationResult(
         file_path=file_rel,
@@ -857,15 +853,15 @@ async def validate_all_loops(
     """
     loops = load_existing_growth_loops(context_dir)
     if not loops:
-        logger.info("No growth loop definitions found in {}", context_dir / "growth-loops")
+        debug(f"No growth loop definitions found in {context_dir / 'growth-loops'}")
         return []
 
     # Extract all functions from codebase if we need to find alternatives
     all_functions: list[FunctionInfo] | None = None
     if find_alternatives and llm_client:
-        logger.info("Extracting all functions from codebase for semantic matching...")
+        debug("Extracting all functions from codebase for semantic matching...")
         all_functions = extract_all_functions(project_root)
-        logger.info("Found {} functions in codebase", len(all_functions))
+        debug(f"Found {len(all_functions)} functions in codebase")
 
     results: list[LoopValidationResult] = []
     for loop_data in loops:
@@ -887,9 +883,12 @@ _STATUS_ICON = {
 
 
 def print_validation_report(results: list[LoopValidationResult]) -> None:
-    """Print a Rich-formatted validation report to the console."""
+    """Print a Rich-formatted validation report to the console.
+
+    Uses the shared console from output.py for all rendering.
+    """
     if not results:
-        console.print("[yellow]No growth loops found to validate.[/yellow]")
+        warning("No growth loops found to validate.")
         return
 
     total_loops = len(results)
@@ -904,7 +903,7 @@ def print_validation_report(results: list[LoopValidationResult]) -> None:
     )
 
     for result in results:
-        _print_loop_result(result)
+        _print_loop_result(result, console)
 
     # Summary
     console.print()
@@ -915,11 +914,14 @@ def print_validation_report(results: list[LoopValidationResult]) -> None:
         console.print(f"[bold yellow]{pending} loop(s) have unmet requirements.[/bold yellow]")
 
 
-def _print_loop_result(result: LoopValidationResult) -> None:
+def _print_loop_result(
+    result: LoopValidationResult,
+    console: Any,
+) -> None:
     """Print detailed results for a single loop."""
-    status = "[green]COMPLETE[/green]" if result.all_passed else "[red]INCOMPLETE[/red]"
+    loop_status = "[green]COMPLETE[/green]" if result.all_passed else "[red]INCOMPLETE[/red]"
     header = Text.from_markup(
-        f"[bold]{result.loop_name}[/bold] ({result.loop_id})  {status}"
+        f"[bold]{result.loop_name}[/bold] ({result.loop_id})  {loop_status}"
         f"[dim]({result.passed_checks}/{result.total_checks} checks, {result.elapsed_ms:.0f}ms)[/dim]"
     )
     console.print(header)

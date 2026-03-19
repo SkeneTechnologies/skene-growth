@@ -2,15 +2,11 @@
 Step for reading files into context.
 """
 
-from loguru import logger
-from rich.console import Console
-
 from skene.codebase import CodebaseExplorer
 from skene.llm import LLMClient
+from skene.output import error, status, warning
 from skene.strategies.context import AnalysisContext, StepResult
 from skene.strategies.steps.base import AnalysisStep
-
-console = Console()
 
 
 class ReadFilesStep(AnalysisStep):
@@ -59,7 +55,7 @@ class ReadFilesStep(AnalysisStep):
             files_to_read = context.get(self.source_key, [])
 
             if not files_to_read:
-                logger.warning(f"ReadFilesStep: No files found in context key '{self.source_key}'")
+                warning(f"ReadFilesStep: No files found in context key '{self.source_key}'")
                 return StepResult(
                     step_name=self.name,
                     data={self.output_key: {}},
@@ -75,26 +71,26 @@ class ReadFilesStep(AnalysisStep):
                 # Check file size first
                 info_result = await codebase.get_file_info(file_path)
                 if "error" in info_result:
-                    console.print(f"Skipping {file_path}: {info_result['error']}")
+                    warning(f"Skipping {file_path}: {info_result['error']}")
                     skipped_files.append(file_path)
                     continue
 
                 if info_result.get("size", 0) > self.max_file_size:
-                    console.print(f"Skipping {file_path}: too large ({info_result['size']} > {self.max_file_size})")
+                    warning(f"Skipping {file_path}: too large ({info_result['size']} > {self.max_file_size})")
                     skipped_files.append(file_path)
                     continue
 
                 # Read the file
                 read_result = await codebase.read_file(file_path)
                 if "error" in read_result:
-                    console.print(f"Failed to read {file_path}: {read_result['error']}")
+                    warning(f"Failed to read {file_path}: {read_result['error']}")
                     skipped_files.append(file_path)
                     continue
 
                 file_contents[file_path] = read_result["content"]
                 files_read.append(file_path)
 
-            console.print(f"ReadFilesStep read {len(files_read)} files, skipped {len(skipped_files)}")
+            status(f"ReadFilesStep read {len(files_read)} files, skipped {len(skipped_files)}")
 
             return StepResult(
                 step_name=self.name,
@@ -107,7 +103,7 @@ class ReadFilesStep(AnalysisStep):
             )
 
         except Exception as e:
-            logger.error(f"ReadFilesStep failed: {e}")
+            error(f"ReadFilesStep failed: {e}")
             return StepResult(
                 step_name=self.name,
                 error=str(e),

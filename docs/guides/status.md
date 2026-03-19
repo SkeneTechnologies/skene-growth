@@ -130,6 +130,5 @@ Onboarding Flow (onboarding_flow)  INCOMPLETE (1/3 checks, 8ms)
 ## Next steps
 
 - [Build](build.md) -- Generate growth loop definitions that the status command validates
-- [Chat](chat.md) -- Use the interactive terminal chat for ad-hoc growth analysis
 - [Configuration](configuration.md) -- Set up persistent config for LLM settings used by `--find-alternatives`
 - [CLI Reference](../reference/cli.md) -- Full reference for all commands and flags
