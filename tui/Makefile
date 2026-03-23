@@ -6,7 +6,7 @@ BUILD_DIR=build
 
 # GitHub release settings (bump VERSION when cutting a new release)
 REPO=SkeneTechnologies/skene
-VERSION=tui-v0.3.1
+VERSION=tui-v0.3.2
 
 # Build flags — VERSION is injected into the binary at compile time
 LDFLAGS=-ldflags "-s -w -X skene/internal/constants.Version=$(subst tui-,,$(VERSION))"
