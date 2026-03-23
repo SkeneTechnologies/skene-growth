@@ -105,8 +105,8 @@ var (
 
 	// SpinnerColor — activity / loading indicator (distinct from brand accent).
 	SpinnerColor lipgloss.TerminalColor = lipgloss.CompleteAdaptiveColor{
-		Dark:  lipgloss.CompleteColor{TrueColor: "#7EC8E3", ANSI: "14"},
-		Light: lipgloss.CompleteColor{TrueColor: "#0D6E8D", ANSI: "6"},
+		Dark:  lipgloss.CompleteColor{TrueColor: "#D7F4AB", ANSI: "10"},
+		Light: lipgloss.CompleteColor{TrueColor: "#578908", ANSI: "2"},
 	}
 )
 
