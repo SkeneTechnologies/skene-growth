@@ -1,6 +1,5 @@
 """Login and logout commands."""
 
-
 import typer
 
 from skene.cli.app import app
