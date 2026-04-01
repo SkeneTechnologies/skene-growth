@@ -11,7 +11,6 @@ A CLI toolkit for analyzing codebases through the lens of Product-Led Growth (PL
 - **Builds implementation prompts** that you can send directly to Cursor, Claude, or display in your terminal
 - **Pushes growth loops upstream** — generates Supabase telemetry migrations and deploys to Skene Cloud
 - **Validates growth loop implementation** — AST-based checks verify that required files and functions are present in your codebase
-- **Provides an MCP server** exposing 12 tools for AI assistants
 - **Supports multiple LLM providers**: OpenAI, Gemini, Anthropic, LM Studio, Ollama, and any OpenAI-compatible endpoint
 
 ## Core workflow
@@ -51,7 +50,7 @@ uvx skene push
 
 **Feature registry** (`feature-registry.json`) — A persistent registry of growth features that tracks features across analysis runs. Features are marked active or archived, linked to growth loops, and annotated with growth pillars (onboarding, engagement, retention).
 
-**Skene API key** — A single key from Skene Cloud that manages all tokens required to use LLM models (plan, build, chat) and authorizes pushing growth loops upstream. One key replaces per-provider API keys for LLM usage and enables cloud push. Get your key at https://www.skene.ai/workspace/apikeys
+**Skene API key** — A single key from Skene Cloud that manages all tokens required to use LLM models (plan, build) and authorizes pushing growth loops upstream. One key replaces per-provider API keys for LLM usage and enables cloud push. Get your key at https://www.skene.ai/workspace/apikeys
 
 ## Documentation
 
@@ -74,13 +73,6 @@ uvx skene push
 - [Features](guides/features.md) — Managing and exporting the feature registry
 - [LLM providers](guides/llm-providers.md) — Configuring OpenAI, Gemini, Claude, local LLMs
 - [Configuration](guides/configuration.md) — Config files, env vars, and priority
-
-#### Experimental
-- [Chat](guides/chat.md) — Interactive terminal chat
-
-### Integrations
-
-- [MCP server](integrations/mcp-server.md) — Using skene with AI assistants
 
 ### Reference
 

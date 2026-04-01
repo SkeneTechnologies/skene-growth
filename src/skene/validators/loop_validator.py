@@ -13,14 +13,13 @@ Designed for modular integration into a CLI ``watch`` command.
 
 from __future__ import annotations
 
-import ast
 import json
 import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 
 from rich.panel import Panel
 from rich.table import Table
@@ -28,6 +27,8 @@ from rich.text import Text
 
 from skene.growth_loops.storage import load_existing_growth_loops
 from skene.output import console, debug, warning
+from skene.validators.py_parser import parse_python
+from skene.validators.ts_parser import parse_js_ts
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -169,101 +170,38 @@ def _emit(event: ValidationEvent, payload: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# AST helpers
+# ParsedTree protocol + file dispatcher
 # ---------------------------------------------------------------------------
 
-
-def _parse_ast(file_path: Path) -> ast.Module | None:
-    """Parse a Python file into an AST, returning *None* on failure."""
-    try:
-        source = file_path.read_text(encoding="utf-8")
-        return ast.parse(source, filename=str(file_path))
-    except (SyntaxError, UnicodeDecodeError, OSError) as exc:
-        debug(f"AST parse failed for {file_path}: {exc}")
-        return None
+_JS_TS_SUFFIXES = {".js", ".ts", ".jsx", ".tsx", ".mjs", ".mts"}
 
 
-def ast_function_names(tree: ast.Module) -> list[str]:
-    """Return all top-level and class-level function/method names."""
-    names: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            names.append(node.name)
-    return names
+class ParsedTree(Protocol):
+    """Language-agnostic protocol for parsed AST trees."""
+
+    def function_names(self) -> list[str]:
+        pass
+
+    def class_names(self) -> list[str]:
+        pass
+
+    def import_names(self) -> list[str]:
+        pass
+
+    def function_signature(self, func_name: str) -> str | None:
+        pass
+
+    def function_infos(self) -> list[FunctionInfo]:
+        pass
 
 
-def ast_class_names(tree: ast.Module) -> list[str]:
-    """Return all class names defined in the module."""
-    return [node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
-
-
-def ast_import_names(tree: ast.Module) -> list[str]:
-    """Return all imported names (both ``import X`` and ``from X import Y``)."""
-    names: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                names.append(alias.name)
-        elif isinstance(node, ast.ImportFrom):
-            module = node.module or ""
-            names.append(module)
-            for alias in node.names:
-                names.append(f"{module}.{alias.name}" if module else alias.name)
-    return names
-
-
-def ast_function_signature(tree: ast.Module, func_name: str) -> str | None:
-    """
-    Extract a human-readable signature string for *func_name*.
-
-    Returns ``None`` if the function is not found.
-    """
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == func_name:
-            return _format_signature(node)
+def parse_file(file_path: Path) -> ParsedTree | None:
+    """Parse a source file and return a ParsedTree, or None if unsupported/failed."""
+    if file_path.suffix == ".py":
+        return parse_python(file_path)
+    if file_path.suffix in _JS_TS_SUFFIXES:
+        return parse_js_ts(file_path)
     return None
-
-
-def _format_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
-    """Format an AST function node into a readable signature."""
-    params: list[str] = []
-    args = node.args
-
-    # Positional args
-    defaults_offset = len(args.args) - len(args.defaults)
-    for i, arg in enumerate(args.args):
-        if arg.arg == "self":
-            continue
-        annotation = _annotation_str(arg.annotation)
-        param = f"{arg.arg}: {annotation}" if annotation else arg.arg
-        default_idx = i - defaults_offset
-        if default_idx >= 0 and args.defaults[default_idx]:
-            param += " = ..."
-        params.append(param)
-
-    # *args
-    if args.vararg:
-        annotation = _annotation_str(args.vararg.annotation)
-        params.append(f"*{args.vararg.arg}: {annotation}" if annotation else f"*{args.vararg.arg}")
-
-    # **kwargs
-    if args.kwarg:
-        annotation = _annotation_str(args.kwarg.annotation)
-        params.append(f"**{args.kwarg.arg}: {annotation}" if annotation else f"**{args.kwarg.arg}")
-
-    ret = _annotation_str(node.returns)
-    ret_str = f" -> {ret}" if ret else ""
-    return f"{node.name}({', '.join(params)}){ret_str}"
-
-
-def _annotation_str(node: ast.expr | None) -> str:
-    """Best-effort string representation of a type annotation AST node."""
-    if node is None:
-        return ""
-    try:
-        return ast.unparse(node)
-    except Exception:
-        return ""
 
 
 # ---------------------------------------------------------------------------
@@ -283,9 +221,12 @@ class FunctionInfo:
     source_code: str = ""
 
 
+_SOURCE_GLOBS = ["*.py"] + [f"*{s}" for s in _JS_TS_SUFFIXES]
+
+
 def extract_all_functions(project_root: Path, exclude_dirs: list[str] | None = None) -> list[FunctionInfo]:
     """
-    Extract all function definitions from Python files in the project.
+    Extract all function definitions from Python and JS/TS files in the project.
 
     Args:
         project_root: Root directory of the project
@@ -299,51 +240,27 @@ def extract_all_functions(project_root: Path, exclude_dirs: list[str] | None = N
 
     functions: list[FunctionInfo] = []
 
-    for py_file in project_root.rglob("*.py"):
-        # Skip excluded directories
-        if any(excluded in str(py_file) for excluded in exclude_dirs):
-            continue
-
-        # Skip if file is too large (likely generated)
-        try:
-            if py_file.stat().st_size > 1_000_000:  # 1MB
+    for glob_pat in _SOURCE_GLOBS:
+        for src_file in project_root.rglob(glob_pat):
+            # Skip excluded directories
+            if any(excluded in str(src_file) for excluded in exclude_dirs):
                 continue
-        except OSError:
-            continue
 
-        tree = _parse_ast(py_file)
-        if tree is None:
-            continue
+            # Skip if file is too large (likely generated)
+            try:
+                if src_file.stat().st_size > 1_000_000:  # 1MB
+                    continue
+            except OSError:
+                continue
 
-        rel_path = str(py_file.relative_to(project_root))
+            tree = parse_file(src_file)
+            if tree is None:
+                continue
 
-        try:
-            source_lines = py_file.read_text(encoding="utf-8").splitlines()
-        except Exception:
-            source_lines = []
-
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                sig = _format_signature(node)
-                docstring = ast.get_docstring(node) or ""
-
-                # Extract source code snippet (first 20 lines of function)
-                source_snippet = ""
-                if source_lines and hasattr(node, "lineno"):
-                    start_line = node.lineno - 1
-                    end_line = min(start_line + 20, len(source_lines))
-                    source_snippet = "\n".join(source_lines[start_line:end_line])
-
-                functions.append(
-                    FunctionInfo(
-                        file_path=rel_path,
-                        name=node.name,
-                        signature=sig,
-                        docstring=docstring,
-                        line_number=node.lineno if hasattr(node, "lineno") else 0,
-                        source_code=source_snippet,
-                    )
-                )
+            rel_path = str(src_file.relative_to(project_root))
+            for fi in tree.function_infos():
+                fi.file_path = rel_path
+                functions.append(fi)
 
     return functions
 
@@ -579,33 +496,33 @@ def _run_contains_regex_check(
 
 
 def _run_function_exists_check(
-    tree: ast.Module | None,
+    tree: ParsedTree | None,
     pattern: str,
     description: str,
 ) -> CheckResult:
     """Check whether a function named *pattern* exists in the AST."""
     if tree is None:
         return CheckResult("function_exists", pattern, description, CheckStatus.FAILED, "Could not parse file AST")
-    if pattern in ast_function_names(tree):
+    if pattern in tree.function_names():
         return CheckResult("function_exists", pattern, description, CheckStatus.PASSED)
     return CheckResult("function_exists", pattern, description, CheckStatus.FAILED, f"Function '{pattern}' not found")
 
 
 def _run_class_exists_check(
-    tree: ast.Module | None,
+    tree: ParsedTree | None,
     pattern: str,
     description: str,
 ) -> CheckResult:
     """Check whether a class named *pattern* exists in the AST."""
     if tree is None:
         return CheckResult("class_exists", pattern, description, CheckStatus.FAILED, "Could not parse file AST")
-    if pattern in ast_class_names(tree):
+    if pattern in tree.class_names():
         return CheckResult("class_exists", pattern, description, CheckStatus.PASSED)
     return CheckResult("class_exists", pattern, description, CheckStatus.FAILED, f"Class '{pattern}' not found")
 
 
 def _run_import_exists_check(
-    tree: ast.Module | None,
+    tree: ParsedTree | None,
     pattern: str,
     description: str,
 ) -> CheckResult:
@@ -613,7 +530,7 @@ def _run_import_exists_check(
     if tree is None:
         return CheckResult("import_exists", pattern, description, CheckStatus.FAILED, "Could not parse file AST")
 
-    import_names = ast_import_names(tree)
+    import_names = tree.import_names()
     # Allow substring matching for flexibility
     for name in import_names:
         if pattern in name or name.endswith(pattern):
@@ -671,7 +588,7 @@ def validate_file_requirement(
         return result
 
     # Parse AST once for all checks on this file
-    tree = _parse_ast(abs_path) if abs_path.suffix == ".py" else None
+    tree = parse_file(abs_path)
 
     for raw in raw_checks:
         nc = normalise_check(raw)
@@ -712,14 +629,14 @@ async def validate_function_requirement(
     if not abs_path.is_file():
         detail = "File does not exist"
     else:
-        tree = _parse_ast(abs_path)
+        tree = parse_file(abs_path)
         if tree is None:
             detail = "Could not parse file AST"
         else:
-            found = name in ast_function_names(tree)
+            found = name in tree.function_names()
 
             if found and expected_sig:
-                actual_sig = ast_function_signature(tree, name)
+                actual_sig = tree.function_signature(name)
                 if actual_sig:
                     norm_expected = re.sub(r"\s+", " ", expected_sig.strip())
                     norm_actual = re.sub(r"\s+", " ", actual_sig.strip())

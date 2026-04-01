@@ -260,6 +260,5 @@ debug = true
 
 - [Push](push.md) -- Push growth loops to Supabase and upstream
 - [Status](status.md) -- Check whether growth loop requirements have been implemented in your codebase
-- [Chat](chat.md) -- Use the interactive terminal chat for ad-hoc growth analysis
 - [Configuration](configuration.md) -- Set up persistent config so you do not need to pass flags every time
 - [CLI Reference](../reference/cli.md) -- Full reference for all commands and flags

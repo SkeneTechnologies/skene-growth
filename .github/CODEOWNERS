@@ -1,0 +1,5 @@
+# Python package — everything by default
+*  @bmichele
+
+# TUI folder — overrides the default above
+/tui/  @eretjohannes

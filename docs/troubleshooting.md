@@ -196,7 +196,6 @@ Use `--debug` on any command to show diagnostic messages on screen and log all L
 ```bash
 uvx skene analyze . --debug
 uvx skene plan --debug
-uvx skene chat --debug
 ```
 
 Debug mode can also be enabled via environment variable or config:

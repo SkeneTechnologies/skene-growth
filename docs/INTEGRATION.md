@@ -16,10 +16,8 @@ The skene docs should live at `/resources/docs/skene/` as a new section alongsid
 | `docs/guides/analyze.md` | `.../skene/guides/analyze/page.tsx` | `/resources/docs/skene/guides/analyze` |
 | `docs/guides/plan.md` | `.../skene/guides/plan/page.tsx` | `/resources/docs/skene/guides/plan` |
 | `docs/guides/build.md` | `.../skene/guides/build/page.tsx` | `/resources/docs/skene/guides/build` |
-| `docs/guides/chat.md` | `.../skene/guides/chat/page.tsx` | `/resources/docs/skene/guides/chat` |
 | `docs/guides/llm-providers.md` | `.../skene/guides/llm-providers/page.tsx` | `/resources/docs/skene/guides/llm-providers` |
 | `docs/guides/configuration.md` | `.../skene/guides/configuration/page.tsx` | `/resources/docs/skene/guides/configuration` |
-| `docs/integrations/mcp-server.md` | `.../skene/integrations/mcp-server/page.tsx` | `/resources/docs/skene/integrations/mcp-server` |
 | `docs/reference/cli.md` | `.../skene/reference/cli/page.tsx` | `/resources/docs/skene/reference/cli` |
 | `docs/reference/python-api.md` | `.../skene/reference/python-api/page.tsx` | `/resources/docs/skene/reference/python-api` |
 | `docs/reference/manifest-schema.md` | `.../skene/reference/manifest-schema/page.tsx` | `/resources/docs/skene/reference/manifest-schema` |
@@ -169,10 +167,8 @@ const docsNavItems = [
   { href: "/resources/docs/skene/guides/analyze", label: "Analyze", icon: Search },
   { href: "/resources/docs/skene/guides/plan", label: "Plan", icon: Map },
   { href: "/resources/docs/skene/guides/build", label: "Build", icon: Hammer },
-  { href: "/resources/docs/skene/guides/chat", label: "Chat", icon: MessageSquare },
   { href: "/resources/docs/skene/guides/llm-providers", label: "LLM Providers", icon: Cpu },
   { href: "/resources/docs/skene/guides/configuration", label: "Configuration", icon: Settings },
-  { href: "/resources/docs/skene/integrations/mcp-server", label: "MCP Server", icon: Plug },
   { href: "/resources/docs/skene/reference/cli", label: "CLI Reference", icon: Terminal },
   { href: "/resources/docs/skene/reference/python-api", label: "Python API", icon: Code },
   { href: "/resources/docs/skene/reference/manifest-schema", label: "Manifest Schema", icon: FileJson },
