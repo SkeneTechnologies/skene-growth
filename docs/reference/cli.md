@@ -145,7 +145,7 @@ The prompt is always saved to a file in the plan's parent directory regardless o
 - Requires a configured LLM (API key + provider). Falls back to a template-based prompt if the LLM call fails.
 - Ensures `skene/engine.yaml` exists and merges a new LLM-generated engine delta into it.
 - Updates `skene-context/feature-registry.json` from engine features.
-- Generates `supabase/migrations/*_skene_trigger.sql` from engine features that include `action` (unless `--skip-migrations` is used).
+- Generates `supabase/migrations/*_skene_triggers.sql` from engine features that include `action` (unless `--skip-migrations` is used).
 - Use `--target file` for non-interactive pipelines (e.g. `analyze && plan && build --target file`).
 
 See the [build guide](../guides/build.md) for detailed usage.
@@ -186,7 +186,7 @@ skene status [PATH] [OPTIONS]
 ### Behavior notes
 
 - Validates `skene/engine.yaml` and checks duplicate keys/required fields.
-- For features with `action`, expects matching trigger/function tokens in SQL migrations.
+- For features with `action`, expects matching trigger/function tokens in SQL migrations. The detail column shows the latest matching migration filename; if the same trigger appears in older files, the suffix `(+N)` indicates how many additional matches exist.
 - For features without `action`, reports code-only mode (no trigger required).
 - Returns non-zero exit code when required engine/migration checks fail.
 
@@ -256,7 +256,7 @@ See the [configuration guide](../guides/configuration.md) for file format and al
 
 Push pre-generated engine and trigger artifacts to upstream.
 
-`push` no longer generates migrations. Run `skene build` first to update `skene/engine.yaml` and `supabase/migrations/*_skene_trigger.sql`.
+`push` no longer generates migrations. Run `skene build` first to update `skene/engine.yaml` and `supabase/migrations/*_skene_triggers.sql`.
 
 ```
 skene push [PATH] [OPTIONS]
@@ -283,7 +283,7 @@ skene push [PATH] [OPTIONS]
 
 ### Behavior notes
 
-- Requires existing `skene/engine.yaml` and `supabase/migrations/*_skene_trigger.sql` artifacts.
+- Requires existing `skene/engine.yaml` and a trigger migration under `supabase/migrations/` (newest `*_skene_triggers.sql`, or legacy `*skene_trigger*` / `*skene_telemetry*` names).
 - When `--upstream` is provided (or resolved from `.skene.config`), pushes package contents (`engine.yaml` + `trigger.sql`) to the upstream API.
 - Use `skene login` to authenticate before pushing to upstream.
 - Deprecated flags now return an error with migration guidance.

@@ -111,6 +111,4 @@ EXECUTE FUNCTION skene_growth_fn_documents_INSERT_new_document_email();
 
         result = validate_engine(tmp_path)
         assert result.ok
-        assert result.feature_checks[0].detail == (
-            "Found in: 20260304151537_skene_triggers.sql (+1)"
-        )
+        assert result.feature_checks[0].detail == ("Found in: 20260304151537_skene_triggers.sql (+1)")

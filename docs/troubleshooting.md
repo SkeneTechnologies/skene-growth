@@ -173,7 +173,7 @@ uvx skene build
 Then verify:
 
 - `skene/engine.yaml` exists
-- `supabase/migrations/*_skene_trigger.sql` exists
+- `supabase/migrations/*_skene_triggers.sql` exists (or a legacy `*skene_trigger*` / `*skene_telemetry*` migration that push can detect)
 
 ### Push authentication failed (401/403)
 

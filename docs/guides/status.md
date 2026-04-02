@@ -63,7 +63,7 @@ The command validates:
 
 For each feature:
 
-- If `action` exists: checks for matching `skene_growth_fn_*` and `skene_growth_trg_*` identifiers in migration SQL files.
+- If `action` exists: checks for matching `skene_growth_fn_*` and `skene_growth_trg_*` identifiers in migration SQL files. When several migrations contain the same trigger, the report lists the latest migration filename (by sort order) and appends `(+N)` where `N` is the number of additional matching files.
 - If `action` is absent: reports code-only mode (no trigger required).
 
 ## Example output
@@ -73,7 +73,7 @@ Project root: /path/to/project
 
 Engine Status
 Feature             Source                    Mode      Status   Detail
-New Document Email  public.documents.insert   action    ok       Found in: 20260304151537_skene_trigger.sql
+New Document Email  public.documents.insert   action    ok       Found in: 20260304151537_skene_triggers.sql
 Warm Welcome Copy   public.users.insert       code-only ok       Code-only feature (no action): trigger migration not required
 ```
 

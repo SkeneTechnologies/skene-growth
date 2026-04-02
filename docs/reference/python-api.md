@@ -236,7 +236,8 @@ from skene.growth_loops.push import (
     ensure_base_schema_migration,       # Check, build, update base schema (creates or overwrites)
     build_loops_to_supabase,            # Build Supabase migrations from trigger definitions
     build_migration_sql,                # Generate migration SQL
-    write_migration,                    # Write migration file
+    find_trigger_migration,             # Latest telemetry migration path (*_skene_triggers.sql + legacy names)
+    write_migration,                    # Write timestamped *_skene_triggers.sql (default migration_name)
     push_to_upstream,                   # Push to upstream API
 )
 

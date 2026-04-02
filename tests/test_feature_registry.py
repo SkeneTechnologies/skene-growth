@@ -239,8 +239,7 @@ class TestMergeRegistryAndEnrichManifest:
         f = next(x for x in reg["features"] if x["feature_id"] == "push_engine")
         assert "push_engine" in f["loop_ids"]
         assert any(
-            g["key"] == "push_engine" and g["linked_feature_id"] == "push_engine"
-            for g in reg["engine_features"]
+            g["key"] == "push_engine" and g["linked_feature_id"] == "push_engine" for g in reg["engine_features"]
         )
 
 

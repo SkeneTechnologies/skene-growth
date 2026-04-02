@@ -146,8 +146,7 @@ def push(
         )
         if result.get("ok"):
             success(
-                f"Pushed to upstream commit_hash={result.get('commit_hash', '?')} "
-                "(package: engine.yaml, trigger.sql)"
+                f"Pushed to upstream commit_hash={result.get('commit_hash', '?')} (package: engine.yaml, trigger.sql)"
             )
             output_status("Upstream parses the package and deploys.")
             return

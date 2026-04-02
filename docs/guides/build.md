@@ -92,7 +92,7 @@ The extracted Technical Execution context is sent to your configured LLM to gene
 
 ### Step 4: Generate trigger migrations
 
-From the merged engine doc, features with `action` are converted into trigger definitions and written to `supabase/migrations/*_skene_trigger.sql` (unless `--skip-migrations` is set). Features without `action` are treated as code-only and do not produce trigger SQL.
+From the merged engine doc, features with `action` are converted into trigger definitions and written to `supabase/migrations/*_skene_triggers.sql` (unless `--skip-migrations` is set). Features without `action` are treated as code-only and do not produce trigger SQL.
 
 ### Step 5: Choose a destination
 
@@ -142,7 +142,7 @@ Every successful `build` run updates:
 
 - `skene/engine.yaml` (subjects + features, merged by key)
 - `skene-context/feature-registry.json` (upserted from engine features)
-- `supabase/migrations/*_skene_trigger.sql` (from features that include `action`)
+- `supabase/migrations/*_skene_triggers.sql` (from features that include `action`)
 
 Example engine feature shape:
 
