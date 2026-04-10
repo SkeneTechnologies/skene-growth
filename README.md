@@ -1,4 +1,31 @@
 <p align="center">
+  <a href="README.md">English</a> |
+  <a href=".github/translations/README.zh.md">简体中文</a> |
+  <a href=".github/translations/README.zht.md">繁體中文</a> |
+  <a href=".github/translations/README.ko.md">한국어</a> |
+  <a href=".github/translations/README.de.md">Deutsch</a> |
+  <a href=".github/translations/README.es.md">Español</a> |
+  <a href=".github/translations/README.fr.md">Français</a> |
+  <a href=".github/translations/README.it.md">Italiano</a> |
+  <a href=".github/translations/README.da.md">Dansk</a> |
+  <a href=".github/translations/README.ja.md">日本語</a> |
+  <a href=".github/translations/README.pl.md">Polski</a> |
+  <a href=".github/translations/README.ru.md">Русский</a> |
+  <a href=".github/translations/README.bs.md">Bosanski</a> |
+  <a href=".github/translations/README.ar.md">العربية</a> |
+  <a href=".github/translations/README.no.md">Norsk</a> |
+  <a href=".github/translations/README.br.md">Português (Brasil)</a> |
+  <a href=".github/translations/README.th.md">ไทย</a> |
+  <a href=".github/translations/README.tr.md">Türkçe</a> |
+  <a href=".github/translations/README.uk.md">Українська</a> |
+  <a href=".github/translations/README.bn.md">বাংলা</a> |
+  <a href=".github/translations/README.gr.md">Ελληνικά</a> |
+  <a href=".github/translations/README.vi.md">Tiếng Việt</a> |
+  <a href=".github/translations/README.fi.md">Suomi</a> |
+  <a href=".github/translations/README.sv.md">Svenska</a>
+</p>
+
+<p align="center">
   <img width="4000" height="800" alt="Skene_git" src="https://github.com/user-attachments/assets/2be11c04-6b98-4e26-8905-bf3250c4addb" />
   <a href="https://www.skene.ai"><img width="120" height="42" alt="website" src="https://github.com/user-attachments/assets/8ae8c68f-eeb5-411f-832f-6b6818bd2c34"></a>
   <a href="https://www.skene.ai/resources/docs/skene"><img width="120" height="42" alt="docs" src="https://github.com/user-attachments/assets/f847af52-0f6f-4570-9a48-1b7c8f4f0d7a"></a>
