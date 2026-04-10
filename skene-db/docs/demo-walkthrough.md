@@ -7,7 +7,7 @@ This guide walks through the full flow: adding the Skene DB schema to your Supab
 ## Step 1: Push the schema
 
 ```bash
-git clone https://github.com/skene-ai/skene-db.git
+git clone https://github.com/SkeneTechnologies/skene-db.git
 cd skene-db
 supabase link --project-ref <your-project-ref>
 supabase db push

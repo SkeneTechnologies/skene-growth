@@ -29,7 +29,7 @@
 One `supabase db push` gives your project the backend for a CRM, project manager, helpdesk, billing system, calendar, and more. 37 tables. Row Level Security. Multi-tenant from day one.
 
 ```bash
-git clone https://github.com/skene-ai/skene-db.git
+git clone https://github.com/SkeneTechnologies/skene-db.git
 cd skene-db
 supabase link --project-ref <your-project-ref>
 supabase db push
@@ -58,7 +58,7 @@ With Skene DB, your data lives in your Supabase project. You own it completely. 
 ### Option 1: Clone and push
 
 ```bash
-git clone https://github.com/skene-ai/skene-db.git
+git clone https://github.com/SkeneTechnologies/skene-db.git
 cd skene-db
 supabase link --project-ref <your-project-ref>
 supabase db push
@@ -68,7 +68,7 @@ supabase db push
 
 Give your AI coding agent this prompt:
 
-> Add the Skene DB schema to my Supabase project. Clone https://github.com/skene-ai/skene-db
+> Add the Skene DB schema to my Supabase project. Clone https://github.com/SkeneTechnologies/skene-db
 > and push the migrations. Then create a trigger on auth.users to auto-create a users row on signup.
 
 The schema is designed to be readable by AI agents. Typed tables, clear naming, `COMMENT ON` annotations on every table, and example queries in [docs/examples.md](docs/examples.md). An AI agent can scaffold a full app on top of this schema from a single prompt.
@@ -94,6 +94,8 @@ Creates a fictional company "Acme Corp" with 5 users, 20 contacts, 8 companies, 
 |  users             companies         pipeline_stages              |
 |  teams             contact_companies deals                        |
 |  memberships                         deal_stage_history           |
+|  roles                                                            |
+|  permissions                                                      |
 |                                                                    |
 |  TASKS             SUPPORT           COMMS                        |
 |  projects          tickets           threads                      |
@@ -107,12 +109,13 @@ Creates a fictional company "Acme Corp" with 5 users, 20 contacts, 8 companies, 
 |                    invoices                                        |
 |                    payments                                        |
 |                                                                    |
-|  AUTOMATIONS       FLEXIBLE DATA     ACTIVITY                     |
-|  automations       tags              activities                   |
-|  automation_actions taggings                                      |
-|  automation_runs   custom_fields     (audit log for free)         |
+|  AUTOMATIONS       FLEXIBLE DATA          ACTIVITY                |
+|  automations       tags                   activities              |
+|  automation_actions taggings              (audit log for free)    |
+|  automation_runs   custom_field_definitions                       |
+|                    custom_field_values                             |
 |                                                                    |
-|  PERMISSIONS: roles + RLS on every table                          |
+|  RLS on every table                                               |
 +-------------------------------------------------------------------+
 ```
 
@@ -409,7 +412,7 @@ Your schema stays in your database. Skene Cloud reads events, processes journeys
 
 ```bash
 # Create a new Supabase project at supabase.com, then:
-git clone https://github.com/skene-ai/skene-db.git
+git clone https://github.com/SkeneTechnologies/skene-db.git
 cd skene-db
 supabase link --project-ref <your-project-ref>
 supabase db push
@@ -433,7 +436,7 @@ If you have existing tables with the same names (unlikely unless you've already 
 ### Option C: Local development
 
 ```bash
-git clone https://github.com/skene-ai/skene-db.git
+git clone https://github.com/SkeneTechnologies/skene-db.git
 cd skene-db
 supabase start
 supabase db reset
