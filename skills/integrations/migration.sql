@@ -35,7 +35,7 @@ CREATE INDEX idx_connected_apps_org_id ON public.connected_apps(org_id);
 CREATE INDEX idx_connected_apps_provider ON public.connected_apps(provider);
 CREATE INDEX idx_connected_apps_status ON public.connected_apps(status);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.connected_apps
+CREATE TRIGGER trg_connected_apps_updated_at BEFORE UPDATE ON public.connected_apps
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -64,7 +64,7 @@ CREATE INDEX idx_oauth_tokens_org_id ON public.oauth_tokens(org_id);
 CREATE INDEX idx_oauth_tokens_app_id ON public.oauth_tokens(app_id);
 CREATE INDEX idx_oauth_tokens_user_id ON public.oauth_tokens(user_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.oauth_tokens
+CREATE TRIGGER trg_oauth_tokens_updated_at BEFORE UPDATE ON public.oauth_tokens
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -88,7 +88,7 @@ COMMENT ON TABLE public.webhooks IS 'Outgoing webhook endpoints registered by an
 CREATE INDEX idx_webhooks_org_id ON public.webhooks(org_id);
 CREATE INDEX idx_webhooks_is_active ON public.webhooks(is_active);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.webhooks
+CREATE TRIGGER trg_webhooks_updated_at BEFORE UPDATE ON public.webhooks
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -116,7 +116,7 @@ CREATE INDEX idx_webhook_events_webhook_id ON public.webhook_events(webhook_id);
 CREATE INDEX idx_webhook_events_status ON public.webhook_events(status);
 CREATE INDEX idx_webhook_events_event_type ON public.webhook_events(event_type);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.webhook_events
+CREATE TRIGGER trg_webhook_events_updated_at BEFORE UPDATE ON public.webhook_events
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -147,7 +147,7 @@ CREATE INDEX idx_sync_logs_app_id ON public.sync_logs(app_id);
 CREATE INDEX idx_sync_logs_status ON public.sync_logs(status);
 CREATE INDEX idx_sync_logs_direction ON public.sync_logs(direction);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.sync_logs
+CREATE TRIGGER trg_sync_logs_updated_at BEFORE UPDATE ON public.sync_logs
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------

@@ -1,4 +1,6 @@
 -- Analytics seed data: tags, custom fields, and activity log
+-- Note: This seed references entities from pipeline, support, billing, and calendar skills.
+-- Install all skills (./scripts/install.sh --seed all) for full seed data.
 BEGIN;
 
 INSERT INTO public.tags (id, org_id, name, color) VALUES

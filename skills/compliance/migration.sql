@@ -37,7 +37,7 @@ CREATE INDEX idx_consent_records_entity_type ON public.consent_records(entity_ty
 CREATE INDEX idx_consent_records_entity_id ON public.consent_records(entity_id);
 CREATE INDEX idx_consent_records_purpose ON public.consent_records(purpose);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.consent_records
+CREATE TRIGGER trg_consent_records_updated_at BEFORE UPDATE ON public.consent_records
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -65,7 +65,7 @@ CREATE INDEX idx_deletion_requests_org_id ON public.deletion_requests(org_id);
 CREATE INDEX idx_deletion_requests_status ON public.deletion_requests(status);
 CREATE INDEX idx_deletion_requests_requester_id ON public.deletion_requests(requester_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.deletion_requests
+CREATE TRIGGER trg_deletion_requests_updated_at BEFORE UPDATE ON public.deletion_requests
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -90,7 +90,7 @@ CREATE INDEX idx_retention_policies_org_id ON public.retention_policies(org_id);
 CREATE INDEX idx_retention_policies_entity_type ON public.retention_policies(entity_type);
 CREATE INDEX idx_retention_policies_is_active ON public.retention_policies(is_active);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.retention_policies
+CREATE TRIGGER trg_retention_policies_updated_at BEFORE UPDATE ON public.retention_policies
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------

@@ -36,7 +36,7 @@ CREATE INDEX idx_automations_org_id ON public.automations(org_id);
 CREATE INDEX idx_automations_status ON public.automations(status);
 CREATE INDEX idx_automations_trigger_type ON public.automations(trigger_type);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.automations
+CREATE TRIGGER trg_automations_updated_at BEFORE UPDATE ON public.automations
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -62,7 +62,7 @@ COMMENT ON COLUMN public.automation_actions.position IS 'Execution order within 
 CREATE INDEX idx_automation_actions_org_id ON public.automation_actions(org_id);
 CREATE INDEX idx_automation_actions_automation_id ON public.automation_actions(automation_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.automation_actions
+CREATE TRIGGER trg_automation_actions_updated_at BEFORE UPDATE ON public.automation_actions
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -90,7 +90,7 @@ CREATE INDEX idx_automation_runs_automation_id ON public.automation_runs(automat
 CREATE INDEX idx_automation_runs_status ON public.automation_runs(status);
 CREATE INDEX idx_automation_runs_started_at ON public.automation_runs(started_at);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.automation_runs
+CREATE TRIGGER trg_automation_runs_updated_at BEFORE UPDATE ON public.automation_runs
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------

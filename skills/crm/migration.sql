@@ -46,7 +46,7 @@ CREATE INDEX idx_contacts_owner_id ON public.contacts(owner_id);
 CREATE INDEX idx_contacts_type ON public.contacts(type);
 CREATE INDEX idx_contacts_email ON public.contacts(email);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.contacts
+CREATE TRIGGER trg_contacts_updated_at BEFORE UPDATE ON public.contacts
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -83,7 +83,7 @@ CREATE INDEX idx_companies_org_id ON public.companies(org_id);
 CREATE INDEX idx_companies_owner_id ON public.companies(owner_id);
 CREATE INDEX idx_companies_domain ON public.companies(domain);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.companies
+CREATE TRIGGER trg_companies_updated_at BEFORE UPDATE ON public.companies
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -112,7 +112,7 @@ CREATE INDEX idx_contact_companies_org_id ON public.contact_companies(org_id);
 CREATE INDEX idx_contact_companies_contact_id ON public.contact_companies(contact_id);
 CREATE INDEX idx_contact_companies_company_id ON public.contact_companies(company_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.contact_companies
+CREATE TRIGGER trg_contact_companies_updated_at BEFORE UPDATE ON public.contact_companies
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------

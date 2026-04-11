@@ -6,12 +6,12 @@ Every skill depends on `identity` for multi-tenant RLS functions and the `organi
 identity
 ├── crm
 │   ├── pipeline
+│   ├── support
 │   ├── comms
 │   ├── billing
 │   │   └── commerce
 │   └── campaigns
 ├── tasks
-├── support
 ├── content
 │   └── knowledge
 ├── calendar
@@ -32,7 +32,7 @@ identity
 | crm | identity |
 | pipeline | crm |
 | tasks | identity |
-| support | identity |
+| support | crm |
 | comms | crm |
 | content | identity |
 | billing | crm |
@@ -53,8 +53,8 @@ identity
 The `install.sh` script resolves dependencies automatically via topological sort. If you install manually, follow this order:
 
 1. identity
-2. crm, tasks, support, content, calendar, automations, analytics, forms, notifications, approvals, integrations, compliance
-3. pipeline, comms, billing, campaigns, knowledge
+2. crm, tasks, content, calendar, automations, analytics, forms, notifications, approvals, integrations, compliance
+3. pipeline, support, comms, billing, campaigns, knowledge
 4. commerce
 
 Skills at the same level can be installed in any order.

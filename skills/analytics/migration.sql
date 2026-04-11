@@ -34,7 +34,7 @@ COMMENT ON TABLE public.tags IS 'Org-scoped labels that can be applied to any en
 
 CREATE INDEX idx_tags_org_id ON public.tags(org_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.tags
+CREATE TRIGGER trg_tags_updated_at BEFORE UPDATE ON public.tags
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -60,7 +60,7 @@ CREATE INDEX idx_taggings_org_id ON public.taggings(org_id);
 CREATE INDEX idx_taggings_tag_id ON public.taggings(tag_id);
 CREATE INDEX idx_taggings_entity ON public.taggings(entity_type, entity_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.taggings
+CREATE TRIGGER trg_taggings_updated_at BEFORE UPDATE ON public.taggings
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -89,7 +89,7 @@ COMMENT ON COLUMN public.custom_field_definitions.options IS 'JSON array of allo
 CREATE INDEX idx_custom_field_definitions_org_id ON public.custom_field_definitions(org_id);
 CREATE INDEX idx_custom_field_definitions_entity_type ON public.custom_field_definitions(entity_type);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.custom_field_definitions
+CREATE TRIGGER trg_custom_field_definitions_updated_at BEFORE UPDATE ON public.custom_field_definitions
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -120,7 +120,7 @@ CREATE INDEX idx_custom_field_values_org_id ON public.custom_field_values(org_id
 CREATE INDEX idx_custom_field_values_field_id ON public.custom_field_values(field_id);
 CREATE INDEX idx_custom_field_values_entity ON public.custom_field_values(entity_type, entity_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.custom_field_values
+CREATE TRIGGER trg_custom_field_values_updated_at BEFORE UPDATE ON public.custom_field_values
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -154,7 +154,7 @@ CREATE INDEX idx_activities_actor_id ON public.activities(actor_id);
 CREATE INDEX idx_activities_action ON public.activities(action);
 CREATE INDEX idx_activities_occurred_at ON public.activities(occurred_at);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.activities
+CREATE TRIGGER trg_activities_updated_at BEFORE UPDATE ON public.activities
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------

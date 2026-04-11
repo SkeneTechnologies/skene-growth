@@ -1,4 +1,6 @@
 -- Calendar seed data: 3 events with attendees
+-- Note: This seed references deals from the pipeline skill.
+-- Install all skills (./scripts/install.sh --seed all) for full seed data.
 BEGIN;
 
 INSERT INTO public.events (id, org_id, creator_id, entity_type, entity_id, title, description, location, status, starts_at, ends_at) VALUES

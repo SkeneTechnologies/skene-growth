@@ -28,7 +28,7 @@ COMMENT ON TABLE public.pipelines IS 'Named workflows with ordered stages. E.g. 
 
 CREATE INDEX idx_pipelines_org_id ON public.pipelines(org_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.pipelines
+CREATE TRIGGER trg_pipelines_updated_at BEFORE UPDATE ON public.pipelines
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -57,7 +57,7 @@ COMMENT ON COLUMN public.pipeline_stages.color IS 'Hex color for UI rendering.';
 CREATE INDEX idx_pipeline_stages_org_id ON public.pipeline_stages(org_id);
 CREATE INDEX idx_pipeline_stages_pipeline_id ON public.pipeline_stages(pipeline_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.pipeline_stages
+CREATE TRIGGER trg_pipeline_stages_updated_at BEFORE UPDATE ON public.pipeline_stages
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -96,7 +96,7 @@ CREATE INDEX idx_deals_status ON public.deals(status);
 CREATE INDEX idx_deals_contact_id ON public.deals(contact_id);
 CREATE INDEX idx_deals_company_id ON public.deals(company_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.deals
+CREATE TRIGGER trg_deals_updated_at BEFORE UPDATE ON public.deals
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -124,7 +124,7 @@ CREATE INDEX idx_deal_stage_history_org_id ON public.deal_stage_history(org_id);
 CREATE INDEX idx_deal_stage_history_deal_id ON public.deal_stage_history(deal_id);
 CREATE INDEX idx_deal_stage_history_changed_at ON public.deal_stage_history(changed_at);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.deal_stage_history
+CREATE TRIGGER trg_deal_stage_history_updated_at BEFORE UPDATE ON public.deal_stage_history
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------

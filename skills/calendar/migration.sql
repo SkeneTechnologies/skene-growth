@@ -42,7 +42,7 @@ CREATE INDEX idx_events_starts_at ON public.events(starts_at);
 CREATE INDEX idx_events_entity ON public.events(entity_type, entity_id) WHERE entity_type IS NOT NULL;
 CREATE INDEX idx_events_status ON public.events(status);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.events
+CREATE TRIGGER trg_events_updated_at BEFORE UPDATE ON public.events
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
@@ -72,7 +72,7 @@ CREATE INDEX idx_event_attendees_event_id ON public.event_attendees(event_id);
 CREATE INDEX idx_event_attendees_user_id ON public.event_attendees(user_id);
 CREATE INDEX idx_event_attendees_contact_id ON public.event_attendees(contact_id);
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.event_attendees
+CREATE TRIGGER trg_event_attendees_updated_at BEFORE UPDATE ON public.event_attendees
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------

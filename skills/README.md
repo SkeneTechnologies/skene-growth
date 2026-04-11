@@ -73,7 +73,7 @@ Each skill includes:
 | `crm` | Contacts, companies, relationships | identity |
 | `pipeline` | Deals, stages, stage history. Sales, recruiting, fundraising, anything with stages. | crm |
 | `tasks` | Projects, tasks, subtasks, dependencies | identity |
-| `support` | Tickets with priorities, SLAs, channels | identity |
+| `support` | Tickets with priorities, SLAs, channels | crm |
 | `comms` | Unified messages and threads. Email, SMS, chat, notes, call logs. | crm |
 | `content` | Documents, folders, versioning, comments | identity |
 | `billing` | Products, prices, subscriptions, invoices. Stripe-ready. | crm |
