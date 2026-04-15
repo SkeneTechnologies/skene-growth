@@ -2,14 +2,14 @@
 -- Foundation schema for multi-tenant Supabase apps with RLS.
 
 -- =============================================================================
--- 1. Enums (must precede functions that reference them)
+-- 1. Enums (must precede tables and functions that reference them)
 -- =============================================================================
 
 CREATE TYPE public.membership_role AS ENUM ('owner', 'admin', 'member', 'guest');
 CREATE TYPE public.membership_status AS ENUM ('active', 'invited', 'suspended');
 
 -- =============================================================================
--- 2. Trigger function
+-- 2. Trigger function (plpgsql resolves at call time, safe to create early)
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
@@ -21,31 +21,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =============================================================================
--- 3. RLS helper functions
--- =============================================================================
-
-CREATE OR REPLACE FUNCTION public.get_user_org_id()
-RETURNS uuid AS $$
-  SELECT org_id FROM public.users WHERE auth_id = auth.uid() LIMIT 1;
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
-CREATE OR REPLACE FUNCTION public.get_user_role()
-RETURNS public.membership_role AS $$
-  SELECT m.role FROM public.memberships m
-  JOIN public.users u ON u.id = m.user_id
-  WHERE u.auth_id = auth.uid()
-    AND m.org_id = u.org_id
-    AND m.status = 'active'
-  LIMIT 1;
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS boolean AS $$
-  SELECT public.get_user_role() IN ('admin', 'owner');
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
-
--- =============================================================================
--- 4. Tables
+-- 3. Tables (must precede SQL helper functions that reference them)
 -- =============================================================================
 
 CREATE TABLE public.organizations (
@@ -121,6 +97,30 @@ CREATE TABLE public.permissions (
   metadata         jsonb       DEFAULT '{}'::jsonb,
   UNIQUE (role_id, resource, action)
 );
+
+-- =============================================================================
+-- 4. RLS helper functions (SQL language — must come after tables they reference)
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.get_user_org_id()
+RETURNS uuid AS $$
+  SELECT org_id FROM public.users WHERE auth_id = auth.uid() LIMIT 1;
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.get_user_role()
+RETURNS public.membership_role AS $$
+  SELECT m.role FROM public.memberships m
+  JOIN public.users u ON u.id = m.user_id
+  WHERE u.auth_id = auth.uid()
+    AND m.org_id = u.org_id
+    AND m.status = 'active'
+  LIMIT 1;
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean AS $$
+  SELECT public.get_user_role() IN ('admin', 'owner');
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- =============================================================================
 -- 5. Indexes

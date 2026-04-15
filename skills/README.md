@@ -58,9 +58,9 @@ An agent building on a well-defined, documented schema writes better code with f
 
 ### Your data is becoming someone else's moat
 
-In 2025, the platforms you pay to store your business data started locking it down. Salesforce changed its Slack API terms to prohibit bulk data export and explicitly block using data accessed via Slack APIs to train LLMs. Third-party AI tools that had been indexing Slack conversations to build internal copilots were cut off overnight.
+In 2025, the platforms you pay to store your business data started locking it down. Salesforce [changed its Slack API terms](https://www.computerworld.com/article/4005509/salesforce-changes-slack-api-terms-to-block-bulk-data-access-for-llms.html) to prohibit bulk data export and explicitly block using data accessed via Slack APIs to train LLMs. Third-party AI tools that had been indexing Slack conversations to build internal copilots were cut off overnight.
 
-Meta updated its WhatsApp Business terms to prohibit third-party AI providers from using the API if AI is their primary service, prompting the European Commission to open a formal antitrust investigation and Italy's antitrust authority to force Meta to suspend the restrictive terms.
+Meta updated its WhatsApp Business terms to prohibit third-party AI providers from using the API if AI is their primary service, prompting the [European Commission to open a formal antitrust investigation](https://ec.europa.eu/commission/presscorner/detail/en/ip_25_2896) and [Italy's antitrust authority to force Meta to suspend the restrictive terms](https://en.agcm.it/en/media/press-releases/2025/12/A576).
 
 The pattern is the same everywhere. You store data in a vendor's system. The vendor decides you can't use that data to train your own AI, feed it to a competitor's model, or even export it without restrictions. Your CRM data, your support tickets, your team conversations -- all behind someone else's API, subject to terms they can change whenever they want.
 

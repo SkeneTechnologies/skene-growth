@@ -100,3 +100,4 @@ benchmarks/results/
 !benchmarks/results/.keep
 benchmarks/codebases/
 !benchmarks/codebases/README.md
+.gstack/
