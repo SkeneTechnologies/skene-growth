@@ -2,7 +2,7 @@
   <img width="4000" height="800" alt="Skene_git" src="https://github.com/user-attachments/assets/2be11c04-6b98-4e26-8905-bf3250c4addb" />
 </p>
 
-<h3 align="center">Backend skills for your Supabase</h3>
+<
 
 <p align="center">
   <a href="https://www.skene.ai"><img width="120" height="42" alt="website" src="https://github.com/user-attachments/assets/8ae8c68f-eeb5-411f-832f-6b6818bd2c34"></a>
