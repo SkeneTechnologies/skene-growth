@@ -342,7 +342,7 @@ The same journey builder that tracks product onboarding works for sales pipeline
 | Lifecycle | Source | Stages |
 |-----------|--------|--------|
 | Contact | `contact_type` enum | lead > prospect > customer > partner |
-| Deal | `pipeline_stages` table | Lead > Qualified > Proposal > Negotiation > Closed Won |
+| Deal | `pipeline_stages` table | per-pipeline custom stages |
 | Ticket | `ticket_status` enum | open > pending > resolved > closed |
 | Task | `task_status` enum | todo > in_progress > in_review > done |
 | Subscription | `subscription_status` enum | trialing > active > past_due > canceled |
@@ -387,13 +387,21 @@ crm/
 └── manifest.json     # Metadata and dependency declarations
 ```
 
-### Setup script (recommended)
+### Set up AI tool configs
+
+```bash
+npx @skene/database-skills init
+```
+
+Installs the package and configures your AI coding tools (Claude Code, Cursor, Windsurf, Copilot, Cline) so agents discover the skill automatically. Detects Supabase MCP and environment keys.
+
+### Setup script
 
 ```bash
 npx @skene/database-skills crm --db $DATABASE_URL --seed
 ```
 
-One command — installs the package, resolves dependencies, applies migrations. Run without args for interactive prompts. No `psql` required.
+Resolves dependencies, applies migrations. Run without args for interactive prompts. No `psql` required.
 
 ### Via skills.sh
 

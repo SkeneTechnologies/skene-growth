@@ -66,7 +66,7 @@ RLS is enabled and scoped to org_id via `get_user_org_id()`. SELECT, INSERT, and
 
 ## Dependencies
 
-- identity (organizations, users)
+- crm (contacts, companies)
 
 ## Example Queries
 

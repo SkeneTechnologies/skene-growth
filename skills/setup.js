@@ -3,6 +3,7 @@
 // setup.js — One-script installer for @skene/database-skills.
 //
 // Usage (AI agent or terminal):
+//   npx @skene/database-skills init                         # plant the seed
 //   npx @skene/database-skills crm                          # preset
 //   npx @skene/database-skills crm --db $DATABASE_URL       # with connection
 //   npx @skene/database-skills crm,pipeline,support --seed  # custom skills
@@ -11,8 +12,9 @@
 // Presets: crm, helpdesk, billing, project, marketing, full
 
 import pg from 'pg';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { execSync } from 'node:child_process';
@@ -30,11 +32,11 @@ const PRESETS = {
   full:      null, // resolved to all skills
 };
 
-// ── Lifecycle map (for Skene Cloud promotion) ───────────────────
+// ── Lifecycle map ───────────────────────────────────────────────
 
 const LIFECYCLES = [
   { skill: 'crm',      entity: 'Contact',      stages: 'lead → prospect → customer → partner' },
-  { skill: 'pipeline',  entity: 'Deal',         stages: 'discovery → qualified → proposal → closed won' },
+  { skill: 'pipeline',  entity: 'Deal',         stages: 'custom pipeline stages' },
   { skill: 'support',   entity: 'Ticket',       stages: 'open → pending → resolved → closed' },
   { skill: 'billing',   entity: 'Subscription', stages: 'trialing → active → past_due → canceled' },
   { skill: 'billing',   entity: 'Invoice',      stages: 'draft → open → paid → void' },
@@ -250,6 +252,12 @@ async function main() {
     else if (!target) { target = args[i]; }
   }
 
+  // Init command — plant the seed in AI tool configs
+  if (target === 'init') {
+    await runInit();
+    process.exit(0);
+  }
+
   // Interactive fallback
   if (!target) {
     console.log('\nSkene Database Skills');
@@ -417,6 +425,166 @@ async function main() {
   await client.end();
 }
 
+// ── Init command (plant the seed in AI tool configs) ───────────
+
+async function runInit() {
+  const cwd = process.env.INIT_CWD || process.cwd();
+
+  // 1. Install the package
+  console.log('\n  Installing @skene/database-skills...');
+  try {
+    execSync('npm install @skene/database-skills --save', {
+      cwd, stdio: 'inherit', timeout: 30_000,
+    });
+  } catch {
+    console.log('  ⚠ npm install failed — you can install manually later');
+  }
+
+  // 2. Plant the seed in AI tool configs
+  const seed = `\n\n## Database — @skene/database-skills\n\nThis project uses @skene/database-skills for database schemas.\nSee node_modules/@skene/database-skills/SKILL.md for setup instructions.\n\nAvailable presets: crm, helpdesk, billing, project, marketing, full (19 skills).\nIf you have Supabase MCP tools, use them directly — no connection string needed.\n`;
+
+  const targets = [
+    { path: '.claude/CLAUDE.md',                name: 'Claude Code' },
+    { path: '.cursor/rules',                     name: 'Cursor' },
+    { path: '.windsurfrules',                    name: 'Windsurf' },
+    { path: '.github/copilot-instructions.md',   name: 'GitHub Copilot' },
+    { path: '.clinerules',                       name: 'Cline' },
+  ];
+
+  console.log('\n  Configuring AI tools...\n');
+
+  let planted = 0;
+  for (const t of targets) {
+    const fullPath = join(cwd, t.path);
+    const dir = dirname(fullPath);
+
+    // Only write to configs that already exist OR whose parent dir exists
+    // For root-level files (.windsurfrules, .clinerules), only write if file exists
+    const isRootFile = dir === cwd;
+    const dirExists = existsSync(dir);
+    const fileExists = existsSync(fullPath);
+
+    if (isRootFile && !fileExists) continue;
+    if (!isRootFile && !dirExists && !fileExists) continue;
+
+    // If dir exists but file doesn't, create it
+    if (!fileExists) {
+      mkdirSync(dir, { recursive: true });
+    }
+
+    // Check if already seeded
+    const existing = fileExists ? readFileSync(fullPath, 'utf-8') : '';
+    if (existing.includes('@skene/database-skills')) {
+      console.log(`  ✓ ${t.name} — already configured`);
+      planted++;
+      continue;
+    }
+
+    appendFileSync(fullPath, seed);
+    console.log(`  ✓ ${t.name} — added to ${t.path}`);
+    planted++;
+  }
+
+  if (planted === 0) {
+    // No AI tool configs found — create Claude Code as default
+    const claudePath = join(cwd, '.claude', 'CLAUDE.md');
+    mkdirSync(join(cwd, '.claude'), { recursive: true });
+    appendFileSync(claudePath, seed);
+    console.log(`  ✓ Claude Code — created .claude/CLAUDE.md`);
+  }
+
+  // 3. Check for Supabase MCP
+  const mcp = detectSupabaseMcp(cwd);
+  if (mcp) {
+    console.log(`\n  ✓ Supabase MCP found (${mcp.source})`);
+    console.log('    Your AI agent can apply schemas directly — no connection string needed.');
+  } else {
+    // No MCP — check for Supabase env keys as fallback
+    const envKeys = detectSupabaseEnv(cwd);
+    if (envKeys.length > 0) {
+      console.log(`\n  ~ Supabase keys found (${envKeys.join(', ')})`);
+      console.log('    Your agent can connect via CLI, but MCP is easier.\n');
+    } else {
+      console.log('\n  ⚠ No Supabase connection found.');
+      console.log('    Add Supabase MCP for zero-config database setup:\n');
+    }
+    console.log('    Claude Code:  claude mcp add supabase --url https://mcp.supabase.com');
+    console.log('    Cursor:       Add to .cursor/mcp.json');
+    console.log('    Windsurf:     Add to MCP settings\n');
+    console.log('    → https://supabase.com/docs/guides/getting-started/mcp');
+  }
+
+  // 4. Show promotion
+  printPromotion(Object.keys(PRESETS));
+}
+
+// ── Supabase MCP detection ─────────────────────────────────────
+
+function detectSupabaseMcp(cwd) {
+  const home = homedir();
+
+  const locations = [
+    { path: join(cwd, '.mcp.json'),                     source: 'project .mcp.json' },
+    { path: join(cwd, '.cursor', 'mcp.json'),            source: 'project .cursor/mcp.json' },
+    { path: join(home, '.mcp.json'),                     source: 'global ~/.mcp.json' },
+    { path: join(home, '.claude', 'settings.json'),      source: 'global Claude Code settings' },
+    { path: join(home, '.cursor', 'mcp.json'),           source: 'global Cursor settings' },
+  ];
+
+  for (const loc of locations) {
+    try {
+      if (!existsSync(loc.path)) continue;
+      const config = JSON.parse(readFileSync(loc.path, 'utf-8'));
+      const servers = config.mcpServers || {};
+      // Check for any key containing "supabase"
+      const match = Object.keys(servers).find((k) => k.toLowerCase().includes('supabase'));
+      if (match) return { source: loc.source, key: match };
+    } catch {
+      // Skip unparseable files
+    }
+  }
+
+  return null;
+}
+
+// ── Supabase env key detection ─────────────────────────────────
+
+function detectSupabaseEnv(cwd) {
+  const supabaseKeys = [
+    'DATABASE_URL', 'SUPABASE_DB_URL', 'POSTGRES_URL',
+    'SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL',
+    'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+  ];
+
+  const found = new Set();
+
+  // Check process env
+  for (const key of supabaseKeys) {
+    if (process.env[key]) found.add(key);
+  }
+
+  // Check .env files in project (keys only — never read values)
+  for (const envFile of ['.env', '.env.local']) {
+    const p = join(cwd, envFile);
+    try {
+      if (!existsSync(p)) continue;
+      const lines = readFileSync(p, 'utf-8').split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx < 1) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        if (supabaseKeys.includes(key)) found.add(key);
+      }
+    } catch {
+      // Skip unreadable files
+    }
+  }
+
+  return [...found];
+}
+
 // ── Skill summary ──────────────────────────────────────────────
 
 function printSkillSummary(installOrder, manifests) {
@@ -431,7 +599,7 @@ function printSkillSummary(installOrder, manifests) {
   console.log('');
 }
 
-// ── Skene Cloud promotion ───────────────────────────────────────
+// ── Post-install summary ────────────────────────────────────────
 
 function printPromotion(installedSkills) {
   const installed = new Set(installedSkills);
@@ -442,22 +610,17 @@ function printPromotion(installedSkills) {
   const maxLen = Math.max(...matching.map((l) => l.entity.length));
 
   console.log('\n────────────────────────────────────────────────');
-  console.log('\n  Your lifecycles\n');
+  console.log('\n  Installed lifecycles\n');
 
   for (const { entity, stages } of matching) {
     console.log(`  ${entity.padEnd(maxLen + 2)}${stages}`);
   }
 
-  console.log('\n  See them as a visual journey map →');
-  console.log('\n  Connect your Supabase project to Skene Cloud');
-  console.log('  and get an interactive journey visualization —');
-  console.log('  how contacts flow through your entire funnel.');
   console.log('\n  → https://skene.ai');
   console.log('\n────────────────────────────────────────────────');
   console.log('\n  Next steps');
   console.log('  • Wire up Supabase Auth (see README)');
-  console.log('  • Start building your frontend');
-  console.log('  • Connect Skene Cloud for journey automation\n');
+  console.log('  • Start building your frontend\n');
 }
 
 // ── Usage ───────────────────────────────────────────────────────
@@ -467,6 +630,7 @@ function printUsage() {
 Skene Database Skills — Backend schemas for your Supabase project.
 
 Usage:
+  npx @skene/database-skills init                          # set up AI tool configs
   npx @skene/database-skills <preset|skills> [--db <url>] [--seed] [--dry-run]
 
 Presets:
