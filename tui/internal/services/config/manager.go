@@ -185,6 +185,8 @@ func (m *Manager) writeConfigToPath(path string) error {
 
 	if m.Config.APIKey != "" {
 		existing["api_key"] = m.Config.APIKey
+	} else {
+		delete(existing, "api_key")
 	}
 	if m.Config.Provider != "" {
 		existing["provider"] = m.Config.Provider
@@ -194,6 +196,8 @@ func (m *Manager) writeConfigToPath(path string) error {
 	}
 	if m.Config.BaseURL != "" {
 		existing["base_url"] = m.Config.BaseURL
+	} else {
+		delete(existing, "base_url")
 	}
 	if m.Config.OutputDir != "" {
 		existing["output_dir"] = m.Config.OutputDir
@@ -228,6 +232,12 @@ func (m *Manager) SetAPIKey(key string) {
 	m.Config.APIKey = key
 }
 
+// ClearLLMCredentials removes provider-specific credentials that should not carry across providers.
+func (m *Manager) ClearLLMCredentials() {
+	m.Config.APIKey = ""
+	m.Config.BaseURL = ""
+}
+
 // SetProjectDir sets the project directory
 func (m *Manager) SetProjectDir(dir string) {
 	m.Config.ProjectDir = dir
@@ -250,6 +260,12 @@ func (m *Manager) SetUpstreamAPIKey(key string) {
 
 // GetMaskedAPIKey returns masked API key for display
 func (m *Manager) GetMaskedAPIKey() string {
+	if strings.EqualFold(m.Config.Provider, "codex") {
+		return "ChatGPT login"
+	}
+	if m.Config.APIKey == "" {
+		return "Not set"
+	}
 	if len(m.Config.APIKey) <= 8 {
 		return "****"
 	}
@@ -258,7 +274,13 @@ func (m *Manager) GetMaskedAPIKey() string {
 
 // HasValidConfig checks if config has minimum required values
 func (m *Manager) HasValidConfig() bool {
-	return m.Config.Provider != "" && m.Config.Model != "" && m.Config.APIKey != ""
+	if m.Config.Provider == "" || m.Config.Model == "" {
+		return false
+	}
+	if strings.EqualFold(m.Config.Provider, "codex") {
+		return true
+	}
+	return m.Config.APIKey != ""
 }
 
 // GetShortenedPath returns a shortened path for display
@@ -359,6 +381,18 @@ func GetProviders() []Provider {
 			AuthURL:     constants.SkeneAuthURL,
 			Models: []Model{
 				{ID: constants.SkeneDefaultModel, Name: "skene", Description: "Growth analysis model"},
+			},
+		},
+		{
+			ID:          "codex",
+			Name:        "Codex",
+			Description: "Use the local Codex CLI with ChatGPT sign-in",
+			RequiresKey: false,
+			Models: []Model{
+				{ID: "auto", Name: "Auto", Description: "Use Codex CLI defaults"},
+				{ID: "gpt-5.4", Name: "GPT-5.4", Description: "Most capable general-purpose model"},
+				{ID: "gpt-5.3-codex", Name: "GPT-5.3-Codex", Description: "Flagship model for agentic coding"},
+				{ID: "gpt-5.2-codex", Name: "GPT-5.2-Codex", Description: "Strong long-horizon coding model"},
 			},
 		},
 		{

@@ -47,7 +47,7 @@ def plan(
         None,
         "--provider",
         "-p",
-        help="LLM provider to use (openai, gemini, anthropic/claude, ollama, generic, skene)",
+        help="LLM provider to use (codex, openai, gemini, anthropic/claude, ollama, generic, skene)",
     ),
     model: str | None = typer.Option(
         None,
@@ -164,7 +164,7 @@ def plan(
                 break
 
     # If no API key and not using local provider, show sample report
-    if not rc.api_key and not rc.is_local:
+    if not rc.api_key and not rc.allows_missing_api_key:
         sample_path = context if context else Path(".")
         warning(
             "No API key provided. Showing sample growth plan preview.\n"
@@ -175,8 +175,10 @@ def plan(
         return
 
     resolved_api_key = rc.api_key
-    if not resolved_api_key:
+    if not resolved_api_key and rc.is_local:
         resolved_api_key = rc.provider  # Dummy key for local server
+    elif not resolved_api_key and rc.allows_missing_api_key:
+        resolved_api_key = ""
 
     # Handle output path: if it's a directory, append default filename
     if output.is_absolute():

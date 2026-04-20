@@ -39,6 +39,7 @@ const (
 	StateProviderSelect                 // AI provider selection
 	StateModelSelect                    // Model selection for chosen provider
 	StateAuth                           // Skene magic link authentication
+	StateCodexAuth                      // Codex CLI login status
 	StateAPIKey                         // Manual API key entry
 	StateLocalModel                     // Local model detection (Ollama/LM Studio)
 	StateProjectDir                     // Project directory selection
@@ -102,6 +103,11 @@ type AuthCallbackMsg struct {
 	Error    error
 }
 
+// CodexAuthStatusMsg is sent when the local Codex CLI auth status has been checked.
+type CodexAuthStatusMsg struct {
+	Status auth.CodexStatus
+}
+
 // VersionCheckMsg is sent when the background version check completes
 type VersionCheckMsg struct {
 	Result *versioncheck.Result
@@ -134,11 +140,12 @@ type App struct {
 	selectedModel    *config.Model
 
 	// Views
-	welcomeView      *views.WelcomeView
-	configCheckView  *views.ConfigCheckView
-	providerView     *views.ProviderView
+	welcomeView        *views.WelcomeView
+	configCheckView    *views.ConfigCheckView
+	providerView       *views.ProviderView
 	modelView          *views.ModelView
 	authView           *views.AuthView
+	codexAuthView      *views.CodexAuthView
 	apiKeyView         *views.APIKeyView
 	localModelView     *views.LocalModelView
 	projectDirView     *views.ProjectDirView
@@ -161,6 +168,7 @@ type App struct {
 	// Cancellation for running processes
 	cancelFunc      context.CancelFunc
 	analyzingOrigin AppState // state to return to when cancelling/failing
+	codexAuthReturn AppState // state to return to when backing out of Codex auth
 
 	// Auth state
 	authCountdown  int
@@ -175,6 +183,8 @@ type App struct {
 	// Program reference for sending messages from background tasks
 	program *tea.Program
 }
+
+var checkCodexStatus = auth.CheckCodexStatus
 
 // ═══════════════════════════════════════════════════════════════════
 // INITIALIZATION
@@ -275,6 +285,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if a.state == StateAuth && a.authView != nil {
 			a.authView.TickSpinner()
+		}
+		if a.state == StateCodexAuth && a.codexAuthView != nil {
+			a.codexAuthView.TickSpinner()
 		}
 		if a.state == StateAPIKey && a.apiKeyView != nil {
 			a.apiKeyView.TickSpinner()
@@ -436,6 +449,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}))
 		}
 
+	case CodexAuthStatusMsg:
+		if a.codexAuthView != nil {
+			a.codexAuthView.SetStatus(msg.Status)
+		}
+		if msg.Status.LoggedIn {
+			a.transitionToProjectDir()
+		}
+
 	case authVerifiedMsg:
 		// Show success state after the fake verification delay
 		if a.authView != nil {
@@ -495,6 +516,8 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
 		return a.handleModelKeys(msg)
 	case StateAuth:
 		return a.handleAuthKeys(key)
+	case StateCodexAuth:
+		return a.handleCodexAuthKeys(key)
 	case StateAPIKey:
 		return a.handleAPIKeyKeys(msg)
 	case StateLocalModel:
@@ -563,6 +586,9 @@ func (a *App) handleConfigCheckKeys(msg tea.KeyMsg) tea.Cmd {
 		a.configCheckView.HandleDown()
 	case "enter":
 		if a.configCheckView.SelectedUseExisting() {
+			if a.selectedProvider != nil && a.selectedProvider.ID == "codex" {
+				return a.startCodexAuthCheck(StateConfigCheck)
+			}
 			a.transitionToProjectDir()
 		} else {
 			a.state = StateProviderSelect
@@ -599,7 +625,7 @@ func (a *App) handleModelKeys(msg tea.KeyMsg) tea.Cmd {
 	case "down", "j":
 		a.modelView.HandleDown()
 	case "enter":
-		a.selectModel()
+		return a.selectModel()
 	case "esc":
 		a.state = StateProviderSelect
 	}
@@ -650,6 +676,16 @@ func (a *App) handleAPIKeyKeys(msg tea.KeyMsg) tea.Cmd {
 		a.navigateBackFromAPIKey()
 	default:
 		a.apiKeyView.Update(msg)
+	}
+	return nil
+}
+
+func (a *App) handleCodexAuthKeys(key string) tea.Cmd {
+	switch key {
+	case "enter", "r":
+		return a.checkCodexAuthCmd()
+	case "esc":
+		a.state = a.codexAuthReturn
 	}
 	return nil
 }
@@ -992,6 +1028,9 @@ func (a *App) selectProvider() tea.Cmd {
 
 	a.selectedProvider = provider
 	a.configMgr.SetProvider(provider.ID)
+	if provider.ID == "codex" {
+		a.configMgr.ClearLLMCredentials()
+	}
 
 	// Branch based on provider type
 	if provider.ID == "skene" {
@@ -1048,23 +1087,46 @@ func (a *App) selectProvider() tea.Cmd {
 	return nil
 }
 
-func (a *App) selectModel() {
+func (a *App) selectModel() tea.Cmd {
 	model := a.modelView.GetSelectedModel()
 	if model == nil {
-		return
+		return nil
 	}
 
 	a.selectedModel = model
 	a.configMgr.SetModel(model.ID)
 
+	if a.selectedProvider != nil && a.selectedProvider.ID == "codex" {
+		return a.startCodexAuthCheck(StateModelSelect)
+	}
+
 	// Go to API key entry
 	a.transitionToAPIKey()
+	return nil
 }
 
 func (a *App) transitionToAPIKey() {
 	a.apiKeyView = views.NewAPIKeyView(a.selectedProvider, a.selectedModel)
 	a.apiKeyView.SetSize(a.width, a.height)
 	a.state = StateAPIKey
+}
+
+func (a *App) startCodexAuthCheck(returnState AppState) tea.Cmd {
+	providerName := "Codex"
+	modelName := ""
+	if a.selectedProvider != nil {
+		providerName = a.selectedProvider.Name
+	}
+	if a.selectedModel != nil {
+		modelName = a.selectedModel.Name
+	}
+
+	a.configMgr.ClearLLMCredentials()
+	a.codexAuthReturn = returnState
+	a.codexAuthView = views.NewCodexAuthView(providerName, modelName)
+	a.codexAuthView.SetSize(a.width, a.height)
+	a.state = StateCodexAuth
+	return a.checkCodexAuthCmd()
 }
 
 func (a *App) transitionToProjectDir() {
@@ -1142,6 +1204,8 @@ func (a *App) navigateBackFromAPIKey() {
 func (a *App) navigateBackFromProjectDir() {
 	if a.selectedProvider != nil && a.selectedProvider.IsLocal {
 		a.state = StateLocalModel
+	} else if a.selectedProvider != nil && a.selectedProvider.ID == "codex" && a.codexAuthView != nil {
+		a.state = StateCodexAuth
 	} else if a.apiKeyView != nil {
 		a.state = StateAPIKey
 	} else if a.configCheckView != nil {
@@ -1320,7 +1384,6 @@ func (a *App) runEngineCommand(title string, command string) tea.Cmd {
 	}
 }
 
-
 func (a *App) waitForAuthCallback() tea.Cmd {
 	server := a.callbackServer
 	if server == nil {
@@ -1375,6 +1438,15 @@ func (a *App) detectLocalModels() tea.Cmd {
 	}
 }
 
+func (a *App) checkCodexAuthCmd() tea.Cmd {
+	if a.codexAuthView != nil {
+		a.codexAuthView.SetChecking(true)
+	}
+	return func() tea.Msg {
+		return CodexAuthStatusMsg{Status: checkCodexStatus()}
+	}
+}
+
 func (a *App) showError(err *views.ErrorInfo) {
 	a.prevState = a.state
 	a.currentError = err
@@ -1402,6 +1474,9 @@ func (a *App) updateViewSizes() {
 	}
 	if a.authView != nil {
 		a.authView.SetSize(a.width, a.height)
+	}
+	if a.codexAuthView != nil {
+		a.codexAuthView.SetSize(a.width, a.height)
 	}
 	if a.apiKeyView != nil {
 		a.apiKeyView.SetSize(a.width, a.height)
@@ -1456,6 +1531,10 @@ func (a *App) View() string {
 	case StateAuth:
 		if a.authView != nil {
 			content = a.authView.Render()
+		}
+	case StateCodexAuth:
+		if a.codexAuthView != nil {
+			content = a.codexAuthView.Render()
 		}
 	case StateAPIKey:
 		if a.apiKeyView != nil {
@@ -1542,6 +1621,10 @@ func (a *App) getCurrentHelpItems() []components.HelpItem {
 	case StateAuth:
 		if a.authView != nil {
 			return a.authView.GetHelpItems()
+		}
+	case StateCodexAuth:
+		if a.codexAuthView != nil {
+			return a.codexAuthView.GetHelpItems()
 		}
 	case StateAPIKey:
 		if a.apiKeyView != nil {

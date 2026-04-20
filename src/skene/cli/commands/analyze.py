@@ -45,7 +45,7 @@ def analyze(
         None,
         "--provider",
         "-p",
-        help="LLM provider to use (openai, gemini, anthropic/claude, lmstudio, ollama, generic, skene)",
+        help="LLM provider to use (codex, openai, gemini, anthropic/claude, lmstudio, ollama, generic, skene)",
     ),
     model: str | None = typer.Option(
         None,
@@ -159,7 +159,7 @@ def analyze(
         resolved_output = Path(rc.config.output_dir) / "growth-manifest.json"
 
     # If no API key and not using local provider, show sample report or require key
-    if not rc.api_key and not rc.is_local:
+    if not rc.api_key and not rc.allows_missing_api_key:
         if features:
             warning(
                 "No API key provided. Feature analysis requires an LLM.\n"
@@ -176,6 +176,8 @@ def analyze(
     resolved_api_key = rc.api_key
     if not resolved_api_key and rc.is_local:
         resolved_api_key = rc.provider  # Dummy key for local server
+    elif not resolved_api_key and rc.allows_missing_api_key:
+        resolved_api_key = ""
 
     # If features only, use features mode
     mode_str = "docs" if product_docs else ("features" if features else "growth")

@@ -60,6 +60,10 @@ def create_llm_client(
             from skene.llm.providers.openai import OpenAIClient
 
             client = OpenAIClient(api_key=api_key, model_name=model_name, no_fallback=no_fallback)
+        case "codex":
+            from skene.llm.providers.codex import CodexClient
+
+            client = CodexClient(api_key=api_key, model_name=model_name)
         case "anthropic" | "claude":
             from skene.llm.providers.anthropic import AnthropicClient
 

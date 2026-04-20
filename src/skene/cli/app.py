@@ -64,6 +64,7 @@ _LOCAL_NO_KEY_PROVIDERS = (
     "ollama",
     *_OPENAI_COMPAT_PROVIDERS,
 )
+_EMBEDDED_AUTH_PROVIDERS = ("codex",)
 
 # Default upstream ingest URL when --local is used without --ingest-url
 DEFAULT_LOCAL_INGEST_BASE = "https://www.skene.ai"
@@ -72,6 +73,16 @@ DEFAULT_LOCAL_INGEST_BASE = "https://www.skene.ai"
 def is_local_provider(provider: str) -> bool:
     """Return True for providers that can run without a real API key."""
     return provider.lower() in _LOCAL_NO_KEY_PROVIDERS
+
+
+def uses_embedded_auth(provider: str) -> bool:
+    """Return True for providers that own authentication outside skene config."""
+    return provider.lower() in _EMBEDDED_AUTH_PROVIDERS
+
+
+def allows_missing_api_key(provider: str) -> bool:
+    """Return True for providers that do not require a stored API key."""
+    return is_local_provider(provider) or uses_embedded_auth(provider)
 
 
 def requires_base_url(provider: str) -> bool:
@@ -137,6 +148,7 @@ class ResolvedConfig:
     base_url: str | None
     debug: bool
     is_local: bool
+    allows_missing_api_key: bool
     config: Config  # raw config for command-specific fields
 
 
@@ -166,6 +178,7 @@ def resolve_cli_config(
     resolved_model = model or config.get("model") or default_model_for_provider(resolved_provider)
     resolved_api_key = api_key or config.api_key
     is_local = is_local_provider(resolved_provider)
+    allows_missing = allows_missing_api_key(resolved_provider)
 
     if requires_base_url(resolved_provider) and not resolved_base_url:
         error(f"The '{resolved_provider}' provider requires --base-url to be set.")
@@ -178,6 +191,7 @@ def resolve_cli_config(
         base_url=resolved_base_url,
         debug=resolved_debug,
         is_local=is_local,
+        allows_missing_api_key=allows_missing,
         config=config,
     )
 

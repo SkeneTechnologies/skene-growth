@@ -75,3 +75,25 @@ class TestResolveCliConfig:
 
         rc = resolve_cli_config()
         assert rc.base_url == "https://example.com/v1"
+
+    def test_codex_defaults_to_auto_model(self, monkeypatch):
+        """Uses the codex default model when none is configured."""
+        cfg = Config()
+        cfg.set("provider", "codex")
+        monkeypatch.setattr(_app, "load_config", lambda: cfg)
+
+        rc = resolve_cli_config()
+        assert rc.provider == "codex"
+        assert rc.model == "auto"
+
+    def test_codex_allows_missing_api_key(self, monkeypatch):
+        """Treats codex as runtime-authenticated without marking it local."""
+        cfg = Config()
+        cfg.set("provider", "codex")
+        cfg.set("model", "auto")
+        monkeypatch.setattr(_app, "load_config", lambda: cfg)
+
+        rc = resolve_cli_config()
+        assert rc.api_key is None
+        assert rc.is_local is False
+        assert rc.allows_missing_api_key is True

@@ -27,6 +27,12 @@ def _set_config_permissions(config_path: Path) -> None:
 def get_provider_models(provider: str) -> list[str]:
     """Get list of recommended models for a provider (up to 5)."""
     models_by_provider = {
+        "codex": [
+            "auto",
+            "gpt-5.4",
+            "gpt-5.3-codex",
+            "gpt-5.2-codex",
+        ],
         "openai": [
             "gpt-5.2",
             "gpt-4o",
@@ -177,6 +183,7 @@ def interactive_config_setup() -> tuple[Path, str, str, str, str | None]:
     console.print()
     providers = [
         ("skene", "Skene"),
+        ("codex", "Codex"),
         ("openai", "OpenAI"),
         ("gemini", "Google Gemini"),
         ("anthropic", "Anthropic"),
@@ -261,21 +268,25 @@ def interactive_config_setup() -> tuple[Path, str, str, str, str | None]:
         )
         base_url = base_url.strip() if base_url else None
 
-    # Ask for API key
-    console.print()
-    api_key_prompt = "[cyan]API Key[/cyan]"
-    if api_key:
-        api_key_prompt += f" (current: {api_key[:4]}...{api_key[-4:]}, press Enter to keep)"
-    api_key_prompt += ": "
+    new_api_key = ""
+    if selected_provider == "codex":
+        console.print()
+        console.print("[green]Codex uses your local Codex CLI login.[/green] Run [bold]codex login[/bold] if needed.")
+    else:
+        console.print()
+        api_key_prompt = "[cyan]API Key[/cyan]"
+        if api_key:
+            api_key_prompt += f" (current: {api_key[:4]}...{api_key[-4:]}, press Enter to keep)"
+        api_key_prompt += ": "
 
-    new_api_key = Prompt.ask(api_key_prompt, password=True, default="")
+        new_api_key = Prompt.ask(api_key_prompt, password=True, default="")
 
-    # If user pressed Enter without typing, keep existing API key
-    if not new_api_key and api_key:
-        new_api_key = api_key
-    elif not new_api_key:
-        console.print("[yellow]No API key provided. Configuration will be saved without API key.[/yellow]")
-        new_api_key = ""
+        # If user pressed Enter without typing, keep existing API key
+        if not new_api_key and api_key:
+            new_api_key = api_key
+        elif not new_api_key:
+            console.print("[yellow]No API key provided. Configuration will be saved without API key.[/yellow]")
+            new_api_key = ""
 
     return config_path, selected_provider, selected_model, new_api_key, base_url
 

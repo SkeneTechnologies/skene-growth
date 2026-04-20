@@ -44,7 +44,7 @@ def build(
         None,
         "--provider",
         "-p",
-        help="LLM provider: openai, gemini, anthropic, ollama, generic, skene (uses config if not provided)",
+        help="LLM provider: codex, openai, gemini, anthropic, ollama, generic, skene (uses config if not provided)",
     ),
     model: str | None = typer.Option(
         None,
@@ -160,7 +160,7 @@ async def _build_async(
 ):
     """Async implementation of build command."""
     # Validate LLM configuration
-    if not rc.api_key or not rc.provider:
+    if not rc.provider or (not rc.api_key and not rc.allows_missing_api_key):
         error(
             "LLM configuration required.\n\n"
             "Please set api_key and provider in one of:\n"
@@ -170,7 +170,7 @@ async def _build_async(
             "  4. Environment: SKENE_API_KEY\n\n"
             "Example config:\n"
             '  api_key = "your-api-key"\n'
-            '  provider = "gemini"  # or anthropic, openai, ollama, generic, skene\n'
+            '  provider = "gemini"  # or codex, anthropic, openai, ollama, generic, skene\n'
         )
         raise typer.Exit(1)
 
@@ -227,7 +227,7 @@ async def _build_async(
 
         llm = create_llm_client(
             rc.provider,
-            SecretStr(rc.api_key),
+            SecretStr(rc.api_key or ""),
             rc.model,
             base_url=rc.base_url,
             debug=rc.debug,
