@@ -1,17 +1,28 @@
-"""Analyse the data schema of a codebase via iterative grep + LLM passes."""
+"""Analyse the data schema of a codebase via iterative grep + LLM passes.
 
-import asyncio
+This is the entry point of the full journey pipeline:
+
+    schema.yaml  →  growth-manifest.json  →  engine.yaml
+
+Use ``--skip-growth`` or ``--skip-plan`` to stop early.
+"""
+
 from pathlib import Path
 
 import typer
-from pydantic import SecretStr
-from rich.panel import Panel
 
-from skene.analyzers.growth_from_schema import analyse_growth_from_schema
-from skene.analyzers.plan_engine import DEFAULT_FEATURE_COUNT, plan_engine_from_manifest
-from skene.analyzers.schema_journey import analyse_journey
-from skene.cli.app import app, resolve_cli_config
-from skene.output import console, error, success, warning
+from skene.analyzers.plan_engine import DEFAULT_FEATURE_COUNT
+from skene.cli._journey_runner import (
+    PipelinePaths,
+    Stage,
+    execute_pipeline,
+    render_kickoff_panel,
+    require_llm_credentials,
+    resolve_artifact_path,
+    resolve_base_path,
+    resolve_cli_config,
+)
+from skene.cli.app import app
 
 
 @app.command(name="analyse-journey")
@@ -84,31 +95,26 @@ def analyse_journey_cmd(
         "--no-fallback",
         help="Disable model fallback on rate limits; retry same model instead",
     ),
-    skip_growth_manifest: bool = typer.Option(
+    skip_growth: bool = typer.Option(
         False,
+        "--skip-growth",
         "--skip-growth-manifest",
-        help="Do not run analyse-growth-from-schema after the schema is written",
-    ),
-    growth_output: Path | None = typer.Option(
-        None,
-        "--growth-output",
-        help=(
-            "Path for growth-manifest.json after schema analysis "
-            "(default: same directory as schema output, filename growth-manifest.json)"
-        ),
+        help="Stop after schema.yaml; do not derive a growth manifest",
     ),
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
-        help="Do not run analyse-plan after the growth manifest is written",
+        help="Stop after the growth manifest; do not write engine.yaml",
+    ),
+    growth_output: Path | None = typer.Option(
+        None,
+        "--growth-output",
+        help="Path for growth-manifest.json (default: next to schema)",
     ),
     plan_output: Path | None = typer.Option(
         None,
         "--plan-output",
-        help=(
-            "Path for engine.yaml after planning "
-            "(default: same directory as schema output, filename engine.yaml)"
-        ),
+        help="Path for engine.yaml (default: next to schema)",
     ),
     plan_count: int = typer.Option(
         DEFAULT_FEATURE_COUNT,
@@ -119,36 +125,24 @@ def analyse_journey_cmd(
     ),
 ):
     """
-    Analyse the data schema of a codebase.
+    Analyse the data schema of a codebase, then optionally derive a growth
+    manifest and promote growth opportunities into ``engine.yaml``.
 
-    Repeatedly runs grep (or ripgrep) for schema-related patterns — classes,
-    models, tables, migrations, typed records — and asks the LLM provider to
-    distil entities into a growing schema. Each iteration's LLM response also
-    suggests the next grep keyword, so the analysis journeys through the
-    codebase until the schema stabilises.
-
-    The result is saved as YAML (default: ./skene/schema.yaml).
-
-    By default, **analyse-growth-from-schema** runs immediately afterward on the
-    same schema file and writes ``growth-manifest.json`` next to it (unless
-    ``--skip-growth-manifest`` is set).
+    Repeatedly runs ripgrep for schema-related patterns — classes, models,
+    tables, migrations, typed records — and asks the LLM to distil entities
+    into a growing schema. Each iteration's response also suggests the next
+    grep keyword, so the analysis journeys through the codebase until the
+    schema stabilises.
 
     Examples:
 
         skene analyse-journey
 
-        skene analyse-journey ./my-project -n 10 -o ./skene/schema.yaml
+        skene analyse-journey ./my-project -n 10 --skip-plan
 
-        skene analyse-journey --provider anthropic --model claude-sonnet-4-5
+        skene analyse-journey --provider anthropic --model claude-sonnet-4.6
     """
-    base_path = (path if path is not None else Path(".")).resolve()
-    if not base_path.exists():
-        error(f"Path does not exist: {base_path}")
-        raise typer.Exit(1)
-    if not base_path.is_dir():
-        error(f"Path is not a directory: {base_path}")
-        raise typer.Exit(1)
-
+    base_path = resolve_base_path(path)
     rc = resolve_cli_config(
         api_key=api_key,
         provider=provider,
@@ -157,136 +151,43 @@ def analyse_journey_cmd(
         quiet=quiet,
         debug=debug,
     )
+    resolved_api_key = require_llm_credentials(rc, "analyse-journey")
 
-    if not rc.api_key and not rc.is_local:
-        error(
-            "An API key is required for analyse-journey. "
-            "Set --api-key, SKENE_API_KEY env var, or add api_key to .skene.config."
-        )
-        raise typer.Exit(1)
-
-    resolved_api_key = rc.api_key or rc.provider  # Dummy key for local servers.
-
-    resolved_output = output if output.is_absolute() else (Path.cwd() / output).resolve()
-    if resolved_output.exists() and resolved_output.is_dir():
-        resolved_output = (resolved_output / "schema.yaml").resolve()
-    elif not resolved_output.suffix:
-        resolved_output = (resolved_output / "schema.yaml").resolve()
-    else:
-        resolved_output = resolved_output.resolve()
-
-    console.print(
-        Panel.fit(
-            "[bold blue]Analysing codebase schema[/bold blue]\n"
-            f"Path: {base_path}\n"
-            f"Provider: {rc.provider}\n"
-            f"Model: {rc.model}\n"
-            f"Iterations: {iterations}\n"
-            f"Output: {resolved_output}\n"
-            f"Then: {'(growth manifest skipped)' if skip_growth_manifest else 'schema-driven growth manifest'}"
-            + ("" if skip_growth_manifest or skip_plan else " → engine.yaml plan"),
-            title="skene · analyse-journey",
-        )
+    schema_path = resolve_artifact_path(output, "schema.yaml")
+    growth_path = (
+        resolve_artifact_path(growth_output, "growth-manifest.json")
+        if growth_output is not None
+        else schema_path.parent / "growth-manifest.json"
+    )
+    engine_path = (
+        resolve_artifact_path(plan_output, "engine.yaml")
+        if plan_output is not None
+        else schema_path.parent / "engine.yaml"
     )
 
-    from skene.llm import create_llm_client
+    stages: list[Stage] = [Stage.SCHEMA]
+    if not skip_growth:
+        stages.append(Stage.GROWTH)
+    if not skip_growth and not skip_plan:
+        stages.append(Stage.PLAN)
 
-    async def execute():
-        llm = create_llm_client(
-            rc.provider,
-            SecretStr(resolved_api_key),
-            rc.model,
-            base_url=rc.base_url,
-            debug=rc.debug,
-            no_fallback=no_fallback,
-        )
+    render_kickoff_panel(
+        title="skene · analyse-journey",
+        base_path=base_path,
+        rc=rc,
+        paths=PipelinePaths(schema=schema_path, growth=growth_path, engine=engine_path),
+        stages=stages,
+        extra_lines=[f"[bold]Iterations[/bold] {iterations}"],
+    )
 
-        state = await analyse_journey(
-            path=base_path,
-            llm=llm,
-            output_path=resolved_output,
-            iterations=iterations,
-            excludes=exclude if exclude else None,
-        )
-
-        if not state.tables:
-            warning("No schema tables were discovered.")
-        success(f"Schema saved to: {resolved_output} ({len(state.tables)} tables)")
-
-        if skip_growth_manifest:
-            return
-
-        resolved_growth = (
-            growth_output
-            if growth_output is not None
-            else (resolved_output.parent / "growth-manifest.json")
-        )
-        if not resolved_growth.is_absolute():
-            resolved_growth = (Path.cwd() / resolved_growth).resolve()
-        if resolved_growth.exists() and resolved_growth.is_dir():
-            resolved_growth = (resolved_growth / "growth-manifest.json").resolve()
-        elif not resolved_growth.suffix:
-            resolved_growth = (resolved_growth / "growth-manifest.json").resolve()
-        else:
-            resolved_growth = resolved_growth.resolve()
-
-        try:
-            gstate = await analyse_growth_from_schema(
-                path=base_path,
-                schema_path=resolved_output,
-                llm=llm,
-                output_path=resolved_growth,
-                excludes=exclude if exclude else None,
-            )
-            if not gstate.features:
-                warning("Growth manifest: no features grounded from schema + codebase.")
-            success(
-                f"Growth manifest saved to: {resolved_growth} "
-                f"({len(gstate.features)} feature(s), {len(gstate.growth_opportunities)} opportunity(ies))"
-            )
-        except Exception as e:
-            warning(f"Growth manifest step failed (schema was saved): {e}")
-            return
-
-        if skip_plan:
-            return
-
-        if not gstate.growth_opportunities:
-            warning("Skipping analyse-plan: manifest has no growth_opportunities.")
-            return
-
-        resolved_plan = (
-            plan_output
-            if plan_output is not None
-            else (resolved_output.parent / "engine.yaml")
-        )
-        if not resolved_plan.is_absolute():
-            resolved_plan = (Path.cwd() / resolved_plan).resolve()
-        if resolved_plan.exists() and resolved_plan.is_dir():
-            resolved_plan = (resolved_plan / "engine.yaml").resolve()
-        elif not resolved_plan.suffix:
-            resolved_plan = (resolved_plan / "engine.yaml").resolve()
-        else:
-            resolved_plan = resolved_plan.resolve()
-
-        try:
-            pstate = await plan_engine_from_manifest(
-                manifest_path=resolved_growth,
-                schema_path=resolved_output,
-                llm=llm,
-                engine_path=resolved_plan,
-                project_root=base_path,
-                feature_count=plan_count,
-            )
-            added = len(pstate.delta.features) if pstate.delta else 0
-            total = len(pstate.merged.features) if pstate.merged else 0
-            if added == 0:
-                warning("analyse-plan produced no new features; engine.yaml left unchanged.")
-            success(
-                f"engine.yaml saved to: {resolved_plan} "
-                f"({added} feature(s) planned, {total} total after merge)"
-            )
-        except Exception as e:
-            warning(f"analyse-plan step failed (manifest was saved): {e}")
-
-    asyncio.run(execute())
+    execute_pipeline(
+        base_path=base_path,
+        rc=rc,
+        api_key=resolved_api_key,
+        paths=PipelinePaths(schema=schema_path, growth=growth_path, engine=engine_path),
+        stages=stages,
+        iterations=iterations,
+        excludes=exclude if exclude else None,
+        plan_feature_count=plan_count,
+        no_fallback=no_fallback,
+    )

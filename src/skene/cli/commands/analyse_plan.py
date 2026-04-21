@@ -1,15 +1,22 @@
 """Promote growth opportunities into concrete engine.yaml features."""
 
-import asyncio
 from pathlib import Path
 
 import typer
-from pydantic import SecretStr
-from rich.panel import Panel
 
-from skene.analyzers.plan_engine import DEFAULT_FEATURE_COUNT, plan_engine_from_manifest
-from skene.cli.app import app, resolve_cli_config
-from skene.output import console, error, success, warning
+from skene.analyzers.plan_engine import DEFAULT_FEATURE_COUNT
+from skene.cli._journey_runner import (
+    PipelinePaths,
+    Stage,
+    execute_pipeline,
+    render_kickoff_panel,
+    require_llm_credentials,
+    resolve_artifact_path,
+    resolve_base_path,
+    resolve_cli_config,
+)
+from skene.cli.app import app
+from skene.output import error
 
 
 @app.command(name="analyse-plan")
@@ -40,10 +47,11 @@ def analyse_plan_cmd(
         "--output",
         help="Output path for engine.yaml (merged with existing content by key)",
     ),
-    count: int = typer.Option(
+    plan_count: int = typer.Option(
         DEFAULT_FEATURE_COUNT,
-        "--count",
+        "--plan-count",
         "-n",
+        "--count",
         min=1,
         max=10,
         help="Number of growth features to promote from the manifest",
@@ -94,11 +102,12 @@ def analyse_plan_cmd(
 
     Reads the schema-driven growth manifest produced by
     ``analyse-growth-from-schema`` plus the introspected ``schema.yaml``, then
-    asks the LLM to turn the top ``--count`` (default 3) growth opportunities
-    into fully-specified features — ``source``, ``subject_state_analysis`` and
-    an optional ``action`` — and merges them into ``skene/engine.yaml`` by key.
-    The same run writes ``new-features.yaml`` beside the engine file: a JSON
-    array of only the features planned in that invocation.
+    asks the LLM to turn the top ``--plan-count`` (default 3) growth
+    opportunities into fully-specified features — ``source``,
+    ``subject_state_analysis`` and an optional ``action`` — and merges them
+    into ``skene/engine.yaml`` by key. The same run writes
+    ``new-features.yaml`` beside the engine file: a JSON array of only the
+    features planned in that invocation.
 
     Examples:
 
@@ -108,38 +117,25 @@ def analyse_plan_cmd(
 
         skene analyse-plan --manifest ./skene/growth-manifest.json --schema ./skene/schema.yaml
     """
-    base_path = (path if path is not None else Path(".")).resolve()
-    if not base_path.exists():
-        error(f"Path does not exist: {base_path}")
-        raise typer.Exit(1)
-    if not base_path.is_dir():
-        error(f"Path is not a directory: {base_path}")
-        raise typer.Exit(1)
+    base_path = resolve_base_path(path)
 
-    def _resolve(p: Path) -> Path:
-        return p if p.is_absolute() else (Path.cwd() / p).resolve()
-
-    resolved_manifest = _resolve(manifest)
-    if not resolved_manifest.exists():
+    schema_path = resolve_artifact_path(schema, "schema.yaml")
+    if not schema_path.exists():
         error(
-            f"Growth manifest not found: {resolved_manifest}\n"
-            "Run 'skene analyse-growth-from-schema' first, or pass --manifest <path>."
-        )
-        raise typer.Exit(1)
-
-    resolved_schema = _resolve(schema)
-    if not resolved_schema.exists():
-        error(
-            f"Schema file not found: {resolved_schema}\n"
+            f"Schema file not found: {schema_path}\n"
             "Run 'skene analyse-journey' first, or pass --schema <path>."
         )
         raise typer.Exit(1)
 
-    resolved_output = _resolve(output)
-    if resolved_output.exists() and resolved_output.is_dir():
-        resolved_output = (resolved_output / "engine.yaml").resolve()
-    elif not resolved_output.suffix:
-        resolved_output = (resolved_output / "engine.yaml").resolve()
+    manifest_path = resolve_artifact_path(manifest, "growth-manifest.json")
+    if not manifest_path.exists():
+        error(
+            f"Growth manifest not found: {manifest_path}\n"
+            "Run 'skene analyse-growth-from-schema' first, or pass --manifest <path>."
+        )
+        raise typer.Exit(1)
+
+    engine_path = resolve_artifact_path(output, "engine.yaml")
 
     rc = resolve_cli_config(
         api_key=api_key,
@@ -149,65 +145,26 @@ def analyse_plan_cmd(
         quiet=quiet,
         debug=debug,
     )
+    resolved_api_key = require_llm_credentials(rc, "analyse-plan")
 
-    if not rc.api_key and not rc.is_local:
-        error(
-            "An API key is required for analyse-plan. "
-            "Set --api-key, SKENE_API_KEY env var, or add api_key to .skene.config."
-        )
-        raise typer.Exit(1)
-
-    resolved_api_key = rc.api_key or rc.provider
-
-    console.print(
-        Panel.fit(
-            "[bold blue]Planning engine.yaml features from growth manifest[/bold blue]\n"
-            f"Path: {base_path}\n"
-            f"Manifest: {resolved_manifest}\n"
-            f"Schema: {resolved_schema}\n"
-            f"Provider: {rc.provider}\n"
-            f"Model: {rc.model}\n"
-            f"Features to plan: {count}\n"
-            f"Output: {resolved_output}",
-            title="skene · analyse-plan",
-        )
+    paths = PipelinePaths(schema=schema_path, growth=manifest_path, engine=engine_path)
+    render_kickoff_panel(
+        title="skene · analyse-plan",
+        base_path=base_path,
+        rc=rc,
+        paths=paths,
+        stages=[Stage.PLAN],
+        extra_lines=[f"[bold]Features[/bold]  {plan_count}"],
     )
 
-    from skene.llm import create_llm_client
-
-    async def execute():
-        llm = create_llm_client(
-            rc.provider,
-            SecretStr(resolved_api_key),
-            rc.model,
-            base_url=rc.base_url,
-            debug=rc.debug,
-            no_fallback=no_fallback,
-        )
-
-        state = await plan_engine_from_manifest(
-            manifest_path=resolved_manifest,
-            schema_path=resolved_schema,
-            llm=llm,
-            engine_path=resolved_output,
-            project_root=base_path,
-            feature_count=count,
-        )
-
-        if not state.selected_opportunities:
-            warning("No growth opportunities were available in the manifest.")
-            return
-
-        added = len(state.delta.features) if state.delta else 0
-        total = len(state.merged.features) if state.merged else 0
-        sidecar = resolved_output.parent / "new-features.yaml"
-        if added == 0:
-            warning("No new features were produced; engine.yaml left unchanged.")
-        success(
-            f"engine.yaml saved to: {resolved_output} "
-            f"({added} feature(s) planned, {total} total after merge)"
-        )
-        if state.delta is not None:
-            success(f"Latest plan snapshot: {sidecar}")
-
-    asyncio.run(execute())
+    execute_pipeline(
+        base_path=base_path,
+        rc=rc,
+        api_key=resolved_api_key,
+        paths=paths,
+        stages=[Stage.PLAN],
+        iterations=0,
+        excludes=None,
+        plan_feature_count=plan_count,
+        no_fallback=no_fallback,
+    )

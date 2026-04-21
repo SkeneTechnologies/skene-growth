@@ -9,12 +9,12 @@ Pipeline:
 1. Load schema YAML (tables, columns, relationships, source_files).
 2. LLM hypothesises growth features grounded on schema anchors (no code yet).
 3. Targeted ripgrep in the codebase using terms derived from the schema.
-4. LLM grounds each hypothesis into a :class:`GrowthFeature` with real
-   ``file_path`` and confidence from the snippets.
+4. LLM grounds each hypothesis into a ``GrowthFeature`` with real
+   confidence from the snippets.
 5. Light prime over README/package manifests fills ``tech_stack`` and
    ``industry``; a final LLM pass adds ``revenue_leakage`` and
    ``growth_opportunities``.
-6. Validate as :class:`GrowthManifest` and write JSON.
+6. Write the resulting manifest JSON.
 """
 
 from __future__ import annotations
@@ -28,12 +28,13 @@ from typing import Any
 
 import yaml
 
-from skene.analyzers.schema_journey import (
+from skene.analyzers._journey_common import (
     DEFAULT_EXCLUDES,
-    _join_blocks,
-    _parse_json,
-    _read_file_snippet,
+    discover_files_by_globs,
     grep_for_keyword,
+    join_blocks,
+    parse_json,
+    read_file_snippet,
 )
 from skene.llm import LLMClient
 from skene.output import status, warning
@@ -221,10 +222,10 @@ class GrowthState:
     def to_manifest_dict(self) -> dict[str, Any]:
         """Return the growth-manifest.json payload as a plain dict.
 
-        Note: the schema-driven flow intentionally omits ``file_path``,
-        ``entry_point``, and ``growth_pillars`` from features and
-        opportunities, so the result does *not* validate against the stricter
-        :class:`skene.manifest.schema.GrowthManifest` model.
+        The schema-driven flow omits ``file_path``, ``entry_point``, and
+        ``growth_pillars`` on features; all three are now optional on the
+        canonical :class:`skene.manifest.schema.GrowthManifest` model, so this
+        payload validates against it.
         """
         return {
             "version": "1.0",
@@ -324,7 +325,7 @@ async def _infer_hypotheses(llm: LLMClient, state: GrowthState) -> None:
         warning(f"Hypothesis LLM call failed: {e}")
         return
 
-    parsed = _parse_json(response)
+    parsed = parse_json(response)
     if parsed is None:
         warning("Could not parse hypothesis response")
         return
@@ -345,13 +346,12 @@ async def _infer_hypotheses(llm: LLMClient, state: GrowthState) -> None:
         ]
         if not name or not terms or not evidence:
             continue
+        priority = h.get("priority") if h.get("priority") in ("high", "medium", "low") else "medium"
         valid.append(
             {
                 "feature_name": name,
                 "detected_intent": (h.get("detected_intent") or "").strip(),
-                "priority": h.get("priority")
-                if h.get("priority") in ("high", "medium", "low")
-                else "medium",
+                "priority": priority,
                 "schema_evidence": evidence,
                 "search_terms": terms[:MAX_TERMS_PER_HYPOTHESIS],
             }
@@ -399,13 +399,16 @@ def _schema_excerpt_for_hypothesis(
         for part in ev.replace("->", " ").split():
             token = part.strip(".,;:()").lower()
             if "." in token:
-                referenced.add(token.split(".")[0] + "." + token.split(".")[1])
+                schema_part, _, table_part = token.partition(".")
+                referenced.add(f"{schema_part}.{table_part.split('.')[0]}")
 
     tables = schema.get("tables", [])
     picked: list[dict[str, Any]] = []
     for t in tables:
         tname = str(t.get("name", "")).lower()
-        if tname in referenced or any(tname == r.split(".")[1] for r in referenced if "." in r):
+        if tname in referenced or any(
+            tname == r.split(".")[1] for r in referenced if "." in r
+        ):
             picked.append(t)
     if not picked:
         picked = tables[:4]
@@ -437,7 +440,7 @@ async def _ground_hypotheses(
         prompt = GROUND_PROMPT.format(
             schema_excerpt=_schema_excerpt_for_hypothesis(hyp, state.schema),
             hypothesis=json.dumps(hyp, indent=2),
-            snippets=_join_blocks(blocks, max_chars=MAX_SNIPPET_CHARS),
+            snippets=join_blocks(blocks, max_chars=MAX_SNIPPET_CHARS),
         )
 
         try:
@@ -446,7 +449,7 @@ async def _ground_hypotheses(
             warning(f"Grounding LLM call failed for {hyp['feature_name']!r}: {e}")
             continue
 
-        parsed = _parse_json(response)
+        parsed = parse_json(response)
         if parsed is None:
             warning(f"Could not parse grounding response for {hyp['feature_name']!r}")
             continue
@@ -478,7 +481,9 @@ def _normalise_feature(
         "detected_intent": intent,
         "confidence_score": score,
         "growth_potential": [
-            s.strip() for s in (feat.get("growth_potential") or []) if isinstance(s, str) and s.strip()
+            s.strip()
+            for s in (feat.get("growth_potential") or [])
+            if isinstance(s, str) and s.strip()
         ],
     }
 
@@ -501,41 +506,21 @@ def _merge_feature(state: GrowthState, feature: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _discover_prime_files(path: Path, excludes: list[str]) -> list[Path]:
-    found: list[Path] = []
-    seen: set[Path] = set()
-    lowered_excludes = {ex.lower() for ex in excludes}
-    for pattern in PRIME_GLOBS:
-        for match in path.glob(pattern):
-            if not match.is_file() or match in seen:
-                continue
-            parts = {p.lower() for p in match.parts}
-            if parts & lowered_excludes:
-                continue
-            seen.add(match)
-            found.append(match)
-            if len(found) >= PRIME_MAX_FILES:
-                return found
-    return found
-
-
 async def _enrich_manifest(
     llm: LLMClient,
     path: Path,
     state: GrowthState,
     excludes: list[str],
 ) -> None:
-    files = await asyncio.to_thread(_discover_prime_files, path, excludes)
+    files = await asyncio.to_thread(
+        discover_files_by_globs, path, PRIME_GLOBS, excludes, PRIME_MAX_FILES
+    )
     if not files:
         status("Enrichment: no README / package manifest files found")
         docs = ""
     else:
-        parts: list[str] = []
-        for f in files:
-            snippet = _read_file_snippet(f, path, PRIME_MAX_CHARS_PER_FILE)
-            if snippet:
-                parts.append(snippet)
-        docs = "\n\n".join(parts)
+        parts = [read_file_snippet(f, path, PRIME_MAX_CHARS_PER_FILE) for f in files]
+        docs = "\n\n".join(p for p in parts if p)
         status(f"Enrichment: reading {len(files)} doc/config file(s)")
 
     table_names = ", ".join(t["name"] for t in state.schema.get("tables", [])[:50]) or "(none)"
@@ -552,7 +537,7 @@ async def _enrich_manifest(
         warning(f"Enrichment LLM call failed: {e}")
         return
 
-    parsed = _parse_json(response)
+    parsed = parse_json(response)
     if parsed is None:
         warning("Could not parse enrichment response")
         return

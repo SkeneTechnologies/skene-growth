@@ -1,16 +1,22 @@
 """Derive a growth manifest from an existing schema + codebase evidence."""
 
-import asyncio
 from pathlib import Path
 
 import typer
-from pydantic import SecretStr
-from rich.panel import Panel
 
-from skene.analyzers.growth_from_schema import analyse_growth_from_schema
-from skene.analyzers.plan_engine import DEFAULT_FEATURE_COUNT, plan_engine_from_manifest
-from skene.cli.app import app, resolve_cli_config
-from skene.output import console, error, success, warning
+from skene.analyzers.plan_engine import DEFAULT_FEATURE_COUNT
+from skene.cli._journey_runner import (
+    PipelinePaths,
+    Stage,
+    execute_pipeline,
+    render_kickoff_panel,
+    require_llm_credentials,
+    resolve_artifact_path,
+    resolve_base_path,
+    resolve_cli_config,
+)
+from skene.cli.app import app
+from skene.output import error
 
 
 @app.command(name="analyse-growth-from-schema")
@@ -84,15 +90,12 @@ def analyse_growth_from_schema_cmd(
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
-        help="Do not run analyse-plan after the growth manifest is written",
+        help="Stop after the growth manifest; do not write engine.yaml",
     ),
     plan_output: Path | None = typer.Option(
         None,
         "--plan-output",
-        help=(
-            "Path for engine.yaml after planning "
-            "(default: same directory as schema, filename engine.yaml)"
-        ),
+        help="Path for engine.yaml (default: next to schema)",
     ),
     plan_count: int = typer.Option(
         DEFAULT_FEATURE_COUNT,
@@ -108,11 +111,8 @@ def analyse_growth_from_schema_cmd(
     Uses the tables, columns, and relationships in ``schema.yaml`` to hypothesise
     which growth features (invites, subscriptions, onboarding, analytics, etc.)
     the product supports, then searches the codebase with ripgrep for grounded
-    evidence and assembles a standard ``growth-manifest.json``.
-
-    ``skene analyse-journey`` runs this step automatically after writing the
-    schema (unless ``--skip-growth-manifest``). You can also invoke this command
-    alone, or point ``--schema`` at an existing schema YAML file.
+    evidence and assembles a standard ``growth-manifest.json``. Unless
+    ``--skip-plan`` is set, ``analyse-plan`` runs immediately afterward.
 
     Examples:
 
@@ -120,23 +120,24 @@ def analyse_growth_from_schema_cmd(
 
         skene analyse-growth-from-schema ./my-project -s ./skene/schema.yaml
 
-        skene analyse-growth-from-schema --provider anthropic --model claude-sonnet-4-5
+        skene analyse-growth-from-schema --provider anthropic --model claude-sonnet-4.6
     """
-    base_path = (path if path is not None else Path(".")).resolve()
-    if not base_path.exists():
-        error(f"Path does not exist: {base_path}")
-        raise typer.Exit(1)
-    if not base_path.is_dir():
-        error(f"Path is not a directory: {base_path}")
-        raise typer.Exit(1)
+    base_path = resolve_base_path(path)
 
-    resolved_schema = schema if schema.is_absolute() else (Path.cwd() / schema).resolve()
-    if not resolved_schema.exists():
+    schema_path = resolve_artifact_path(schema, "schema.yaml")
+    if not schema_path.exists():
         error(
-            f"Schema file not found: {resolved_schema}\n"
+            f"Schema file not found: {schema_path}\n"
             "Run 'skene analyse-journey' first, or pass --schema <path>."
         )
         raise typer.Exit(1)
+
+    growth_path = resolve_artifact_path(output, "growth-manifest.json")
+    engine_path = (
+        resolve_artifact_path(plan_output, "engine.yaml")
+        if plan_output is not None
+        else schema_path.parent / "engine.yaml"
+    )
 
     rc = resolve_cli_config(
         api_key=api_key,
@@ -146,103 +147,29 @@ def analyse_growth_from_schema_cmd(
         quiet=quiet,
         debug=debug,
     )
+    resolved_api_key = require_llm_credentials(rc, "analyse-growth-from-schema")
 
-    if not rc.api_key and not rc.is_local:
-        error(
-            "An API key is required for analyse-growth-from-schema. "
-            "Set --api-key, SKENE_API_KEY env var, or add api_key to .skene.config."
-        )
-        raise typer.Exit(1)
+    stages: list[Stage] = [Stage.GROWTH]
+    if not skip_plan:
+        stages.append(Stage.PLAN)
 
-    resolved_api_key = rc.api_key or rc.provider
-
-    resolved_output = output if output.is_absolute() else (Path.cwd() / output).resolve()
-    if resolved_output.exists() and resolved_output.is_dir():
-        resolved_output = (resolved_output / "growth-manifest.json").resolve()
-    elif not resolved_output.suffix:
-        resolved_output = (resolved_output / "growth-manifest.json").resolve()
-    else:
-        resolved_output = resolved_output.resolve()
-
-    console.print(
-        Panel.fit(
-            "[bold blue]Deriving growth manifest from schema[/bold blue]\n"
-            f"Path: {base_path}\n"
-            f"Schema: {resolved_schema}\n"
-            f"Provider: {rc.provider}\n"
-            f"Model: {rc.model}\n"
-            f"Output: {resolved_output}\n"
-            f"Then: {'(plan skipped)' if skip_plan else 'engine.yaml plan (analyse-plan)'}",
-            title="skene · analyse-growth-from-schema",
-        )
+    paths = PipelinePaths(schema=schema_path, growth=growth_path, engine=engine_path)
+    render_kickoff_panel(
+        title="skene · analyse-growth-from-schema",
+        base_path=base_path,
+        rc=rc,
+        paths=paths,
+        stages=stages,
     )
 
-    from skene.llm import create_llm_client
-
-    async def execute():
-        llm = create_llm_client(
-            rc.provider,
-            SecretStr(resolved_api_key),
-            rc.model,
-            base_url=rc.base_url,
-            debug=rc.debug,
-            no_fallback=no_fallback,
-        )
-
-        state = await analyse_growth_from_schema(
-            path=base_path,
-            schema_path=resolved_schema,
-            llm=llm,
-            output_path=resolved_output,
-            excludes=exclude if exclude else None,
-        )
-
-        if not state.features:
-            warning("No current growth features were grounded in the codebase.")
-        success(
-            f"Manifest saved to: {resolved_output} "
-            f"({len(state.features)} feature(s), {len(state.growth_opportunities)} opportunity(ies))"
-        )
-
-        if skip_plan:
-            return
-
-        if not state.growth_opportunities:
-            warning("Skipping analyse-plan: manifest has no growth_opportunities.")
-            return
-
-        resolved_plan = (
-            plan_output
-            if plan_output is not None
-            else (resolved_schema.parent / "engine.yaml")
-        )
-        if not resolved_plan.is_absolute():
-            resolved_plan = (Path.cwd() / resolved_plan).resolve()
-        if resolved_plan.exists() and resolved_plan.is_dir():
-            resolved_plan = (resolved_plan / "engine.yaml").resolve()
-        elif not resolved_plan.suffix:
-            resolved_plan = (resolved_plan / "engine.yaml").resolve()
-        else:
-            resolved_plan = resolved_plan.resolve()
-
-        try:
-            pstate = await plan_engine_from_manifest(
-                manifest_path=resolved_output,
-                schema_path=resolved_schema,
-                llm=llm,
-                engine_path=resolved_plan,
-                project_root=base_path,
-                feature_count=plan_count,
-            )
-            added = len(pstate.delta.features) if pstate.delta else 0
-            total = len(pstate.merged.features) if pstate.merged else 0
-            if added == 0:
-                warning("analyse-plan produced no new features; engine.yaml left unchanged.")
-            success(
-                f"engine.yaml saved to: {resolved_plan} "
-                f"({added} feature(s) planned, {total} total after merge)"
-            )
-        except Exception as e:
-            warning(f"analyse-plan step failed (manifest was saved): {e}")
-
-    asyncio.run(execute())
+    execute_pipeline(
+        base_path=base_path,
+        rc=rc,
+        api_key=resolved_api_key,
+        paths=paths,
+        stages=stages,
+        iterations=0,
+        excludes=exclude if exclude else None,
+        plan_feature_count=plan_count,
+        no_fallback=no_fallback,
+    )

@@ -51,8 +51,13 @@ class GrowthFeature(BaseModel):
     feature_name: str = Field(
         description="Name of the feature or growth area",
     )
-    file_path: str = Field(
-        description="Primary file path where this feature is implemented",
+    file_path: str | None = Field(
+        default=None,
+        description=(
+            "Primary file path where this feature is implemented. "
+            "Optional because the schema-driven flow derives features from "
+            "grouped evidence rather than a single file."
+        ),
     )
     detected_intent: str = Field(
         description="Detected purpose or intent of the feature",

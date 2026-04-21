@@ -26,6 +26,11 @@ from typing import Any
 
 import yaml
 
+from skene.analyzers._journey_common import (
+    is_skene_growth_table,
+    relationship_targets_skene_growth,
+    source_targets_skene_growth,
+)
 from skene.engine.storage import (
     EngineDocument,
     load_engine_document,
@@ -42,31 +47,10 @@ DEFAULT_FEATURE_COUNT = 3
 _PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
-def _is_skene_growth_table(name: str) -> bool:
-    """True when a ``schema.table`` string belongs to Skene's own growth plane."""
-    n = (name or "").lower()
-    if not n:
-        return False
-    schema, _, table = n.partition(".")
-    if schema == "skene_growth" or schema.startswith("skene_growth_"):
-        return True
-    return table.startswith("skene_growth")
-
-
-def _source_targets_skene_growth(source: str) -> bool:
-    """True when an engine feature ``source`` (``schema.table.op``) is Skene-managed."""
-    parts = (source or "").split(".")
-    if len(parts) < 2:
-        return False
-    return _is_skene_growth_table(".".join(parts[:2]))
-
-
 def _drop_skene_growth_entries(delta: EngineDocument) -> EngineDocument:
     """Strip any subjects/features that reference Skene-managed tables."""
-    subjects = [s for s in delta.subjects if not _is_skene_growth_table(s.table)]
-    features = [
-        f for f in delta.features if not _source_targets_skene_growth(f.source)
-    ]
+    subjects = [s for s in delta.subjects if not is_skene_growth_table(s.table)]
+    features = [f for f in delta.features if not source_targets_skene_growth(f.source)]
     return EngineDocument(version=delta.version, subjects=subjects, features=features)
 
 
@@ -77,22 +61,14 @@ def _filter_skene_growth_from_schema(schema: dict[str, Any]) -> dict[str, Any]:
     for t in tables:
         if not isinstance(t, dict):
             continue
-        name = (t.get("name") or "").strip()
-        if _is_skene_growth_table(name):
+        if is_skene_growth_table((t.get("name") or "").strip()):
             continue
         clean = dict(t)
-        rels = []
-        for rel in clean.get("relationships") or []:
-            if not isinstance(rel, dict):
-                continue
-            target = rel.get("to")
-            if isinstance(target, str):
-                parts = target.split(".")
-                table_ref = ".".join(parts[:-1]) if len(parts) >= 3 else parts[0]
-                if _is_skene_growth_table(table_ref):
-                    continue
-            rels.append(rel)
-        clean["relationships"] = rels
+        clean["relationships"] = [
+            rel
+            for rel in (clean.get("relationships") or [])
+            if isinstance(rel, dict) and not relationship_targets_skene_growth(rel)
+        ]
         kept.append(clean)
     return {**schema, "tables": kept}
 
