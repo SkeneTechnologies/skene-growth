@@ -160,6 +160,29 @@ def push_to_upstream(
         )
         if resp.status_code == 201:
             return {"ok": True, **resp.json()}
+        # Upstream may return 200 when the package is identical to what is already
+        # stored — not an error, just nothing to write.
+        if resp.status_code == 200:
+            try:
+                data = resp.json()
+            except Exception:
+                return {
+                    "ok": False,
+                    "error": "server",
+                    "message": "Upstream returned 200 with a non-JSON body.",
+                }
+            if isinstance(data, dict) and data.get("status") == "noop":
+                return {**data, "ok": True}
+            return {
+                "ok": False,
+                "error": "server",
+                "message": (
+                    f"Upstream returned 200 (expected 201 for a new deploy). "
+                    f"Response: {data!r}"
+                    if isinstance(data, dict)
+                    else f"Upstream returned 200 with unexpected JSON: {data!r}"
+                ),
+            }
         if resp.status_code in (401, 403):
             return {
                 "ok": False,

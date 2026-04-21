@@ -133,6 +133,32 @@ class TestPushToUpstream:
         assert "feature_registry_json" in payload["package"]
 
     @patch("skene.growth_loops.upstream.httpx.post")
+    def test_push_200_noop_succeeds(self, mock_post, tmp_path: Path):
+        (tmp_path / "skene").mkdir(parents=True)
+        (tmp_path / "skene" / "engine.yaml").write_text("version: 1\nsubjects: []\nfeatures: []\n")
+        (tmp_path / "supabase" / "migrations").mkdir(parents=True)
+        (tmp_path / "supabase" / "migrations" / "20260304151537_skene_triggers.sql").write_text(
+            "CREATE TRIGGER"
+        )
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {
+            "status": "noop",
+            "updated_paths": [],
+            "push_id": None,
+        }
+
+        result = push_to_upstream(
+            tmp_path,
+            "https://skene.ai/workspace/test",
+            "sk_token",
+            ["api_keys.insert"],
+            loops_count=1,
+        )
+        assert result["ok"] is True
+        assert result["status"] == "noop"
+        assert result["updated_paths"] == []
+
+    @patch("skene.growth_loops.upstream.httpx.post")
     def test_push_401_returns_auth_error(self, mock_post, tmp_path: Path):
         mock_post.return_value.status_code = 401
         result = push_to_upstream(tmp_path, "https://x.com/workspace/w", "bad", [], 0)
