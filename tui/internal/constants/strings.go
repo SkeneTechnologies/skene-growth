@@ -20,7 +20,7 @@ const (
 const (
 	DashboardTitle       = "Skene Analysis"
 	DashboardSubtitle    = "Your codebase, analyzed."
-	DashboardFilesHeader = "Skene context files"
+	DashboardFilesHeader = "Context files"
 	DashboardFilesDesc   = "Persisted outputs from the last analysis run. Press n to see how to regenerate any file."
 	DashboardMissingLabel = "Missing"
 	DashboardBackLabel   = "Dashboard"

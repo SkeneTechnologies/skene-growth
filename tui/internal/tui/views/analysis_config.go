@@ -146,11 +146,10 @@ func (v *AnalysisConfigView) renderModeSelector(width int) string {
 		var name, desc string
 		if isSelected {
 			name = styles.ListItemSelected.Render(mode.name)
-			desc = styles.AccentStyle().PaddingLeft(2).Width(descWidth).Render(mode.desc)
 		} else {
 			name = styles.ListItem.Render(mode.name)
-			desc = lipgloss.NewStyle().Foreground(styles.MutedColor).PaddingLeft(2).Width(descWidth).Render(mode.desc)
 		}
+		desc = lipgloss.NewStyle().Foreground(styles.MutedColor).PaddingLeft(2).Width(descWidth).Render(mode.desc)
 
 		items = append(items, name+"\n"+desc)
 

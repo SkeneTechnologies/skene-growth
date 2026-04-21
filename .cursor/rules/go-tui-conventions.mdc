@@ -1,0 +1,78 @@
+---
+description: Go TUI architecture conventions for the Skene Bubble Tea wizard application
+globs: tui/**/*.go
+alwaysApply: false
+---
+
+# Go TUI Conventions
+
+## Architecture
+
+The TUI is a finite-state wizard built with Bubble Tea. One `App` struct in `internal/tui/app.go` owns the state machine.
+
+- **State machine**: `AppState` enum in `app.go` — add new states here
+- **Views**: One file per screen in `internal/tui/views/` — each view is a struct with `Render() string`, `SetSize(w, h int)`, and `GetHelpItems()`
+- **Components**: Reusable UI pieces in `internal/tui/components/`
+- **Services**: Business logic in `internal/services/` — never import `tui` packages from services
+- **Constants**: All user-facing strings, labels, tab names, and phase names go in `internal/constants/strings.go`. File names, URLs, and config values go in `internal/constants/constants.go`
+
+## Patterns
+
+### Adding a new wizard state
+1. Add `StateXxx` to the `AppState` enum in `app.go`
+2. Add `xxxView *views.XxxView` field to `App`
+3. Add `handleXxxKeys()` method
+4. Add case in `handleKeyPress`, `View`, `getCurrentHelpItems`, `updateViewSizes`
+5. Create `internal/tui/views/xxx.go` with the view struct
+
+### View struct pattern
+```go
+type XxxView struct {
+    width  int
+    height int
+    header *components.WizardHeader
+}
+
+func (v *XxxView) SetSize(width, height int) { ... }
+func (v *XxxView) Render() string { ... }
+func (v *XxxView) GetHelpItems() []components.HelpItem { ... }
+```
+
+### Async operations
+- Return `tea.Cmd` closures that produce `tea.Msg` types
+- Define custom message types at the top of `app.go`
+- Use `a.program.Send()` for background goroutine → TUI communication
+- Always support cancellation via `context.WithCancel`
+
+## Style
+- Use Lip Gloss styles from `internal/tui/styles/` — never hardcode colors
+- Adaptive colors via `styles.Init()` for light/dark terminal support
+- Footer help bars use `components.FooterHelp()` or `components.WizardResultsHelp()`
+
+### List item styling — mandatory
+Every selectable list **must** follow the provider list pattern (`views/provider.go` `renderProviderList()`):
+
+1. **Selected name**: `styles.ListItemSelected.Render(name)` — accent color with left border
+2. **Unselected name**: `styles.ListItem.Render(name)` — plain text, no `.Bold(true)`
+3. **Description always muted**: `lipgloss.NewStyle().Foreground(styles.MutedColor).PaddingLeft(2).Width(descWidth).Render(desc)` — never use `AccentStyle()` for descriptions
+4. **Spacing**: empty line between items, never after the last
+
+```go
+for i, item := range items {
+    var name string
+    if isSelected {
+        name = styles.ListItemSelected.Render(item.Name)
+    } else {
+        name = styles.ListItem.Render(item.Name)
+    }
+    desc := lipgloss.NewStyle().Foreground(styles.MutedColor).PaddingLeft(2).Width(descWidth).Render(item.Description)
+
+    list = append(list, name+"\n"+desc)
+
+    if i < len(items)-1 {
+        list = append(list, "")
+    }
+}
+```
+
+**Do not** use `AccentStyle()` or `.Bold(true)` for list descriptions or unselected names. The accent color is reserved for the selected item's name via `ListItemSelected`.
