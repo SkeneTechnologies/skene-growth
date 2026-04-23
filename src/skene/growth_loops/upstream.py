@@ -68,7 +68,7 @@ def build_package(
     project_root: Path,
     engine_path: Path | None = None,
     *,
-    output_dir: str = "./skene-context",
+    output_dir: str = "./skene",
 ) -> dict[str, Any]:
     """
     Build a single package for upstream: engine YAML, feature registry JSON, trigger SQL.
@@ -107,7 +107,7 @@ def build_push_manifest(
     loops_count: int = 1,
     engine_path: Path | None = None,
     *,
-    output_dir: str = "./skene-context",
+    output_dir: str = "./skene",
 ) -> dict[str, Any]:
     """Build push manifest with package checksum."""
     package = build_package(project_root, engine_path=engine_path, output_dir=output_dir)
@@ -130,7 +130,7 @@ def push_to_upstream(
     loops_count: int = 1,
     engine_path: Path | None = None,
     *,
-    output_dir: str = "./skene-context",
+    output_dir: str = "./skene",
 ) -> dict[str, Any]:
     """
     Push a single package (engine.yaml, feature-registry.json, trigger.sql) to upstream API.
@@ -160,6 +160,28 @@ def push_to_upstream(
         )
         if resp.status_code == 201:
             return {"ok": True, **resp.json()}
+        # Upstream may return 200 when the package is identical to what is already
+        # stored — not an error, just nothing to write.
+        if resp.status_code == 200:
+            try:
+                data = resp.json()
+            except Exception:
+                return {
+                    "ok": False,
+                    "error": "server",
+                    "message": "Upstream returned 200 with a non-JSON body.",
+                }
+            if isinstance(data, dict) and data.get("status") == "noop":
+                return {**data, "ok": True}
+            return {
+                "ok": False,
+                "error": "server",
+                "message": (
+                    f"Upstream returned 200 (expected 201 for a new deploy). Response: {data!r}"
+                    if isinstance(data, dict)
+                    else f"Upstream returned 200 with unexpected JSON: {data!r}"
+                ),
+            }
         if resp.status_code in (401, 403):
             return {
                 "ok": False,

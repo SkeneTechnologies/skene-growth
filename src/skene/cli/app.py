@@ -23,6 +23,9 @@ from skene.output import apply_verbosity, console, error
 
 _COMMAND_ORDER = [
     "analyze",
+    "analyse-journey",
+    "analyse-growth-from-schema",
+    "analyse-plan",
     "plan",
     "build",
     "status",
@@ -261,6 +264,9 @@ def skene_growth_entry():
 # ---------------------------------------------------------------------------
 
 from skene.cli.commands import (  # noqa: E402, F401
+    analyse_growth_from_schema,
+    analyse_journey,
+    analyse_plan,
     analyze,
     build,
     config_cmd,

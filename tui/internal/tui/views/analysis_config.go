@@ -8,7 +8,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// AnalysisConfigView shows a summary and a Run Analysis button
+// AnalysisMode represents the selected analysis type.
+type AnalysisMode int
+
+const (
+	ModeSimple   AnalysisMode = iota
+	ModeAdvanced
+)
+
+// AnalysisConfigView shows a mode selector, summary, and Run Analysis button.
 type AnalysisConfigView struct {
 	width        int
 	height       int
@@ -16,31 +24,57 @@ type AnalysisConfigView struct {
 	providerName string
 	modelName    string
 	projectDir   string
+	selectedMode AnalysisMode
 }
 
-// NewAnalysisConfigView creates a new analysis configuration view
+// NewAnalysisConfigView creates a new analysis configuration view.
 func NewAnalysisConfigView(provider, model, projectDir string) *AnalysisConfigView {
 	return &AnalysisConfigView{
 		providerName: provider,
 		modelName:    model,
 		projectDir:   projectDir,
-		header:       components.NewWizardHeader(3, constants.StepNameAnalysisConfig),
+		selectedMode: ModeSimple,
+		header:       components.NewTitleHeader(constants.StepNameAnalysisConfig),
 	}
 }
 
-// SetSize updates dimensions
+// SetSize updates dimensions.
 func (v *AnalysisConfigView) SetSize(width, height int) {
 	v.width = width
 	v.height = height
 	v.header.SetWidth(width)
 }
 
-// GetUseGrowth always returns true (only package)
+// HandleUp moves mode selection up.
+func (v *AnalysisConfigView) HandleUp() {
+	if v.selectedMode > ModeSimple {
+		v.selectedMode--
+	}
+}
+
+// HandleDown moves mode selection down.
+func (v *AnalysisConfigView) HandleDown() {
+	if v.selectedMode < ModeAdvanced {
+		v.selectedMode++
+	}
+}
+
+// GetAnalysisMode returns the currently selected analysis mode.
+func (v *AnalysisConfigView) GetAnalysisMode() AnalysisMode {
+	return v.selectedMode
+}
+
+// IsSimpleMode returns true if simple analysis is selected.
+func (v *AnalysisConfigView) IsSimpleMode() bool {
+	return v.selectedMode == ModeSimple
+}
+
+// GetUseGrowth always returns true (only package).
 func (v *AnalysisConfigView) GetUseGrowth() bool {
 	return true
 }
 
-// Render the analysis config view
+// Render the analysis config view.
 func (v *AnalysisConfigView) Render() string {
 	sectionWidth := v.width - 20
 	if sectionWidth < 60 {
@@ -52,6 +86,7 @@ func (v *AnalysisConfigView) Render() string {
 
 	wizHeader := lipgloss.NewStyle().Width(sectionWidth).Render(v.header.Render())
 
+	modeSection := v.renderModeSelector(sectionWidth)
 	summarySection := v.renderSummary(sectionWidth)
 
 	button := lipgloss.NewStyle().
@@ -63,6 +98,7 @@ func (v *AnalysisConfigView) Render() string {
 		Width(v.width).
 		Align(lipgloss.Center).
 		Render(components.FooterHelp([]components.HelpItem{
+			{Key: constants.HelpKeyUpDown, Desc: constants.HelpDescSelect},
 			{Key: constants.HelpKeyEnter, Desc: constants.HelpDescStartAnalysis},
 			{Key: constants.HelpKeyEsc, Desc: constants.HelpDescGoBack},
 			{Key: constants.HelpKeyCtrlC, Desc: constants.HelpDescQuit},
@@ -71,6 +107,8 @@ func (v *AnalysisConfigView) Render() string {
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		wizHeader,
+		"",
+		modeSection,
 		"",
 		summarySection,
 		"",
@@ -88,6 +126,40 @@ func (v *AnalysisConfigView) Render() string {
 	)
 
 	return centered + "\n" + footer
+}
+
+func (v *AnalysisConfigView) renderModeSelector(width int) string {
+	descWidth := width - 8
+
+	modes := []struct {
+		name string
+		desc string
+	}{
+		{constants.AnalysisModeSimple, constants.AnalysisModeSimpleDesc},
+		{constants.AnalysisModeAdvanced, constants.AnalysisModeAdvancedDesc},
+	}
+
+	var items []string
+	for i, mode := range modes {
+		isSelected := AnalysisMode(i) == v.selectedMode
+
+		var name, desc string
+		if isSelected {
+			name = styles.ListItemSelected.Render(mode.name)
+		} else {
+			name = styles.ListItem.Render(mode.name)
+		}
+		desc = lipgloss.NewStyle().Foreground(styles.MutedColor).PaddingLeft(2).Width(descWidth).Render(mode.desc)
+
+		items = append(items, name+"\n"+desc)
+
+		if i < len(modes)-1 {
+			items = append(items, "")
+		}
+	}
+
+	list := lipgloss.JoinVertical(lipgloss.Left, items...)
+	return styles.Box.Width(width).Render(list)
 }
 
 func (v *AnalysisConfigView) renderSummary(width int) string {
@@ -114,9 +186,10 @@ func (v *AnalysisConfigView) renderSummary(width int) string {
 	return styles.Box.Width(width).Render(content)
 }
 
-// GetHelpItems returns context-specific help
+// GetHelpItems returns context-specific help.
 func (v *AnalysisConfigView) GetHelpItems() []components.HelpItem {
 	return []components.HelpItem{
+		{Key: constants.HelpKeyUpDown, Desc: constants.HelpDescSelect},
 		{Key: constants.HelpKeyEnter, Desc: constants.HelpDescStartAnalysis},
 		{Key: constants.HelpKeyEsc, Desc: constants.HelpDescGoBack},
 		{Key: constants.HelpKeyCtrlC, Desc: constants.HelpDescQuit},

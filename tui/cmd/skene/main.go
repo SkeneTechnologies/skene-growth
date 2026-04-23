@@ -34,4 +34,6 @@ func main() {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
 	}
+
+	app.Cleanup()
 }

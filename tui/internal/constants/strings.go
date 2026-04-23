@@ -9,112 +9,128 @@ const (
 	StepNameProjectDir       = "Project Directory"
 	StepNameProjectSetup     = "Project Setup"
 	StepNameAnalysisConfig   = "Analysis Configuration"
-	StepNameAnalyzing        = "Running Skene Growth Analysis"
+	StepNameAnalyzing        = "Analysing Growth Opportunities"
+	StepNameJourneyAnalysis  = "Analysing User Journey"
+	StepNameCodebaseAnalysis = "Analysing Growth Opportunities"
 	StepNameAnalysingStepper = "Analysing"
 	StepNameResults          = "Analysis Results"
-	StepNameNextSteps        = "Next Steps"
+	StepNameNextSteps        = "Available Actions"
 	StepCounterFormat        = "Step %d of %d"
 )
 
-// Dashboard tab names
+// Dashboard view
 const (
-	TabGrowthManifest = "Growth Manifest"
-	TabGrowthTemplate = "Growth Template"
-	TabGrowthPlan     = "Growth Plan"
+	DashboardTitle        = "Skene Analysis"
+	DashboardSubtitle     = "Your codebase, analyzed."
+	DashboardFilesHeader  = "Context files"
+	DashboardFilesDesc    = "Persisted outputs from the last analysis run. Press n to see how to regenerate any file."
+	DashboardMissingLabel = "Missing"
+	DashboardBackLabel    = "Dashboard"
 )
 
-// Dashboard placeholder content
+// Dashboard file descriptions
 const (
-	PlaceholderGrowthManifest = `No growth manifest generated yet.
-
-Run the analysis to generate a growth manifest for your project.
-
-The manifest will contain:
-  - Tech stack detection results
-  - Current growth features
-  - Revenue leakage issues
-  - Growth opportunities`
-
-	PlaceholderGrowthTemplate = `No growth template generated yet.
-
-Run the analysis to generate a growth template for your project.
-
-The template will contain structured data about your
-project's growth potential and recommended strategies.`
-
-	PlaceholderGrowthPlan = `No growth plan created yet.
-
-To create a plan, navigate to Next Steps and select
-'Generate Growth Plan'.
-
-The plan will contain:
-  - Executive summary
-  - Selected growth loops
-  - Implementation roadmap
-  - Success metrics`
+	FileDescManifest     = "Detected tech stack, features, and growth opportunities."
+	FileDescTemplate     = "Actionable growth strategies for your stack."
+	FileDescPlan         = "Prioritized roadmap with implementation order."
+	FileDescSchema       = "Live schema introspected from your codebase."
+	FileDescEngine       = "User journey map and growth engine config."
+	FileDescNewFeatures  = "Feature backlog generated from the latest run."
+	FileDescCompiledYAML = "Edge function state machine for Supabase backend."
 )
 
-// Results view
+// File detail view
 const (
-	ResultsBanner    = "Skene Analysis Complete"
-	ResultsNextSteps = "Press 'n' for next steps"
+	FileDetailUpdatedFormat = "Last updated: %s"
+)
+
+// Engine visualizer
+const (
+	VisualizerStarting = "Starting engine visualizer..."
+	VisualizerURL      = "Engine visualizer running at %s"
+	VisualizerStopping = "Stopping engine visualizer..."
 )
 
 // Next steps view
 const (
-	NextStepsSuccess = "Analysis complete! What would you like to do next?"
+	NextStepsSuccess       = "Analysis complete! What would you like to do next?"
+	NextStepPushTitle      = "Deploying to Skene Cloud"
+	NextStepPushRunning    = "Running: uvx skene push ..."
+	NextStepPushNeedsLogin = "You need to sign in to Skene before deploying. Opening browser..."
 )
 
 // Next step action definitions
 type NextStepDef struct {
-	ID          string
-	Name        string
-	Description string
-	Command     string
+	ID           string
+	Name         string
+	Description  string
+	Command      string
+	RequiresFile string // Relative path inside outputDir; empty = always available.
+	RequiresDir  bool   // When true, RequiresFile is ignored and the outputDir itself must exist.
 }
 
 var NextStepActions = []NextStepDef{
 	{
-		ID:          "plan",
-		Name:        "Generate Growth Plan",
-		Description: "Create a prioritized growth plan with implementation roadmap",
-		Command:     "uvx skene plan",
-	},
-	{
-		ID:          "build",
-		Name:        "Build Implementation Prompt",
-		Description: "Generate a ready-to-use prompt for Cursor, Claude, or other AI tools",
-		Command:     "uvx skene build",
-	},
-	{
-		ID:          "validate",
-		Name:        "Validate Manifest",
-		Description: "Validate the growth manifest against the schema",
-		Command:     "uvx skene validate",
+		ID:          "journey",
+		Name:        "Analyse User Journey",
+		Description: "Schema-driven feature detection and journey planning",
+		Command:     "uvx skene analyse-journey .",
 	},
 	{
 		ID:          "rerun",
-		Name:        "Re-run Analysis",
-		Description: "Analyze the codebase again with the current configuration",
+		Name:        "Analyse Growth Opportunities",
+		Description: "Full growth analysis with tech stack, features, and monetisation",
 		Command:     "uvx skene analyze .",
 	},
 	{
+		ID:           "plan",
+		Name:         "Generate Growth Plan",
+		Description:  "Create a prioritized growth plan with implementation roadmap",
+		Command:      "uvx skene plan",
+		RequiresFile: GrowthManifestFile,
+	},
+	{
+		ID:           "build",
+		Name:         "Build Implementation Prompt",
+		Description:  "Generate a ready-to-use prompt for Cursor, Claude, or other AI tools",
+		Command:      "uvx skene build",
+		RequiresFile: GrowthManifestFile,
+	},
+	{
+		ID:           "push",
+		Name:         "Deploy to Skene Cloud",
+		Description:  "Push engine.yaml and trigger migration to your Skene workspace",
+		Command:      "uvx skene push .",
+		RequiresFile: EngineFile,
+	},
+	{
+		ID:           "validate",
+		Name:         "Validate Manifest",
+		Description:  "Validate the growth manifest against the schema",
+		Command:      "uvx skene validate",
+		RequiresFile: GrowthManifestFile,
+	},
+	{
+		ID:          "view-files",
+		Name:        "View Files",
+		Description: "Browse analysis output files in the dashboard",
+		RequiresDir: true,
+	},
+	{
 		ID:          "open",
-		Name:        "Open Generated Files",
-		Description: "View the analysis output in ./skene-context/",
-		Command:     "",
+		Name:        "Open File Directory",
+		Description: "Open the skene output folder in your file manager",
+		RequiresDir: true,
 	},
 	{
 		ID:          "config",
 		Name:        "Change Configuration",
 		Description: "Modify provider, model, or project settings",
-		Command:     "",
 	},
 	{
 		ID:          "exit",
-		Name:        "Exit",
+		Name:        "Quit Skene",
 		Description: "Close Skene",
-		Command:     "",
 	},
 }
 
@@ -172,14 +188,24 @@ const (
 	ProjectDirExistingHeader = "Existing Analysis Detected"
 	ProjectDirExistingMsg    = "A previous Skene Growth analysis was found in this project."
 	ProjectDirExistingQ      = "What would you like to do?"
-	ProjectDirViewAnalysis   = "View Analysis"
-	ProjectDirRerunAnalysis  = "Re-run Analysis"
+	ProjectDirViewAnalysis       = "View Journey"
+	ProjectDirRerunAnalysis      = "Re-run Analysis"
+	ProjectDirRunAnalysis        = "Analyse Journey"
+	ProjectDirRunCodebaseAnalysis = "Analyse Codebase"
+
+	ProjectDirNoSchemaHeader = "No User Journey Detected"
+	ProjectDirNoSchemaMsg    = "Skene couldn't detect a user journey schema in your codebase. Try the full codebase analysis to get a broader picture of your product."
 )
 
 // Analysis config view
 const (
 	AnalysisConfigSummary   = "Analysis Summary"
 	AnalysisConfigRunButton = "Run Analysis"
+
+	AnalysisModeSimple       = "Simple Analysis"
+	AnalysisModeSimpleDesc   = "Schema-driven feature detection and journey planning"
+	AnalysisModeAdvanced     = "Advanced Analysis"
+	AnalysisModeAdvancedDesc = "Full growth analysis with tech stack, features, and monetisation"
 )
 
 // Status labels (used across analyzing view, game, etc.)

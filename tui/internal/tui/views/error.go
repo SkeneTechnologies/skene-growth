@@ -39,7 +39,7 @@ type ErrorView struct {
 func NewErrorView(err *ErrorInfo) *ErrorView {
 	return &ErrorView{
 		error:  err,
-		header: components.NewWizardHeader(0, "Error"),
+		header: components.NewTitleHeader("Error"),
 	}
 }
 

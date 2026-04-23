@@ -50,7 +50,7 @@ func NewAPIKeyView(provider *config.Provider, model *config.Model) *APIKeyView {
 		provider:     provider,
 		model:        model,
 		textInput:    ti,
-		header:       components.NewWizardHeader(2, constants.StepNameAuthentication),
+		header:       components.NewTitleHeader(constants.StepNameAuthentication),
 		spinner:      components.NewSpinner(),
 		baseURLInput: urlInput,
 		showBaseURL:  showBaseURL,

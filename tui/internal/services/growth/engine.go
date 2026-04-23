@@ -125,6 +125,33 @@ func (e *Engine) Run(ctx context.Context) *AnalysisResult {
 	return result
 }
 
+// RunJourney executes the simplified analysis by spawning uvx skene analyse-journey.
+// This runs a 3-step pipeline: schema analysis, growth-from-schema, and plan engine.
+func (e *Engine) RunJourney(ctx context.Context) *AnalysisResult {
+	result := &AnalysisResult{}
+
+	e.sendUpdate(PhaseScanCodebase, 0.0, "Starting schema-driven analysis...")
+
+	outputDir := e.resolveOutputDir()
+	args := []string{
+		constants.GrowthPackageSpec(), "analyse-journey", ".",
+		"-o", filepath.Join(outputDir, constants.SchemaFile),
+		"--growth-output", filepath.Join(outputDir, constants.GrowthManifestFile),
+		"--plan-output", filepath.Join(outputDir, constants.EngineFile),
+	}
+
+	if err := e.runUVX(ctx, args); err != nil {
+		result.Error = fmt.Errorf("analyse-journey failed: %w", err)
+		return result
+	}
+
+	e.sendUpdate(PhaseGenerateDocs, 1.0, "Analysis complete")
+
+	result.Manifest = loadFileContent(filepath.Join(outputDir, constants.GrowthManifestFile))
+
+	return result
+}
+
 // GeneratePlan spawns uvx skene plan
 func (e *Engine) GeneratePlan() *AnalysisResult {
 	result := &AnalysisResult{}
@@ -156,6 +183,24 @@ func (e *Engine) GenerateBuild() *AnalysisResult {
 
 	outputDir := e.resolveOutputDir()
 	result.GrowthPlan = loadFileContent(filepath.Join(outputDir, constants.ImplementationPromptFile))
+	return result
+}
+
+// Push spawns uvx skene push to deploy engine.yaml + trigger migration
+// to the configured Skene Cloud workspace. Upstream URL and API token
+// are picked up via SKENE_UPSTREAM / SKENE_UPSTREAM_API_KEY env vars set
+// in buildEnvVars.
+func (e *Engine) Push() *AnalysisResult {
+	result := &AnalysisResult{}
+
+	args := []string{constants.GrowthPackageSpec(), "push", "."}
+	args = append(args, e.buildCommonFlags()...)
+
+	if err := e.runUVX(context.Background(), args); err != nil {
+		result.Error = fmt.Errorf("push failed: %w", err)
+		return result
+	}
+
 	return result
 }
 
@@ -431,7 +476,17 @@ func (e *Engine) resolveOutputDir() string {
 		}
 		return filepath.Join(e.config.ProjectDir, e.config.OutputDir)
 	}
-	return filepath.Join(e.config.ProjectDir, constants.OutputDirName)
+	// Prefer the canonical `skene/` bundle; fall back to legacy `skene-context/`
+	// when only that exists so existing projects keep working.
+	primary := filepath.Join(e.config.ProjectDir, constants.OutputDirName)
+	if info, err := os.Stat(primary); err == nil && info.IsDir() {
+		return primary
+	}
+	legacy := filepath.Join(e.config.ProjectDir, constants.LegacyOutputDirName)
+	if info, err := os.Stat(legacy); err == nil && info.IsDir() {
+		return legacy
+	}
+	return primary
 }
 
 func (e *Engine) sendUpdate(phase AnalysisPhase, progress float64, message string) {

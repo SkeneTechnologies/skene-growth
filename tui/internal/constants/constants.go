@@ -37,8 +37,9 @@ const (
 const (
 	GrowthPackageName    = "skene"
 	GrowthPackageVersion = "0.3.1"
-	OutputDirName     = "skene-context"
-	DefaultOutputDir  = "./skene-context"
+	OutputDirName     = "skene"
+	DefaultOutputDir  = "./skene"
+	LegacyOutputDirName = "skene-context"
 	SkeneCacheDir     = ".skene"
 	SkeneCacheBinDir  = "bin"
 	ProjectConfigFile = ".skene.config"
@@ -62,7 +63,30 @@ const (
 	GrowthManifestFile       = "growth-manifest.json"
 	ProductDocsFile          = "product-docs.md"
 	ImplementationPromptFile = "implementation-prompt.md"
+	SchemaFile               = "schema.yaml"
+	EngineFile               = "engine.yaml"
+	NewFeaturesFile          = "new-features.yaml"
+	CompiledStateMachineFile = "compiled/state-machine.yaml"
 )
+
+// DashboardFile describes a file shown on the results dashboard.
+type DashboardFile struct {
+	ID          string
+	DisplayName string
+	Filename    string
+	Description string
+}
+
+// DashboardFiles defines the output files shown on the results dashboard.
+var DashboardFiles = []DashboardFile{
+	{ID: "manifest", DisplayName: "Growth Manifest", Filename: GrowthManifestFile, Description: FileDescManifest},
+	{ID: "template", DisplayName: "Growth Template", Filename: GrowthTemplateFile, Description: FileDescTemplate},
+	{ID: "new-features", DisplayName: "Planned Features", Filename: NewFeaturesFile, Description: FileDescNewFeatures},
+	{ID: "compiled", DisplayName: "State Machine", Filename: CompiledStateMachineFile, Description: FileDescCompiledYAML},
+	{ID: "engine", DisplayName: "Growth Features", Filename: EngineFile, Description: FileDescEngine},
+	{ID: "schema", DisplayName: "Schema", Filename: SchemaFile, Description: FileDescSchema},
+	{ID: "plan", DisplayName: "Growth Plan", Filename: GrowthPlanFile, Description: FileDescPlan},
+}
 
 // Skene ecosystem package metadata
 type PackageMeta struct {

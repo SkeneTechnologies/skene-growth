@@ -48,7 +48,7 @@ func NewAuthView(provider *config.Provider) *AuthView {
 		countdown:    3,
 		authURL:      authURL,
 		showFallback: false,
-		header:       components.NewWizardHeader(2, constants.StepNameAuthentication),
+		header:       components.NewTitleHeader(constants.StepNameAuthentication),
 		spinner:      components.NewSpinner(),
 		authState:    AuthStateCountdown,
 	}
@@ -176,7 +176,7 @@ func (v *AuthView) Render() string {
 
 func (v *AuthView) renderCountdown(width int) string {
 	message := styles.Body.Render(constants.AuthOpeningBrowser)
-	url := styles.AccentStyle().Width(width-8).Render(v.getDisplayURL())
+	url := styles.AccentStyle().Width(width-8).Align(lipgloss.Center).Render(v.getDisplayURL())
 
 	countdownText := fmt.Sprintf(constants.AuthRedirectingIn, v.countdown)
 	countdownStyled := styles.Muted.Render(countdownText)
@@ -214,7 +214,7 @@ func (v *AuthView) renderCountdown(width int) string {
 func (v *AuthView) renderWaiting(width int) string {
 	message := v.spinner.SpinnerWithText(constants.AuthWaiting)
 	subMessage := styles.Muted.Render(constants.AuthWaitingSub)
-	url := styles.AccentStyle().Width(width-8).Render(v.getDisplayURL())
+	url := styles.AccentStyle().Width(width-8).Align(lipgloss.Center).Render(v.getDisplayURL())
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,

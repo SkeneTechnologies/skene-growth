@@ -156,11 +156,17 @@ def push(
             output_dir=rc.config.output_dir,
         )
         if result.get("ok"):
-            success(
-                f"Pushed to upstream commit_hash={result.get('commit_hash', '?')} "
-                "(package: engine_yaml, feature_registry_json, trigger_sql)"
-            )
-            output_status("Upstream parses the package and deploys.")
+            if result.get("status") == "noop":
+                success("Nothing new to deploy — your artifacts match what is already stored upstream.")
+                output_status(
+                    "The workspace was not updated (noop). Change artifacts locally and push again if needed."
+                )
+            else:
+                success(
+                    f"Pushed to upstream commit_hash={result.get('commit_hash', '?')} "
+                    "(package: engine_yaml, feature_registry_json, trigger_sql)"
+                )
+                output_status("Upstream parsed the package and deployed.")
             return
 
         msg = result.get("message", "Push failed.")

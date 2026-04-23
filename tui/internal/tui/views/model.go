@@ -24,7 +24,7 @@ func NewModelView(provider *config.Provider) *ModelView {
 	return &ModelView{
 		provider:      provider,
 		selectedIndex: 0,
-		header:        components.NewWizardHeader(1, constants.StepNameSelectModel),
+		header:        components.NewTitleHeader(constants.StepNameSelectModel),
 	}
 }
 

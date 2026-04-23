@@ -15,6 +15,7 @@ import (
 	"skene/internal/services/config"
 	"skene/internal/services/growth"
 	"skene/internal/services/versioncheck"
+	"skene/internal/services/visualizer"
 	"skene/internal/tui/components"
 	"skene/internal/tui/styles"
 	"skene/internal/tui/views"
@@ -42,9 +43,9 @@ const (
 	StateAPIKey                         // Manual API key entry
 	StateLocalModel                     // Local model detection (Ollama/LM Studio)
 	StateProjectDir                     // Project directory selection
-	StateAnalysisConfig                 // Analysis configuration
 	StateAnalyzing                      // Analysis progress
 	StateResults                        // Results dashboard
+	StateFileDetail                     // Single file detail view
 	StateNextSteps                      // Next steps after analysis
 	StateError                          // Error display
 	StateGame                           // Mini game during wait
@@ -142,9 +143,9 @@ type App struct {
 	apiKeyView         *views.APIKeyView
 	localModelView     *views.LocalModelView
 	projectDirView     *views.ProjectDirView
-	analysisConfigView *views.AnalysisConfigView
 	analyzingView      *views.AnalyzingView
 	resultsView        *views.ResultsView
+	fileDetailView     *views.FileDetailView
 	nextStepsView      *views.NextStepsView
 	errorView          *views.ErrorView
 
@@ -160,11 +161,21 @@ type App struct {
 
 	// Cancellation for running processes
 	cancelFunc      context.CancelFunc
-	analyzingOrigin AppState // state to return to when cancelling/failing
+	analyzingOrigin  AppState // state to return to when cancelling/failing
+	journeyAnalysis  bool     // true when running analyse-journey (auto-opens visualizer)
+
+	// Visualizer
+	visualizerServer *visualizer.Server
 
 	// Auth state
 	authCountdown  int
 	callbackServer *auth.CallbackServer
+
+	// Push flow — when the user triggers "Deploy to Skene Cloud" without
+	// a stored upstream token, we route through the Skene magic-link auth
+	// flow first and then automatically run the push.
+	pendingPushAfterAuth bool
+	pushReturnState      AppState
 
 	// Error state
 	currentError *views.ErrorInfo
@@ -187,7 +198,7 @@ func NewApp() *App {
 
 	// Set default values if not present
 	if configMgr.Config.OutputDir == "" {
-		configMgr.Config.OutputDir = "./skene-context"
+		configMgr.Config.OutputDir = constants.DefaultOutputDir
 	}
 
 	app := &App{
@@ -349,18 +360,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.analyzingView != nil {
 				a.analyzingView.SetDone()
 			}
-			if msg.Result != nil {
-				a.resultsView = views.NewResultsViewWithContent(
-					msg.Result.GrowthPlan,
-					msg.Result.Manifest,
-					msg.Result.GrowthTemplate,
-				)
-			} else {
-				a.resultsView = views.NewResultsView()
-			}
+			a.resultsView = a.createResultsView()
 			a.resultsView.SetSize(a.width, a.height)
-			if a.state != StateGame && a.analyzingOrigin == StateAnalysisConfig {
-				a.state = StateResults
+			if a.state != StateGame && a.analyzingOrigin == StateProjectDir {
+				if a.journeyAnalysis {
+					if a.engineFileExists() {
+						a.projectDirView.SetNoSchemaDetected(false)
+						a.openEngineVisualizerIfExists()
+					} else {
+						a.projectDirView.SetNoSchemaDetected(true)
+					}
+				} else {
+					a.projectDirView.SetNoSchemaDetected(false)
+				}
+				a.returnToProjectDirWithExisting()
 			}
 		}
 
@@ -447,7 +460,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}))
 
 	case authSuccessTransitionMsg:
-		a.transitionToProjectDir()
+		if a.pendingPushAfterAuth {
+			a.pendingPushAfterAuth = false
+			origin := a.pushReturnState
+			cmds = append(cmds, a.runEngineCommand(constants.NextStepPushTitle, "push"))
+			// Override analyzingOrigin if we came from project-dir so
+			// back-navigation doesn't try to land on a nil resultsView.
+			if origin == StateProjectDir {
+				a.analyzingOrigin = StateProjectDir
+			}
+		} else {
+			a.transitionToProjectDir()
+		}
 
 	case LocalModelDetectMsg:
 		if a.localModelView != nil {
@@ -501,14 +525,14 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
 		return a.handleLocalModelKeys(key)
 	case StateProjectDir:
 		return a.handleProjectDirKeys(msg)
-	case StateAnalysisConfig:
-		return a.handleAnalysisConfigKeys(key)
 	case StateAnalyzing:
 		return a.handleAnalyzingKeys(key)
 	case StateResults:
 		return a.handleResultsKeys(key)
+	case StateFileDetail:
+		return a.handleFileDetailKeys(key)
 	case StateNextSteps:
-		return a.handleNextStepsKeys(key)
+		return a.handleResultsKeys(key)
 	case StateError:
 		return a.handleErrorKeys(key)
 	case StateGame:
@@ -627,6 +651,21 @@ func (a *App) handleAuthKeys(key string) tea.Cmd {
 			a.callbackServer.Shutdown()
 			a.callbackServer = nil
 		}
+		if a.pendingPushAfterAuth {
+			a.pendingPushAfterAuth = false
+			returnState := a.pushReturnState
+			if returnState == StateResults && a.resultsView == nil {
+				returnState = StateProjectDir
+			}
+			if returnState == StateProjectDir && a.projectDirView == nil {
+				returnState = StateWelcome
+			}
+			if returnState != StateResults && returnState != StateProjectDir {
+				returnState = StateWelcome
+			}
+			a.state = returnState
+			return nil
+		}
 		a.state = StateProviderSelect
 	}
 	return nil
@@ -685,6 +724,9 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 
 	// Handle existing analysis choice prompt
 	if a.projectDirView.IsAskingExistingChoice() {
+		if a.projectDirView.IsShowingNextSteps() {
+			return a.handleProjectDirNextStepsKeys(key)
+		}
 		switch key {
 		case "left", "h":
 			a.projectDirView.HandleLeft()
@@ -695,12 +737,19 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 			a.configMgr.SetProjectDir(a.projectDirView.GetProjectDir())
 			switch choice {
 			case constants.ProjectDirViewAnalysis:
-				a.projectDirView.SetExistingChoice(true)
-				a.transitionToResultsFromExisting()
-			case constants.ProjectDirRerunAnalysis:
-				a.projectDirView.SetExistingChoice(false)
-				a.transitionToAnalysisConfig()
+				a.openEngineVisualizerIfExists()
+			case constants.ProjectDirRerunAnalysis, constants.ProjectDirRunAnalysis:
+				a.projectDirView.SetNoSchemaDetected(false)
+				return a.startJourneyAnalysis()
+			case constants.ProjectDirRunCodebaseAnalysis:
+				a.projectDirView.SetNoSchemaDetected(false)
+				cmd := a.startCodebaseAnalysis()
+				a.analyzingOrigin = StateProjectDir
+				return cmd
 			}
+		case "n":
+			outputDir := filepath.Join(a.projectDirView.GetProjectDir(), constants.OutputDirName)
+			a.projectDirView.ShowNextSteps(outputDir)
 		case "esc":
 			a.projectDirView.DismissExistingChoice()
 		}
@@ -752,7 +801,7 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 					return nil
 				}
 				a.configMgr.SetProjectDir(a.projectDirView.GetProjectDir())
-				a.transitionToAnalysisConfig()
+				return a.startJourneyAnalysis()
 			}
 		case "tab":
 			a.projectDirView.HandleTab()
@@ -781,7 +830,7 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 						return nil
 					}
 					a.configMgr.SetProjectDir(a.projectDirView.GetProjectDir())
-					a.transitionToAnalysisConfig()
+					return a.startJourneyAnalysis()
 				}
 			}
 		case "tab":
@@ -793,13 +842,53 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (a *App) handleAnalysisConfigKeys(key string) tea.Cmd {
+func (a *App) handleProjectDirNextStepsKeys(key string) tea.Cmd {
+	nsv := a.projectDirView.GetNextStepsView()
 	switch key {
+	case "up", "k":
+		nsv.HandleUp()
+	case "down", "j":
+		nsv.HandleDown()
 	case "enter":
-		a.applyAnalysisConfig()
-		return a.startAnalysis()
+		action := nsv.GetSelectedAction()
+		if action == nil {
+			return nil
+		}
+		a.projectDirView.HideNextSteps()
+		a.configMgr.SetProjectDir(a.projectDirView.GetProjectDir())
+		switch action.ID {
+		case "exit":
+			return tea.Quit
+		case "journey":
+			a.projectDirView.SetNoSchemaDetected(false)
+			return a.startJourneyAnalysis()
+		case "rerun":
+			a.projectDirView.SetNoSchemaDetected(false)
+			cmd := a.startCodebaseAnalysis()
+			a.analyzingOrigin = StateProjectDir
+			return cmd
+		case "plan":
+			return a.runEngineCommand("Generating Growth Plan", "plan")
+		case "build":
+			return a.runEngineCommand("Building Implementation Prompt", "build")
+		case "validate":
+			return a.runEngineCommand("Validating Manifest", "validate")
+		case "push":
+			return a.startPushFlow(StateProjectDir)
+		case "view-files":
+			a.transitionToResultsFromExisting()
+		case "open":
+			outputDir := filepath.Join(a.projectDirView.GetProjectDir(), constants.OutputDirName)
+			_ = browser.OpenURL(outputDir)
+		case "config":
+			a.configCheckView = nil
+			a.apiKeyView = nil
+			a.providerView = views.NewProviderView()
+			a.providerView.SetSize(a.width, a.height)
+			a.state = StateProviderSelect
+		}
 	case "esc":
-		a.state = StateProjectDir
+		a.projectDirView.HideNextSteps()
 	}
 	return nil
 }
@@ -856,7 +945,7 @@ func (a *App) handleAnalyzingKeys(key string) tea.Cmd {
 		}
 	case "r":
 		if a.analyzingView != nil && a.analyzingView.HasFailed() {
-			return a.startAnalysis()
+			return a.startJourneyAnalysis()
 		}
 	case "esc":
 		if a.analyzingView == nil {
@@ -866,6 +955,7 @@ func (a *App) handleAnalyzingKeys(key string) tea.Cmd {
 			a.navigateBackFromAnalyzing()
 		} else if a.analyzingView.IsDone() {
 			if a.resultsView != nil {
+				a.refreshResultsView()
 				a.state = StateResults
 			} else {
 				a.navigateBackFromAnalyzing()
@@ -882,39 +972,60 @@ func (a *App) handleAnalyzingKeys(key string) tea.Cmd {
 }
 
 func (a *App) handleResultsKeys(key string) tea.Cmd {
+	if a.resultsView == nil {
+		// Nothing to render — bounce back to a safe state.
+		if a.projectDirView != nil {
+			a.returnToProjectDirWithExisting()
+		} else {
+			a.state = StateWelcome
+		}
+		return nil
+	}
+	if a.resultsView.IsShowingNextSteps() {
+		return a.handleNextStepsModalKeys(key)
+	}
 	switch key {
-	case "left", "h":
-		a.resultsView.HandleLeft()
-	case "right", "l":
-		a.resultsView.HandleRight()
 	case "up", "k":
 		a.resultsView.HandleUp()
 	case "down", "j":
 		a.resultsView.HandleDown()
-	case "n", "enter":
-		a.state = StateNextSteps
-		a.nextStepsView = views.NewNextStepsView()
-		a.nextStepsView.SetSize(a.width, a.height)
+	case "enter":
+		selected := a.resultsView.GetSelectedFile()
+		if selected != nil {
+			if selected.ID == "engine" {
+				a.openYAMLVisualizer(selected)
+			} else {
+				a.openFileDetail(selected)
+			}
+		}
+	case "n":
+		a.resultsView.ShowNextSteps()
+	case "esc":
+		a.returnToProjectDirWithExisting()
 	}
 	return nil
 }
 
-func (a *App) handleNextStepsKeys(key string) tea.Cmd {
+func (a *App) handleNextStepsModalKeys(key string) tea.Cmd {
+	nsv := a.resultsView.GetNextStepsView()
 	switch key {
 	case "up", "k":
-		a.nextStepsView.HandleUp()
+		nsv.HandleUp()
 	case "down", "j":
-		a.nextStepsView.HandleDown()
+		nsv.HandleDown()
 	case "enter":
-		action := a.nextStepsView.GetSelectedAction()
+		action := nsv.GetSelectedAction()
 		if action == nil {
 			return nil
 		}
+		a.resultsView.HideNextSteps()
 		switch action.ID {
 		case "exit":
 			return tea.Quit
+		case "journey":
+			return a.startSimpleAnalysis()
 		case "rerun":
-			return a.startAnalysis()
+			return a.startCodebaseAnalysis()
 		case "config":
 			a.configCheckView = nil
 			a.apiKeyView = nil
@@ -927,6 +1038,10 @@ func (a *App) handleNextStepsKeys(key string) tea.Cmd {
 			return a.runEngineCommand("Building Implementation Prompt", "build")
 		case "validate":
 			return a.runEngineCommand("Validating Manifest", "validate")
+		case "push":
+			return a.startPushFlow(StateResults)
+		case "view-files":
+			// Already on the dashboard — just close the modal.
 		case "open":
 			projectDir := a.configMgr.Config.ProjectDir
 			if projectDir == "" {
@@ -936,10 +1051,86 @@ func (a *App) handleNextStepsKeys(key string) tea.Cmd {
 			_ = browser.OpenURL(outputDir)
 		}
 	case "esc":
+		a.resultsView.HideNextSteps()
+	}
+	return nil
+}
+
+func (a *App) openFileDetail(def *constants.DashboardFile) {
+	outputDir := a.getOutputDir()
+	a.fileDetailView = views.NewFileDetailView(*def, outputDir)
+	a.fileDetailView.SetSize(a.width, a.height)
+	a.state = StateFileDetail
+}
+
+func (a *App) openEngineVisualizerIfExists() {
+	engineDef := &constants.DashboardFile{
+		ID:          "engine",
+		DisplayName: "Growth Features",
+		Filename:    constants.EngineFile,
+	}
+	a.openYAMLVisualizer(engineDef)
+}
+
+// engineFileExists reports whether engine.yaml is present in the output dir.
+func (a *App) engineFileExists() bool {
+	_, err := os.Stat(filepath.Join(a.getOutputDir(), constants.EngineFile))
+	return err == nil
+}
+
+func (a *App) openYAMLVisualizer(def *constants.DashboardFile) {
+	filePath := filepath.Join(a.getOutputDir(), def.Filename)
+	if _, err := os.Stat(filePath); err != nil {
+		return
+	}
+
+	if a.visualizerServer != nil {
+		a.visualizerServer.Stop()
+	}
+
+	a.visualizerServer = visualizer.NewServer(filePath, def.DisplayName)
+	url, err := a.visualizerServer.Start()
+	if err != nil {
+		return
+	}
+	_ = browser.OpenURL(url)
+}
+
+func (a *App) handleFileDetailKeys(key string) tea.Cmd {
+	switch key {
+	case "up", "k":
+		a.fileDetailView.HandleUp()
+	case "down", "j":
+		a.fileDetailView.HandleDown()
+	case "esc":
 		a.refreshResultsView()
 		a.state = StateResults
 	}
 	return nil
+}
+
+func (a *App) getOutputDir() string {
+	projectDir := a.configMgr.Config.ProjectDir
+	if projectDir == "" {
+		projectDir, _ = os.Getwd()
+	}
+	return filepath.Join(projectDir, constants.OutputDirName)
+}
+
+func (a *App) getProjectName() string {
+	projectDir := a.configMgr.Config.ProjectDir
+	if projectDir == "" {
+		projectDir, _ = os.Getwd()
+	}
+	if projectDir == "." || projectDir == "./" {
+		return "./"
+	}
+	return "./" + filepath.Base(projectDir)
+}
+
+func (a *App) createResultsView() *views.ResultsView {
+	rv := views.NewResultsView(a.getProjectName(), a.getOutputDir())
+	return rv
 }
 
 func (a *App) handleErrorKeys(key string) tea.Cmd {
@@ -971,8 +1162,18 @@ func (a *App) handleGameKeys(msg tea.KeyMsg) tea.Cmd {
 		if a.game != nil {
 			a.game.ClearProgressInfo()
 		}
-		if a.prevState == StateAnalyzing && a.resultsView != nil && a.analyzingView != nil && a.analyzingView.IsDone() && !a.analyzingView.HasFailed() && a.analyzingOrigin == StateAnalysisConfig {
-			a.state = StateResults
+		if a.prevState == StateAnalyzing && a.resultsView != nil && a.analyzingView != nil && a.analyzingView.IsDone() && !a.analyzingView.HasFailed() && a.analyzingOrigin == StateProjectDir {
+			if a.journeyAnalysis {
+				if a.engineFileExists() {
+					a.projectDirView.SetNoSchemaDetected(false)
+					a.openEngineVisualizerIfExists()
+				} else {
+					a.projectDirView.SetNoSchemaDetected(true)
+				}
+			} else {
+				a.projectDirView.SetNoSchemaDetected(false)
+			}
+			a.returnToProjectDirWithExisting()
 		} else {
 			a.state = a.prevState
 		}
@@ -995,42 +1196,7 @@ func (a *App) selectProvider() tea.Cmd {
 
 	// Branch based on provider type
 	if provider.ID == "skene" {
-		callbackServer, err := auth.NewCallbackServer()
-		if err != nil {
-			a.showError(&views.ErrorInfo{
-				Code:       "AUTH_SERVER_FAILED",
-				Title:      "Authentication Setup Failed",
-				Message:    err.Error(),
-				Suggestion: "Try again or use a different provider.",
-				Severity:   views.SeverityError,
-				Retryable:  true,
-			})
-			return nil
-		}
-
-		if err := callbackServer.Start(); err != nil {
-			a.showError(&views.ErrorInfo{
-				Code:       "AUTH_SERVER_FAILED",
-				Title:      "Authentication Setup Failed",
-				Message:    err.Error(),
-				Suggestion: "Try again or use a different provider.",
-				Severity:   views.SeverityError,
-				Retryable:  true,
-			})
-			return nil
-		}
-
-		a.callbackServer = callbackServer
-
-		authBaseURL := resolveSkeneAuthURL()
-		authURL := fmt.Sprintf("%s?callback=%s", authBaseURL, url.QueryEscape(callbackServer.GetCallbackURL()))
-
-		a.authView = views.NewAuthView(provider)
-		a.authView.SetAuthURL(authURL)
-		a.authView.SetSize(a.width, a.height)
-		a.authCountdown = 3
-		a.state = StateAuth
-		return tea.Batch(countdown(3), a.waitForAuthCallback())
+		return a.startSkeneAuth(provider)
 	}
 
 	if provider.IsLocal {
@@ -1046,6 +1212,78 @@ func (a *App) selectProvider() tea.Cmd {
 	a.modelView.SetSize(a.width, a.height)
 	a.state = StateModelSelect
 	return nil
+}
+
+// startSkeneAuth spins up the magic-link callback server and transitions
+// the TUI into StateAuth. Extracted from selectProvider so flows other
+// than provider selection (e.g. the push-with-no-token flow) can reuse it.
+func (a *App) startSkeneAuth(provider *config.Provider) tea.Cmd {
+	callbackServer, err := auth.NewCallbackServer()
+	if err != nil {
+		a.showError(&views.ErrorInfo{
+			Code:       "AUTH_SERVER_FAILED",
+			Title:      "Authentication Setup Failed",
+			Message:    err.Error(),
+			Suggestion: "Try again or use a different provider.",
+			Severity:   views.SeverityError,
+			Retryable:  true,
+		})
+		return nil
+	}
+
+	if err := callbackServer.Start(); err != nil {
+		a.showError(&views.ErrorInfo{
+			Code:       "AUTH_SERVER_FAILED",
+			Title:      "Authentication Setup Failed",
+			Message:    err.Error(),
+			Suggestion: "Try again or use a different provider.",
+			Severity:   views.SeverityError,
+			Retryable:  true,
+		})
+		return nil
+	}
+
+	a.callbackServer = callbackServer
+
+	authBaseURL := resolveSkeneAuthURL()
+	authURL := fmt.Sprintf("%s?callback=%s", authBaseURL, url.QueryEscape(callbackServer.GetCallbackURL()))
+
+	a.authView = views.NewAuthView(provider)
+	a.authView.SetAuthURL(authURL)
+	a.authView.SetSize(a.width, a.height)
+	a.authCountdown = 3
+	a.state = StateAuth
+	return tea.Batch(countdown(3), a.waitForAuthCallback())
+}
+
+// startPushFlow kicks off a "Deploy to Skene Cloud" action from the
+// next-steps modal. If the user already has an upstream token stored
+// in their config we run `uvx skene push` immediately; otherwise we
+// route through the Skene magic-link auth flow and auto-run the push
+// once authentication succeeds.
+func (a *App) startPushFlow(origin AppState) tea.Cmd {
+	if a.configMgr.Config.UpstreamAPIKey == "" || a.configMgr.Config.Upstream == "" {
+		a.pendingPushAfterAuth = true
+		a.pushReturnState = origin
+
+		a.selectedProvider = config.GetProviderByID("skene")
+		if a.selectedProvider != nil {
+			a.configMgr.SetProvider(a.selectedProvider.ID)
+		}
+
+		return a.startSkeneAuth(a.selectedProvider)
+	}
+
+	cmd := a.runEngineCommand(constants.NextStepPushTitle, "push")
+	// runEngineCommand hardcodes analyzingOrigin = StateNextSteps, which
+	// makes navigateBackFromAnalyzing land on StateResults. That's fine
+	// when Deploy was triggered from the results dashboard, but if we
+	// came from the project-dir modal there is no resultsView yet, so
+	// override the origin to avoid landing on a nil view.
+	if origin == StateProjectDir {
+		a.analyzingOrigin = StateProjectDir
+	}
+	return cmd
 }
 
 func (a *App) selectModel() {
@@ -1074,34 +1312,16 @@ func (a *App) transitionToProjectDir() {
 	a.state = StateProjectDir
 }
 
-func (a *App) transitionToAnalysisConfig() {
-	providerName := ""
-	modelName := ""
-	if a.selectedProvider != nil {
-		providerName = a.selectedProvider.Name
+func (a *App) returnToProjectDirWithExisting() {
+	if a.projectDirView != nil {
+		a.projectDirView.ResetExistingChoice()
+		a.projectDirView.SetSize(a.width, a.height)
 	}
-	if a.selectedModel != nil {
-		modelName = a.selectedModel.Name
-	}
-	projectDir := a.configMgr.Config.ProjectDir
-	if projectDir == "" {
-		projectDir = "."
-	}
-
-	a.analysisConfigView = views.NewAnalysisConfigView(providerName, modelName, projectDir)
-	a.analysisConfigView.SetSize(a.width, a.height)
-	a.state = StateAnalysisConfig
+	a.state = StateProjectDir
 }
 
 func (a *App) transitionToResultsFromExisting() {
-	projectDir := a.configMgr.Config.ProjectDir
-	outputDir := filepath.Join(projectDir, constants.OutputDirName)
-
-	growthPlan := loadFileContent(filepath.Join(outputDir, constants.GrowthPlanFile))
-	manifest := loadFileContent(filepath.Join(outputDir, constants.GrowthManifestFile))
-	growthTemplate := loadFileContent(filepath.Join(outputDir, constants.GrowthTemplateFile))
-
-	a.resultsView = views.NewResultsViewWithContent(growthPlan, manifest, growthTemplate)
+	a.resultsView = a.createResultsView()
 	a.resultsView.SetSize(a.width, a.height)
 	a.state = StateResults
 }
@@ -1110,19 +1330,12 @@ func (a *App) refreshResultsView() {
 	if a.resultsView == nil {
 		return
 	}
-	projectDir := a.configMgr.Config.ProjectDir
-	if projectDir == "" {
-		return
-	}
-	outputDir := filepath.Join(projectDir, constants.OutputDirName)
-	a.resultsView.RefreshContent(outputDir)
+	a.resultsView.RefreshContent(a.getOutputDir())
 }
 
-func (a *App) applyAnalysisConfig() {
-	if a.analysisConfigView != nil {
-		a.configMgr.Config.UseGrowth = a.analysisConfigView.GetUseGrowth()
-		a.configMgr.Config.Verbose = true
-	}
+func (a *App) applyJourneyConfig() {
+	a.configMgr.Config.UseGrowth = true
+	a.configMgr.Config.Verbose = true
 }
 
 func (a *App) navigateBackFromAPIKey() {
@@ -1162,19 +1375,16 @@ func (a *App) navigateBackFromAnalyzing() {
 
 	switch a.analyzingOrigin {
 	case StateNextSteps:
+		if a.resultsView == nil {
+			a.returnToProjectDirWithExisting()
+			return
+		}
 		a.refreshResultsView()
-		a.state = StateNextSteps
-		if a.nextStepsView == nil {
-			a.nextStepsView = views.NewNextStepsView()
-		}
-		a.nextStepsView.SetSize(a.width, a.height)
-	case StateAnalysisConfig:
-		a.state = StateAnalysisConfig
-		if a.analysisConfigView != nil {
-			a.analysisConfigView.SetSize(a.width, a.height)
-		}
+		a.state = StateResults
+	case StateProjectDir:
+		a.returnToProjectDirWithExisting()
 	default:
-		a.state = StateAnalysisConfig
+		a.returnToProjectDirWithExisting()
 	}
 }
 
@@ -1208,10 +1418,6 @@ func (a *App) navigateBackFromError() {
 		if a.projectDirView == nil {
 			target = StateProviderSelect
 		}
-	case StateAnalysisConfig:
-		if a.analysisConfigView == nil {
-			target = StateProjectDir
-		}
 	}
 	a.state = target
 }
@@ -1220,13 +1426,65 @@ func (a *App) navigateBackFromError() {
 // ASYNC OPERATIONS
 // ═══════════════════════════════════════════════════════════════════
 
-func (a *App) startAnalysis() tea.Cmd {
-	a.analyzingView = views.NewAnalyzingView()
+func (a *App) startJourneyAnalysis() tea.Cmd {
+	a.applyJourneyConfig()
+	a.journeyAnalysis = true
+	a.analyzingView = views.NewCommandView(constants.StepNameJourneyAnalysis)
 	a.analyzingView.SetSize(a.width, a.height)
 	a.analysisStartTime = time.Now()
-	a.analyzingOrigin = StateAnalysisConfig
+	a.analyzingOrigin = StateProjectDir
+	a.state = StateAnalyzing
+	return a.startSimpleAnalysisCmd(a.program)
+}
+
+func (a *App) startCodebaseAnalysis() tea.Cmd {
+	a.journeyAnalysis = false
+	a.analyzingView = views.NewCommandView(constants.StepNameCodebaseAnalysis)
+	a.analyzingView.SetSize(a.width, a.height)
+	a.analysisStartTime = time.Now()
+	a.analyzingOrigin = StateNextSteps
 	a.state = StateAnalyzing
 	return a.startRealAnalysisCmd(a.program)
+}
+
+func (a *App) startSimpleAnalysis() tea.Cmd {
+	a.journeyAnalysis = true
+	a.analyzingView = views.NewCommandView(constants.StepNameJourneyAnalysis)
+	a.analyzingView.SetSize(a.width, a.height)
+	a.analysisStartTime = time.Now()
+	a.analyzingOrigin = StateNextSteps
+	a.state = StateAnalyzing
+	return a.startSimpleAnalysisCmd(a.program)
+}
+
+func (a *App) startSimpleAnalysisCmd(p *tea.Program) tea.Cmd {
+	cfg := a.buildEngineConfig()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	a.cancelFunc = cancel
+
+	return func() tea.Msg {
+		engine := growth.NewEngine(cfg, func(update growth.PhaseUpdate) {
+			if p != nil {
+				p.Send(AnalysisPhaseMsg{Update: update})
+			}
+		})
+		engine.SetPromptHandler(func(prompt growth.InteractivePrompt) {
+			if p != nil {
+				p.Send(PromptMsg{
+					Question: prompt.Question,
+					Options:  prompt.Options,
+					Response: prompt.Response,
+				})
+			}
+		})
+
+		result := engine.RunJourney(ctx)
+		if result.Error != nil {
+			return AnalysisDoneMsg{Error: result.Error, Result: result}
+		}
+		return AnalysisDoneMsg{Error: nil, Result: result}
+	}
 }
 
 func (a *App) startRealAnalysisCmd(p *tea.Program) tea.Cmd {
@@ -1263,7 +1521,7 @@ func (a *App) runEngineCommand(title string, command string) tea.Cmd {
 	a.analyzingView = views.NewCommandView(title)
 	a.analyzingView.SetSize(a.width, a.height)
 	a.analysisStartTime = time.Now()
-	a.analyzingOrigin = StateNextSteps
+	a.analyzingOrigin = StateProjectDir
 	a.state = StateAnalyzing
 
 	cfg := a.buildEngineConfig()
@@ -1309,6 +1567,11 @@ func (a *App) runEngineCommand(title string, command string) tea.Cmd {
 				p.Send(NextStepOutputMsg{Line: "Running: uvx skene validate ..."})
 			}
 			result = engine.ValidateManifest()
+		case "push":
+			if p != nil {
+				p.Send(NextStepOutputMsg{Line: constants.NextStepPushRunning})
+			}
+			result = engine.Push()
 		default:
 			return NextStepDoneMsg{Error: fmt.Errorf("unknown command: %s", command)}
 		}
@@ -1412,14 +1675,14 @@ func (a *App) updateViewSizes() {
 	if a.projectDirView != nil {
 		a.projectDirView.SetSize(a.width, a.height)
 	}
-	if a.analysisConfigView != nil {
-		a.analysisConfigView.SetSize(a.width, a.height)
-	}
 	if a.analyzingView != nil {
 		a.analyzingView.SetSize(a.width, a.height)
 	}
 	if a.resultsView != nil {
 		a.resultsView.SetSize(a.width, a.height)
+	}
+	if a.fileDetailView != nil {
+		a.fileDetailView.SetSize(a.width, a.height)
 	}
 	if a.nextStepsView != nil {
 		a.nextStepsView.SetSize(a.width, a.height)
@@ -1469,10 +1732,6 @@ func (a *App) View() string {
 		if a.projectDirView != nil {
 			content = a.projectDirView.Render()
 		}
-	case StateAnalysisConfig:
-		if a.analysisConfigView != nil {
-			content = a.analysisConfigView.Render()
-		}
 	case StateAnalyzing:
 		if a.analyzingView != nil {
 			content = a.analyzingView.Render()
@@ -1480,6 +1739,10 @@ func (a *App) View() string {
 	case StateResults:
 		if a.resultsView != nil {
 			content = a.resultsView.Render()
+		}
+	case StateFileDetail:
+		if a.fileDetailView != nil {
+			content = a.fileDetailView.Render()
 		}
 	case StateNextSteps:
 		if a.nextStepsView != nil {
@@ -1555,10 +1818,6 @@ func (a *App) getCurrentHelpItems() []components.HelpItem {
 		if a.projectDirView != nil {
 			return a.projectDirView.GetHelpItems()
 		}
-	case StateAnalysisConfig:
-		if a.analysisConfigView != nil {
-			return a.analysisConfigView.GetHelpItems()
-		}
 	case StateAnalyzing:
 		if a.analyzingView != nil {
 			return a.analyzingView.GetHelpItems()
@@ -1566,6 +1825,10 @@ func (a *App) getCurrentHelpItems() []components.HelpItem {
 	case StateResults:
 		if a.resultsView != nil {
 			return a.resultsView.GetHelpItems()
+		}
+	case StateFileDetail:
+		if a.fileDetailView != nil {
+			return a.fileDetailView.GetHelpItems()
 		}
 	case StateNextSteps:
 		if a.nextStepsView != nil {
@@ -1609,7 +1872,7 @@ func (a *App) buildEngineConfig() growth.EngineConfig {
 
 	outputDir := a.configMgr.Config.OutputDir
 	if outputDir == "" {
-		outputDir = "./skene-context"
+		outputDir = constants.DefaultOutputDir
 	}
 	if !filepath.IsAbs(outputDir) {
 		outputDir = filepath.Join(projectDir, outputDir)
@@ -1639,13 +1902,6 @@ func (a *App) buildEngineConfig() growth.EngineConfig {
 	return ec
 }
 
-func loadFileContent(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
 
 func tick() tea.Cmd {
 	return tea.Tick(time.Millisecond*50, func(t time.Time) tea.Msg {
@@ -1702,6 +1958,15 @@ func skeneBaseURL() string {
 		return "http://localhost:3000/api/v1"
 	}
 	return "https://www.skene.ai/api/v1"
+}
+
+// Cleanup releases resources held by the app (e.g. background servers).
+// Call after the Bubble Tea program exits.
+func (a *App) Cleanup() {
+	if a.visualizerServer != nil {
+		a.visualizerServer.Stop()
+		a.visualizerServer = nil
+	}
 }
 
 // resolveSkeneAPIKey picks the API key for the skene provider.

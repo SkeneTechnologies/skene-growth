@@ -34,7 +34,7 @@ func NewProviderView() *ProviderView {
 		providers:     visible,
 		selectedIndex: 0,
 		maxVisible:    7,
-		header:        components.NewWizardHeader(1, constants.StepNameAIProvider),
+		header:        components.NewTitleHeader(constants.StepNameAIProvider),
 	}
 }
 
