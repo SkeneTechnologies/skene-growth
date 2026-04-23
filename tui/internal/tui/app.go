@@ -1811,13 +1811,6 @@ func (a *App) buildEngineConfig() growth.EngineConfig {
 	return ec
 }
 
-func loadFileContent(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
 
 func tick() tea.Cmd {
 	return tea.Tick(time.Millisecond*50, func(t time.Time) tea.Msg {
