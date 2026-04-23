@@ -14,7 +14,7 @@ const (
 	StepNameCodebaseAnalysis = "Analysing Growth Opportunities"
 	StepNameAnalysingStepper = "Analysing"
 	StepNameResults          = "Analysis Results"
-	StepNameNextSteps        = "Actions"
+	StepNameNextSteps        = "Available Actions"
 	StepCounterFormat        = "Step %d of %d"
 )
 
