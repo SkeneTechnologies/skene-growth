@@ -34,7 +34,7 @@ func NewAnalysisConfigView(provider, model, projectDir string) *AnalysisConfigVi
 		modelName:    model,
 		projectDir:   projectDir,
 		selectedMode: ModeSimple,
-		header:       components.NewWizardHeader(3, constants.StepNameAnalysisConfig),
+		header:       components.NewTitleHeader(constants.StepNameAnalysisConfig),
 	}
 }
 

@@ -64,7 +64,7 @@ func NewProjectDirView() *ProjectDirView {
 		inputFocus:       true,
 		currentDir:       cwd,
 		isValid:          true,
-		header:           components.NewWizardHeader(3, constants.StepNameProjectDir),
+		header:           components.NewTitleHeader(constants.StepNameProjectDir),
 		existingAnalysis: ChoiceNotAsked,
 	}
 
@@ -292,7 +292,7 @@ func (v *ProjectDirView) CheckForExistingAnalysis() bool {
 	if err == nil && info.IsDir() {
 		v.hasSkeneContext = true
 		v.existingAnalysis = ChoiceAsking
-		v.existingButtonGroup = components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirRerunAnalysis)
+		v.existingButtonGroup = v.buildExistingButtons(path)
 		v.textInput.Blur()
 		v.inputFocus = false
 		return true
@@ -300,6 +300,16 @@ func (v *ProjectDirView) CheckForExistingAnalysis() bool {
 
 	v.hasSkeneContext = false
 	return false
+}
+
+// buildExistingButtons creates the button group based on which files exist.
+// "View Journey" only appears when engine.yaml is present.
+func (v *ProjectDirView) buildExistingButtons(projectDir string) *components.ButtonGroup {
+	enginePath := filepath.Join(projectDir, constants.OutputDirName, constants.EngineFile)
+	if _, err := os.Stat(enginePath); err == nil {
+		return components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirRerunAnalysis)
+	}
+	return components.NewButtonGroup(constants.ProjectDirRunAnalysis)
 }
 
 // IsAskingExistingChoice returns true if prompting for existing analysis choice
@@ -321,6 +331,17 @@ func (v *ProjectDirView) SetExistingChoice(view bool) {
 		v.existingAnalysis = ChoiceViewAnalysis
 	} else {
 		v.existingAnalysis = ChoiceRerunAnalysis
+	}
+}
+
+// ResetExistingChoice re-checks the output directory and re-triggers the
+// existing analysis prompt if `skene-context/` still exists.
+func (v *ProjectDirView) ResetExistingChoice() {
+	if !v.CheckForExistingAnalysis() {
+		v.existingAnalysis = ChoiceNotAsked
+		v.existingButtonGroup = nil
+		v.inputFocus = true
+		v.textInput.Focus()
 	}
 }
 
@@ -501,7 +522,6 @@ func (v *ProjectDirView) renderExistingAnalysisChoice(wizHeader string, width in
 	innerContent := lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
-		"",
 		msg,
 		path,
 		"",

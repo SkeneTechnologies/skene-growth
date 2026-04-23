@@ -48,7 +48,7 @@ func NewAuthView(provider *config.Provider) *AuthView {
 		countdown:    3,
 		authURL:      authURL,
 		showFallback: false,
-		header:       components.NewWizardHeader(2, constants.StepNameAuthentication),
+		header:       components.NewTitleHeader(constants.StepNameAuthentication),
 		spinner:      components.NewSpinner(),
 		authState:    AuthStateCountdown,
 	}

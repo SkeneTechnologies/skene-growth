@@ -43,7 +43,6 @@ const (
 	StateAPIKey                         // Manual API key entry
 	StateLocalModel                     // Local model detection (Ollama/LM Studio)
 	StateProjectDir                     // Project directory selection
-	StateAnalysisConfig                 // Analysis configuration
 	StateAnalyzing                      // Analysis progress
 	StateResults                        // Results dashboard
 	StateFileDetail                     // Single file detail view
@@ -144,7 +143,6 @@ type App struct {
 	apiKeyView         *views.APIKeyView
 	localModelView     *views.LocalModelView
 	projectDirView     *views.ProjectDirView
-	analysisConfigView *views.AnalysisConfigView
 	analyzingView      *views.AnalyzingView
 	resultsView        *views.ResultsView
 	fileDetailView     *views.FileDetailView
@@ -357,8 +355,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			a.resultsView = a.createResultsView()
 			a.resultsView.SetSize(a.width, a.height)
-			if a.state != StateGame && a.analyzingOrigin == StateAnalysisConfig {
-				a.state = StateResults
+			if a.state != StateGame && a.analyzingOrigin == StateProjectDir {
+				a.openEngineVisualizerIfExists()
+				a.returnToProjectDirWithExisting()
 			}
 		}
 
@@ -499,8 +498,6 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
 		return a.handleLocalModelKeys(key)
 	case StateProjectDir:
 		return a.handleProjectDirKeys(msg)
-	case StateAnalysisConfig:
-		return a.handleAnalysisConfigKeys(key)
 	case StateAnalyzing:
 		return a.handleAnalyzingKeys(key)
 	case StateResults:
@@ -695,11 +692,9 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 			a.configMgr.SetProjectDir(a.projectDirView.GetProjectDir())
 			switch choice {
 			case constants.ProjectDirViewAnalysis:
-				a.projectDirView.SetExistingChoice(true)
-				a.transitionToResultsFromExisting()
-			case constants.ProjectDirRerunAnalysis:
-				a.projectDirView.SetExistingChoice(false)
-				a.transitionToAnalysisConfig()
+				a.openEngineVisualizerIfExists()
+			case constants.ProjectDirRerunAnalysis, constants.ProjectDirRunAnalysis:
+				return a.startJourneyAnalysis()
 			}
 		case "esc":
 			a.projectDirView.DismissExistingChoice()
@@ -752,7 +747,7 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 					return nil
 				}
 				a.configMgr.SetProjectDir(a.projectDirView.GetProjectDir())
-				a.transitionToAnalysisConfig()
+				return a.startJourneyAnalysis()
 			}
 		case "tab":
 			a.projectDirView.HandleTab()
@@ -781,7 +776,7 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 						return nil
 					}
 					a.configMgr.SetProjectDir(a.projectDirView.GetProjectDir())
-					a.transitionToAnalysisConfig()
+					return a.startJourneyAnalysis()
 				}
 			}
 		case "tab":
@@ -789,21 +784,6 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 		case "esc":
 			a.navigateBackFromProjectDir()
 		}
-	}
-	return nil
-}
-
-func (a *App) handleAnalysisConfigKeys(key string) tea.Cmd {
-	switch key {
-	case "up", "k":
-		a.analysisConfigView.HandleUp()
-	case "down", "j":
-		a.analysisConfigView.HandleDown()
-	case "enter":
-		a.applyAnalysisConfig()
-		return a.startAnalysis()
-	case "esc":
-		a.state = StateProjectDir
 	}
 	return nil
 }
@@ -860,7 +840,7 @@ func (a *App) handleAnalyzingKeys(key string) tea.Cmd {
 		}
 	case "r":
 		if a.analyzingView != nil && a.analyzingView.HasFailed() {
-			return a.startAnalysis()
+			return a.startJourneyAnalysis()
 		}
 	case "esc":
 		if a.analyzingView == nil {
@@ -929,7 +909,7 @@ func (a *App) handleNextStepsModalKeys(key string) tea.Cmd {
 		case "journey":
 			return a.startSimpleAnalysis()
 		case "rerun":
-			return a.startAnalysis()
+			return a.startSimpleAnalysis()
 		case "config":
 			a.configCheckView = nil
 			a.apiKeyView = nil
@@ -961,6 +941,15 @@ func (a *App) openFileDetail(def *constants.DashboardFile) {
 	a.fileDetailView = views.NewFileDetailView(*def, outputDir)
 	a.fileDetailView.SetSize(a.width, a.height)
 	a.state = StateFileDetail
+}
+
+func (a *App) openEngineVisualizerIfExists() {
+	engineDef := &constants.DashboardFile{
+		ID:          "engine",
+		DisplayName: "Growth Features",
+		Filename:    constants.EngineFile,
+	}
+	a.openYAMLVisualizer(engineDef)
 }
 
 func (a *App) openYAMLVisualizer(def *constants.DashboardFile) {
@@ -1047,9 +1036,9 @@ func (a *App) handleGameKeys(msg tea.KeyMsg) tea.Cmd {
 		if a.game != nil {
 			a.game.ClearProgressInfo()
 		}
-		if a.prevState == StateAnalyzing && a.resultsView != nil && a.analyzingView != nil && a.analyzingView.IsDone() && !a.analyzingView.HasFailed() && a.analyzingOrigin == StateAnalysisConfig {
-			a.refreshResultsView()
-			a.state = StateResults
+		if a.prevState == StateAnalyzing && a.resultsView != nil && a.analyzingView != nil && a.analyzingView.IsDone() && !a.analyzingView.HasFailed() && a.analyzingOrigin == StateProjectDir {
+			a.openEngineVisualizerIfExists()
+			a.returnToProjectDirWithExisting()
 		} else {
 			a.state = a.prevState
 		}
@@ -1151,23 +1140,12 @@ func (a *App) transitionToProjectDir() {
 	a.state = StateProjectDir
 }
 
-func (a *App) transitionToAnalysisConfig() {
-	providerName := ""
-	modelName := ""
-	if a.selectedProvider != nil {
-		providerName = a.selectedProvider.Name
+func (a *App) returnToProjectDirWithExisting() {
+	if a.projectDirView != nil {
+		a.projectDirView.ResetExistingChoice()
+		a.projectDirView.SetSize(a.width, a.height)
 	}
-	if a.selectedModel != nil {
-		modelName = a.selectedModel.Name
-	}
-	projectDir := a.configMgr.Config.ProjectDir
-	if projectDir == "" {
-		projectDir = "."
-	}
-
-	a.analysisConfigView = views.NewAnalysisConfigView(providerName, modelName, projectDir)
-	a.analysisConfigView.SetSize(a.width, a.height)
-	a.state = StateAnalysisConfig
+	a.state = StateProjectDir
 }
 
 func (a *App) transitionToResultsFromExisting() {
@@ -1183,11 +1161,9 @@ func (a *App) refreshResultsView() {
 	a.resultsView.RefreshContent(a.getOutputDir())
 }
 
-func (a *App) applyAnalysisConfig() {
-	if a.analysisConfigView != nil {
-		a.configMgr.Config.UseGrowth = a.analysisConfigView.GetUseGrowth()
-		a.configMgr.Config.Verbose = true
-	}
+func (a *App) applyJourneyConfig() {
+	a.configMgr.Config.UseGrowth = true
+	a.configMgr.Config.Verbose = true
 }
 
 func (a *App) navigateBackFromAPIKey() {
@@ -1229,13 +1205,10 @@ func (a *App) navigateBackFromAnalyzing() {
 	case StateNextSteps:
 		a.refreshResultsView()
 		a.state = StateResults
-	case StateAnalysisConfig:
-		a.state = StateAnalysisConfig
-		if a.analysisConfigView != nil {
-			a.analysisConfigView.SetSize(a.width, a.height)
-		}
+	case StateProjectDir:
+		a.returnToProjectDirWithExisting()
 	default:
-		a.state = StateAnalysisConfig
+		a.returnToProjectDirWithExisting()
 	}
 }
 
@@ -1269,10 +1242,6 @@ func (a *App) navigateBackFromError() {
 		if a.projectDirView == nil {
 			target = StateProviderSelect
 		}
-	case StateAnalysisConfig:
-		if a.analysisConfigView == nil {
-			target = StateProjectDir
-		}
 	}
 	a.state = target
 }
@@ -1281,17 +1250,14 @@ func (a *App) navigateBackFromError() {
 // ASYNC OPERATIONS
 // ═══════════════════════════════════════════════════════════════════
 
-func (a *App) startAnalysis() tea.Cmd {
+func (a *App) startJourneyAnalysis() tea.Cmd {
+	a.applyJourneyConfig()
 	a.analyzingView = views.NewAnalyzingView()
 	a.analyzingView.SetSize(a.width, a.height)
 	a.analysisStartTime = time.Now()
-	a.analyzingOrigin = StateAnalysisConfig
+	a.analyzingOrigin = StateProjectDir
 	a.state = StateAnalyzing
-
-	if a.analysisConfigView != nil && a.analysisConfigView.IsSimpleMode() {
-		return a.startSimpleAnalysisCmd(a.program)
-	}
-	return a.startRealAnalysisCmd(a.program)
+	return a.startSimpleAnalysisCmd(a.program)
 }
 
 func (a *App) startSimpleAnalysis() tea.Cmd {
@@ -1516,9 +1482,6 @@ func (a *App) updateViewSizes() {
 	if a.projectDirView != nil {
 		a.projectDirView.SetSize(a.width, a.height)
 	}
-	if a.analysisConfigView != nil {
-		a.analysisConfigView.SetSize(a.width, a.height)
-	}
 	if a.analyzingView != nil {
 		a.analyzingView.SetSize(a.width, a.height)
 	}
@@ -1575,10 +1538,6 @@ func (a *App) View() string {
 	case StateProjectDir:
 		if a.projectDirView != nil {
 			content = a.projectDirView.Render()
-		}
-	case StateAnalysisConfig:
-		if a.analysisConfigView != nil {
-			content = a.analysisConfigView.Render()
 		}
 	case StateAnalyzing:
 		if a.analyzingView != nil {
@@ -1665,10 +1624,6 @@ func (a *App) getCurrentHelpItems() []components.HelpItem {
 	case StateProjectDir:
 		if a.projectDirView != nil {
 			return a.projectDirView.GetHelpItems()
-		}
-	case StateAnalysisConfig:
-		if a.analysisConfigView != nil {
-			return a.analysisConfigView.GetHelpItems()
 		}
 	case StateAnalyzing:
 		if a.analyzingView != nil {

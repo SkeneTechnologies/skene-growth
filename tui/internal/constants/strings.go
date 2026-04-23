@@ -167,8 +167,9 @@ const (
 	ProjectDirExistingHeader = "Existing Analysis Detected"
 	ProjectDirExistingMsg    = "A previous Skene Growth analysis was found in this project."
 	ProjectDirExistingQ      = "What would you like to do?"
-	ProjectDirViewAnalysis   = "View Analysis"
+	ProjectDirViewAnalysis   = "View Journey"
 	ProjectDirRerunAnalysis  = "Re-run Analysis"
+	ProjectDirRunAnalysis    = "Analyse Journey"
 )
 
 // Analysis config view

@@ -47,7 +47,7 @@ func NewLocalModelView(providerName string) *LocalModelView {
 		providerName: providerName,
 		baseURL:      baseURL,
 		spinner:      components.NewSpinner(),
-		header:       components.NewWizardHeader(2, constants.StepNameLocalModelSetup),
+		header:       components.NewTitleHeader(constants.StepNameLocalModelSetup),
 	}
 }
 
