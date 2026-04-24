@@ -68,10 +68,26 @@ class Config:
 
     @property
     def output_dir(self) -> str:
-        """Get default output directory."""
-        from skene.output_paths import DEFAULT_OUTPUT_DIR
+        """Get default output directory.
 
-        return self.get("output_dir", DEFAULT_OUTPUT_DIR)
+        Precedence:
+          1. Explicit ``output_dir`` from loaded config.
+          2. Sticky-legacy: if ``./skene/`` or ``./skene-context/`` already
+             exists in the current working directory, prefer the first match
+             so existing projects keep using the bundle they already have.
+          3. The shipped default (``./skene-context``).
+        """
+        if "output_dir" in self._values:
+            return self._values["output_dir"]
+
+        from pathlib import Path
+
+        from skene.output_paths import DEFAULT_OUTPUT_DIR, resolve_bundle_dir
+
+        existing = resolve_bundle_dir(Path.cwd())
+        if existing is not None:
+            return f"./{existing.name}"
+        return DEFAULT_OUTPUT_DIR
 
     @property
     def verbose(self) -> bool:

@@ -98,7 +98,7 @@ def build(
     Workflow:
     1. Extracts Technical Execution from growth plan
     2. Builds and merges skene/engine.yaml
-    3. Updates {output_dir}/feature-registry.json (default ./skene/feature-registry.json) from engine features
+    3. Updates {output_dir}/feature-registry.json (default ./skene-context/feature-registry.json) from engine features
     4. Builds Supabase migrations from actionable engine features
     5. Asks where to send: Cursor, Claude, or Show
     6. Generates implementation prompt with LLM and executes
@@ -201,8 +201,8 @@ async def _build_async(
         error(
             "Growth plan not found.\n\n"
             "Please ensure a growth plan exists at one of:\n"
-            "  - ./skene/growth-plan.md (default)\n"
-            "  - ./skene-context/growth-plan.md (legacy)\n"
+            "  - ./skene-context/growth-plan.md (default)\n"
+            "  - ./skene/growth-plan.md (legacy)\n"
             "  - ./growth-plan.md\n"
             "  - Or specify a custom path with --plan\n\n"
             "Generate a plan first with: skene plan"

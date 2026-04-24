@@ -31,8 +31,8 @@ class TestUpstreamHelpers:
 
 class TestBuildPackage:
     def test_package_has_engine_yaml_and_trigger_sql(self, tmp_path: Path):
-        (tmp_path / "skene").mkdir(parents=True)
-        (tmp_path / "skene" / "engine.yaml").write_text("version: 1\nsubjects: []\nfeatures: []\n")
+        (tmp_path / "skene-context").mkdir(parents=True)
+        (tmp_path / "skene-context" / "engine.yaml").write_text("version: 1\nsubjects: []\nfeatures: []\n")
         (tmp_path / "supabase" / "migrations").mkdir(parents=True)
         trigger_sql = tmp_path / "supabase" / "migrations" / "20260304151537_skene_triggers.sql"
         trigger_sql.write_text("CREATE TRIGGER")
@@ -69,20 +69,20 @@ class TestBuildPackage:
         assert package["engine_yaml"] == "version: 1\nsubjects: []\nfeatures: []\n"
 
     def test_package_includes_feature_registry_json(self, tmp_path: Path):
-        (tmp_path / "skene").mkdir(parents=True)
-        (tmp_path / "skene" / "engine.yaml").write_text("version: 1\n")
-        (tmp_path / "skene" / "feature-registry.json").write_text('{"features": []}\n')
+        (tmp_path / "skene-context").mkdir(parents=True)
+        (tmp_path / "skene-context" / "engine.yaml").write_text("version: 1\n")
+        (tmp_path / "skene-context" / "feature-registry.json").write_text('{"features": []}\n')
         (tmp_path / "supabase" / "migrations").mkdir(parents=True)
         (tmp_path / "supabase" / "migrations" / "20260304151537_skene_triggers.sql").write_text("--")
 
         package = build_package(tmp_path)
         assert package["feature_registry_json"] == '{"features": []}\n'
 
-    def test_package_registry_falls_back_to_legacy_skene_context(self, tmp_path: Path):
-        (tmp_path / "skene").mkdir(parents=True)
-        (tmp_path / "skene" / "engine.yaml").write_text("version: 1\n")
+    def test_package_registry_falls_back_to_legacy_skene(self, tmp_path: Path):
         (tmp_path / "skene-context").mkdir(parents=True)
-        (tmp_path / "skene-context" / "feature-registry.json").write_text('{"features": []}\n')
+        (tmp_path / "skene-context" / "engine.yaml").write_text("version: 1\n")
+        (tmp_path / "skene").mkdir(parents=True)
+        (tmp_path / "skene" / "feature-registry.json").write_text('{"features": []}\n')
         (tmp_path / "supabase" / "migrations").mkdir(parents=True)
         (tmp_path / "supabase" / "migrations" / "20260304151537_skene_triggers.sql").write_text("--")
 
@@ -92,8 +92,8 @@ class TestBuildPackage:
 
 class TestBuildPushManifest:
     def test_manifest_structure(self, tmp_path: Path):
-        (tmp_path / "skene").mkdir(parents=True)
-        (tmp_path / "skene" / "engine.yaml").write_text("version: 1\nsubjects: []\nfeatures: []\n")
+        (tmp_path / "skene-context").mkdir(parents=True)
+        (tmp_path / "skene-context" / "engine.yaml").write_text("version: 1\nsubjects: []\nfeatures: []\n")
         m = build_push_manifest(tmp_path, "my-workspace", ["api_keys.insert"], loops_count=1)
         assert m["version"] == "1.0"
         assert m["workspace_slug"] == "my-workspace"
@@ -119,8 +119,8 @@ class TestValidateToken:
 class TestPushToUpstream:
     @patch("skene.growth_loops.upstream.httpx.post")
     def test_push_success(self, mock_post, tmp_path: Path):
-        (tmp_path / "skene").mkdir(parents=True)
-        (tmp_path / "skene" / "engine.yaml").write_text("version: 1\nsubjects: []\nfeatures: []\n")
+        (tmp_path / "skene-context").mkdir(parents=True)
+        (tmp_path / "skene-context" / "engine.yaml").write_text("version: 1\nsubjects: []\nfeatures: []\n")
         mock_post.return_value.status_code = 201
         mock_post.return_value.json.return_value = {"commit_hash": "sha256:abc", "version": 1}
 
@@ -144,8 +144,8 @@ class TestPushToUpstream:
 
     @patch("skene.growth_loops.upstream.httpx.post")
     def test_push_200_noop_succeeds(self, mock_post, tmp_path: Path):
-        (tmp_path / "skene").mkdir(parents=True)
-        (tmp_path / "skene" / "engine.yaml").write_text("version: 1\nsubjects: []\nfeatures: []\n")
+        (tmp_path / "skene-context").mkdir(parents=True)
+        (tmp_path / "skene-context" / "engine.yaml").write_text("version: 1\nsubjects: []\nfeatures: []\n")
         (tmp_path / "supabase" / "migrations").mkdir(parents=True)
         (tmp_path / "supabase" / "migrations" / "20260304151537_skene_triggers.sql").write_text("CREATE TRIGGER")
         mock_post.return_value.status_code = 200
