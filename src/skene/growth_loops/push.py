@@ -267,7 +267,7 @@ def push_to_upstream(
     trigger_events: list[str],
     features_count: int,
     *,
-    output_dir: str = "./skene",
+    output_dir: str | None = None,
 ) -> dict[str, Any]:
     """
     Push package (engine.yaml, feature-registry.json, trigger.sql) to upstream.
@@ -281,7 +281,6 @@ def push_to_upstream(
         token=token,
         trigger_events=trigger_events,
         loops_count=features_count,
-        engine_path=project_root / "skene" / "engine.yaml",
         output_dir=output_dir,
     )
 

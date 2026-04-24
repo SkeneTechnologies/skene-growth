@@ -104,7 +104,7 @@ def push(
         warning("No token. Run skene login to authenticate.")
         raise typer.Exit(1)
 
-    engine_path = default_engine_path(project_root)
+    engine_path = default_engine_path(project_root, rc.config.output_dir)
     if not engine_path.exists():
         error(f"Engine file not found: {engine_path}\nRun `skene build` first.")
         raise typer.Exit(1)

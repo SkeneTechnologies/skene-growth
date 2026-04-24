@@ -281,8 +281,8 @@ async def _build_async(
         if context and context.exists() and is_bundle_dir_name(context.resolve().name):
             project_root = context.resolve().parent
 
-        ensure_engine_dir(project_root)
-        engine_path = default_engine_path(project_root)
+        ensure_engine_dir(project_root, base_output_dir)
+        engine_path = default_engine_path(project_root, base_output_dir)
         existing_engine = load_engine_document(engine_path, project_root=project_root)
 
         features = load_features_for_build(base_output_dir)

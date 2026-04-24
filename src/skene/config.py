@@ -303,5 +303,7 @@ def load_config() -> Config:
         config.set("debug", True)
     if api_key := os.environ.get("SKENE_UPSTREAM_API_KEY"):
         config.set("upstream_api_key", api_key.strip() if api_key else None)
+    if output_dir := os.environ.get("SKENE_OUTPUT_DIR"):
+        config.set("output_dir", output_dir)
 
     return config

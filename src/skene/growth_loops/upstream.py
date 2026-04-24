@@ -14,6 +14,14 @@ import httpx
 
 from skene.feature_registry import registry_path_for_project
 from skene.growth_loops.push import find_trigger_migration
+from skene.output_paths import DEFAULT_OUTPUT_DIR
+
+
+def _resolve_engine_path(project_root: Path, output_dir: str) -> Path:
+    """Resolve the engine.yaml path relative to ``output_dir`` under ``project_root``."""
+    base = Path(output_dir).expanduser()
+    resolved_base = base if base.is_absolute() else (project_root / base)
+    return resolved_base / "engine.yaml"
 
 
 def _api_base_from_upstream(upstream_url: str) -> str:
@@ -68,13 +76,13 @@ def build_package(
     project_root: Path,
     engine_path: Path | None = None,
     *,
-    output_dir: str = "./skene",
+    output_dir: str | None = None,
 ) -> dict[str, Any]:
     """
     Build a single package for upstream: engine YAML, feature registry JSON, trigger SQL.
 
     Returns dict:
-        engine_yaml: content of skene/engine.yaml (or provided engine_path), or None
+        engine_yaml: content of <output_dir>/engine.yaml (or provided engine_path), or None
         feature_registry_json: content of feature-registry.json, or None if missing
         trigger_sql: content of the trigger migration, or None if missing
     """
@@ -84,11 +92,12 @@ def build_package(
         "trigger_sql": None,
     }
 
-    resolved_engine_path = engine_path or project_root / "skene" / "engine.yaml"
+    effective_output_dir = output_dir or DEFAULT_OUTPUT_DIR
+    resolved_engine_path = engine_path or _resolve_engine_path(project_root, effective_output_dir)
     if resolved_engine_path.exists() and resolved_engine_path.is_file():
         package["engine_yaml"] = resolved_engine_path.read_text(encoding="utf-8")
 
-    reg_path = registry_path_for_project(project_root, output_dir)
+    reg_path = registry_path_for_project(project_root, effective_output_dir)
     if reg_path.is_file():
         package["feature_registry_json"] = reg_path.read_text(encoding="utf-8")
 
@@ -107,10 +116,11 @@ def build_push_manifest(
     loops_count: int = 1,
     engine_path: Path | None = None,
     *,
-    output_dir: str = "./skene",
+    output_dir: str | None = None,
 ) -> dict[str, Any]:
     """Build push manifest with package checksum."""
-    package = build_package(project_root, engine_path=engine_path, output_dir=output_dir)
+    effective_output_dir = output_dir or DEFAULT_OUTPUT_DIR
+    package = build_package(project_root, engine_path=engine_path, output_dir=effective_output_dir)
     package_json = json.dumps(package, sort_keys=True)
     return {
         "version": "1.0",
@@ -130,7 +140,7 @@ def push_to_upstream(
     loops_count: int = 1,
     engine_path: Path | None = None,
     *,
-    output_dir: str = "./skene",
+    output_dir: str | None = None,
 ) -> dict[str, Any]:
     """
     Push a single package (engine.yaml, feature-registry.json, trigger.sql) to upstream API.
@@ -139,14 +149,15 @@ def push_to_upstream(
     """
     api_base = _api_base_from_upstream(upstream_url)
     workspace_slug = _workspace_slug_from_url(upstream_url)
-    package = build_package(project_root, engine_path=engine_path, output_dir=output_dir)
+    effective_output_dir = output_dir or DEFAULT_OUTPUT_DIR
+    package = build_package(project_root, engine_path=engine_path, output_dir=effective_output_dir)
     manifest = build_push_manifest(
         project_root=project_root,
         workspace_slug=workspace_slug,
         trigger_events=trigger_events,
         loops_count=loops_count,
         engine_path=engine_path,
-        output_dir=output_dir,
+        output_dir=effective_output_dir,
     )
     payload = {"manifest": manifest, "package": package}
 
