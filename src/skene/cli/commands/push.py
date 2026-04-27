@@ -7,7 +7,6 @@ import typer
 from skene.cli.app import app, resolve_cli_config
 from skene.config import resolve_upstream_token
 from skene.engine import collect_engine_trigger_events, default_engine_path, load_engine_document
-from skene.feature_registry import registry_path_for_project
 from skene.growth_loops.push import find_trigger_migration, push_to_upstream
 from skene.output import error, success, warning
 from skene.output_paths import DEFAULT_OUTPUT_DIR
@@ -74,23 +73,6 @@ def push(
         )
         raise typer.Exit(1)
 
-    schema_path = (
-        next((p for p in sorted(migrations_dir.glob("*.sql")) if "skene_growth_schema" in p.name.lower()), None)
-        if migrations_dir.exists()
-        else None
-    )
-    if schema_path is None:
-        warning("Base schema migration not found (skene_growth_schema). Did you run skene build recently?")
-
-    registry_path = registry_path_for_project(project_root, out_dir)
-    if registry_path.is_file():
-        success(f"Feature registry: {registry_path}")
-    else:
-        warning(
-            f"No feature registry at {registry_path}. Run `skene build` (or analyze) so the registry exists; "
-            "push will omit it until then."
-        )
-
     trigger_events: list[str] = []
     features_count = 0
     try:
@@ -99,11 +81,6 @@ def push(
         features_count = len(engine_doc.features)
     except Exception:
         pass
-
-    success(f"Engine: {engine_path}")
-    success(f"Trigger: {trigger_path}")
-    if schema_path:
-        success(f"Schema: {schema_path}")
 
     try:
         result = push_to_upstream(
