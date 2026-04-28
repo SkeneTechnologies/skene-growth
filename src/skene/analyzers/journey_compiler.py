@@ -311,7 +311,7 @@ Growth opportunities the product wants to drive value from:
 Return ONLY a single JSON object with this exact shape (no prose, no code
 fences, no trailing commas):
 {{
-  "lifecycleDataExplanation": "2–8 sentences explaining for the PRIMARY subject which tables, columns and row events (INSERT/UPDATE/DELETE) imply movement between lifecycle phases. Cite real objects from the schema.",
+  "lifecycleDataExplanation": "2–8 sentences for subjects[0]: cite schema + row events between lifecycle phases.",
   "subjects": [
     {{
       "id": "user",
@@ -745,9 +745,7 @@ def _ttv_spec_to_subject_journeys(spec: dict[str, Any]) -> list[dict[str, Any]]:
             schema_part = n.get("schema") or "public"
             table_part = n.get("table") or ""
             event_type = (n.get("eventType") or "INSERT").upper()
-            trigger_event = (
-                f"{schema_part}.{table_part}.{event_type}".lower() if table_part else None
-            )
+            trigger_event = f"{schema_part}.{table_part}.{event_type}".lower() if table_part else None
             ordered_nodes.append(
                 {
                     "id": nid,
@@ -1010,10 +1008,7 @@ async def _compile_engine_features(
         raw_features.append(parsed)
 
     if failed:
-        warning(
-            f"user-journey: dropped {len(failed)} feature(s) that failed to parse: "
-            f"{', '.join(failed)}"
-        )
+        warning(f"user-journey: dropped {len(failed)} feature(s) that failed to parse: {', '.join(failed)}")
     return _enrich_compiled_features(raw_features, engine)
 
 
