@@ -107,13 +107,22 @@ def _read_file_entry(path: Path, project_root: Path) -> dict[str, str] | None:
 
 
 def _bundle_dir_for_push(project_root: Path, output_dir: str | None) -> Path | None:
-    """Directory whose files to upload: prefer configured ``output_dir``, else auto-discover."""
-    effective = (output_dir or DEFAULT_OUTPUT_DIR).strip() or DEFAULT_OUTPUT_DIR
-    base = Path(effective).expanduser()
-    explicit = base if base.is_absolute() else (project_root / base)
-    if explicit.is_dir():
-        return explicit
-    return resolve_bundle_dir(project_root)
+    """Directory whose files to upload.
+
+    When ``output_dir`` is explicitly set (non-empty), honour it verbatim — even
+    if the directory does not yet exist — so user config is never overridden.
+    When unset, auto-discover an existing bundle (new-first, legacy fallback);
+    if neither exists, return the default ``./skene-context`` under ``project_root``.
+    """
+    explicit = (output_dir or "").strip()
+    if explicit:
+        base = Path(explicit).expanduser()
+        return base if base.is_absolute() else (project_root / base)
+
+    discovered = resolve_bundle_dir(project_root)
+    if discovered is not None:
+        return discovered
+    return project_root / Path(DEFAULT_OUTPUT_DIR)
 
 
 def collect_push_files(
@@ -124,10 +133,11 @@ def collect_push_files(
 ) -> list[dict[str, str]]:
     """Collect the artifacts to upload as ``[{"path", "content"}]`` entries.
 
-    Uploads the entire configured Skene bundle directory (see ``output_dir``),
-    else the first of ``skene/`` / ``skene-context/``, plus the latest Skene
-    trigger migration under ``supabase/migrations/``. When ``engine_path`` is
-    provided and lives outside the bundle, it is also included.
+    When ``output_dir`` is set, that directory is uploaded verbatim. When unset,
+    the first existing bundle (``./skene-context/`` then ``./skene/``) is used,
+    falling back to ``./skene-context/`` if neither exists. The latest Skene
+    trigger migration under ``supabase/migrations/`` is always included; an
+    explicit ``engine_path`` outside the bundle is included as well.
     """
     files: list[dict[str, str]] = []
     seen: set[Path] = set()
