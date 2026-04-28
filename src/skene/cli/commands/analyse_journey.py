@@ -193,12 +193,16 @@ def analyse_journey_cmd(
         else schema_path.parent / "user-journey.yaml"
     )
 
+    # Engine plan stage is temporarily skipped in analyse-journey; the
+    # Stage.PLAN machinery is kept intact for other commands and future use.
+    skip_plan = True
+
     stages: list[Stage] = [Stage.SCHEMA]
     if not skip_growth:
         stages.append(Stage.GROWTH)
     if not skip_growth and not skip_plan:
         stages.append(Stage.PLAN)
-    if not skip_growth and not skip_plan and not skip_journey:
+    if not skip_growth and not skip_journey:
         stages.append(Stage.JOURNEY)
 
     render_kickoff_panel(

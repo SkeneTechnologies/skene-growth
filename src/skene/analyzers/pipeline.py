@@ -283,9 +283,11 @@ async def run_pipeline(
     """Run the requested subset of the journey pipeline.
 
     The pipeline stops early only when a required upstream artifact is missing
-    (e.g. plan stage needs a manifest with growth opportunities). When the
-    schema stage finds no tables, downstream stages run in their schemaless
-    fallback paths rather than being skipped.
+    (e.g. plan stage needs a manifest with growth opportunities). The journey
+    stage does not require ``engine.yaml`` — a missing file is treated as an
+    empty engine (same as :func:`~skene.engine.storage.load_engine_document`).
+    When the schema stage finds no tables, downstream stages run in their
+    schemaless fallback paths rather than being skipped.
 
     Every outcome — success, skip, or failure — is recorded on the returned
     ``PipelineResult``; the function never raises for a stage-level failure.
@@ -374,7 +376,6 @@ async def run_pipeline(
         missing = [
             ("schema", paths.schema),
             ("growth manifest", paths.growth),
-            ("engine", paths.engine),
         ]
         absent = [(label, p) for label, p in missing if not p.exists()]
         if absent:

@@ -45,7 +45,7 @@ def analyse_user_journey_cmd(
         Path(f"{DEFAULT_OUTPUT_DIR}/engine.yaml"),
         "-e",
         "--engine",
-        help="Path to engine.yaml (run 'analyse-plan' first)",
+        help="Path to engine.yaml (optional; missing file uses an empty engine)",
     ),
     output: Path | None = typer.Option(
         None,
@@ -95,8 +95,10 @@ def analyse_user_journey_cmd(
     ),
 ):
     """
-    Compile ``user-journey.yaml`` from existing schema, growth manifest, and
-    engine.yaml — without re-running the upstream pipeline stages.
+    Compile ``user-journey.yaml`` from existing schema and growth manifest,
+    optionally augmented by ``engine.yaml`` — without re-running the upstream
+    pipeline stages. If ``engine.yaml`` is absent, compilation uses an empty
+    engine (minimal journey output).
 
     Useful for re-generating the journey artifact when the engine or schema
     has changed but the upstream LLM passes are still fresh.
@@ -123,9 +125,6 @@ def analyse_user_journey_cmd(
         raise typer.Exit(1)
 
     engine_path = resolve_artifact_path(engine, "engine.yaml")
-    if not engine_path.exists():
-        error(f"Engine file not found: {engine_path}\nRun 'skene analyse-plan' first, or pass --engine <path>.")
-        raise typer.Exit(1)
 
     journey_path = (
         resolve_artifact_path(output, "user-journey.yaml")

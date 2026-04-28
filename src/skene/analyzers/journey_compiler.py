@@ -669,7 +669,6 @@ async def compile_user_journey(
     state.definitions = build_definitions(state.engine)
 
     if not state.engine.features:
-        warning("user-journey: engine.yaml has no features; writing minimal document.")
         state.document = _empty_journey_document(state.engine)
         _write_document(output_path, state.document, project_root=project_root)
         return state
