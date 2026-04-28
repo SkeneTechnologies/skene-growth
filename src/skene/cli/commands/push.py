@@ -47,8 +47,8 @@ def push(
     ``output_dir`` in config), plus the latest trigger migration under
     ``supabase/migrations/``.
     """
-    rc = resolve_cli_config(quiet=quiet, debug=debug)
     project_root = path.resolve()
+    rc = resolve_cli_config(quiet=quiet, debug=debug, project_root=project_root)
 
     resolved_upstream = upstream or rc.config.upstream or ""
     user_configured_upstream = bool(resolved_upstream)
@@ -79,8 +79,11 @@ def push(
         engine_doc = load_engine_document(engine_path, project_root=project_root)
         trigger_events = collect_engine_trigger_events(engine_doc)
         features_count = len(engine_doc.features)
-    except Exception:
-        pass
+    except Exception as exc:
+        warning(
+            f"Could not extract manifest metadata from the engine ({exc}). "
+            "Continuing with empty trigger_events and zero features_count."
+        )
 
     try:
         result = push_to_upstream(

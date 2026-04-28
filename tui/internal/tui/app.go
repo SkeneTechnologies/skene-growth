@@ -1122,11 +1122,6 @@ func (a *App) handleFileDetailKeys(key string) tea.Cmd {
 	return nil
 }
 
-func (a *App) getOutputDir() string {
-	// Kept for call sites that expect the canonical skene/ bundle only.
-	return a.getBundleOutputDir()
-}
-
 func (a *App) getBundleOutputDir() string {
 	projectDir := a.configMgr.Config.ProjectDir
 	if projectDir == "" {

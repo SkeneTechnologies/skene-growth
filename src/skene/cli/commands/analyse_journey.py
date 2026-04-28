@@ -161,6 +161,7 @@ def analyse_journey_cmd(
     """
     base_path = resolve_base_path(path)
     rc = resolve_cli_config(
+        project_root=base_path,
         api_key=api_key,
         provider=provider,
         model=model,

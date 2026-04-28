@@ -138,6 +138,7 @@ def analyse_growth_from_schema_cmd(
     )
 
     rc = resolve_cli_config(
+        project_root=base_path,
         api_key=api_key,
         provider=provider,
         model=model,

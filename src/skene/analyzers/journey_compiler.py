@@ -603,10 +603,14 @@ def _empty_journey_document(engine: EngineDocument) -> dict[str, Any]:
     }
 
 
-_RETRY_REMINDER = (
+_JSON_RETRY_REMINDER = (
     "\n\nIMPORTANT: Your previous response could not be parsed as JSON. "
-    "Return ONLY a single JSON object, no prose, no markdown fences, no trailing commas. "
-    "It must contain exactly the keys ``compiled_features`` and ``ttv_journey_by_subject``."
+    "Return ONLY the single JSON object whose shape matches the template above "
+    "for this ONE item (one compiled feature OR one subject journey — whichever "
+    "this prompt asks for). "
+    "Do not emit a wrapper object keyed by ``compiled_features``, ``schema_analysis``, "
+    "or ``ttv_journey_by_subject``; output just that inner object. "
+    "No prose, no markdown fences, no trailing commas."
 )
 
 
@@ -624,7 +628,7 @@ async def _generate_and_parse(
             last_response = await llm.generate_content(current_prompt) or ""
         except Exception as e:
             warning(f"user-journey: LLM call failed on attempt {attempt}: {e}")
-            current_prompt = prompt + _RETRY_REMINDER
+            current_prompt = prompt + _JSON_RETRY_REMINDER
             continue
 
         parsed = _extract_json_object(last_response)
@@ -632,7 +636,7 @@ async def _generate_and_parse(
             return parsed, last_response
 
         warning(f"user-journey: could not parse JSON on attempt {attempt} (response length={len(last_response)})")
-        current_prompt = prompt + _RETRY_REMINDER
+        current_prompt = prompt + _JSON_RETRY_REMINDER
 
     return None, last_response
 

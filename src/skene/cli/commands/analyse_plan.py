@@ -152,6 +152,7 @@ def analyse_plan_cmd(
     )
 
     rc = resolve_cli_config(
+        project_root=base_path,
         api_key=api_key,
         provider=provider,
         model=model,
