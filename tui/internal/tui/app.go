@@ -747,6 +747,8 @@ func (a *App) handleProjectDirKeys(msg tea.KeyMsg) tea.Cmd {
 				cmd := a.startCodebaseAnalysis()
 				a.analyzingOrigin = StateProjectDir
 				return cmd
+			case constants.ProjectDirDeployToCloud:
+				return a.startPushFlow(StateProjectDir)
 			}
 		case "n":
 			pd := a.projectDirView.GetProjectDir()

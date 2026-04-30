@@ -319,17 +319,18 @@ func existingBundleDir(projectDir string) string {
 }
 
 // buildExistingButtons creates the button group based on which files exist.
-// "View Journey" only appears when user-journey.yaml is present. When it is
-// missing, both "Analyse Journey" and "Analyse Codebase" are offered so the
-// user can fall back to the full analysis if schema detection failed.
+// When user-journey.yaml is present we expose the three primary actions
+// (view, re-run, deploy) directly so first-time users can reach
+// "Deploy to Skene Cloud" without opening the next-steps modal. When the
+// journey is missing we fall back to the two analysis options.
 func (v *ProjectDirView) buildExistingButtons(projectDir string) *components.ButtonGroup {
 	primary := filepath.Join(projectDir, constants.OutputDirName, constants.UserJourneyFile)
 	if _, err := os.Stat(primary); err == nil {
-		return components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirRerunAnalysis)
+		return components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirRerunAnalysis, constants.ProjectDirDeployToCloud)
 	}
 	legacy := filepath.Join(projectDir, constants.LegacyOutputDirName, constants.UserJourneyFile)
 	if _, err := os.Stat(legacy); err == nil {
-		return components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirRerunAnalysis)
+		return components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirRerunAnalysis, constants.ProjectDirDeployToCloud)
 	}
 	return components.NewButtonGroup(constants.ProjectDirRunAnalysis, constants.ProjectDirRunCodebaseAnalysis)
 }

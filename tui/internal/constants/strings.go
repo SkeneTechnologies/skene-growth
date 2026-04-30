@@ -195,6 +195,7 @@ const (
 	ProjectDirExistingQ      = "What would you like to do?"
 	ProjectDirViewAnalysis       = "View Journey"
 	ProjectDirRerunAnalysis      = "Re-run Analysis"
+	ProjectDirDeployToCloud      = "Deploy to Skene Cloud"
 	ProjectDirRunAnalysis        = "Analyse Journey"
 	ProjectDirRunCodebaseAnalysis = "Analyse Codebase"
 
