@@ -326,11 +326,11 @@ func existingBundleDir(projectDir string) string {
 func (v *ProjectDirView) buildExistingButtons(projectDir string) *components.ButtonGroup {
 	primary := filepath.Join(projectDir, constants.OutputDirName, constants.UserJourneyFile)
 	if _, err := os.Stat(primary); err == nil {
-		return components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirRerunAnalysis, constants.ProjectDirDeployToCloud)
+		return components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirDeployToCloud, constants.ProjectDirRerunAnalysis)
 	}
 	legacy := filepath.Join(projectDir, constants.LegacyOutputDirName, constants.UserJourneyFile)
 	if _, err := os.Stat(legacy); err == nil {
-		return components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirRerunAnalysis, constants.ProjectDirDeployToCloud)
+		return components.NewButtonGroup(constants.ProjectDirViewAnalysis, constants.ProjectDirDeployToCloud, constants.ProjectDirRerunAnalysis)
 	}
 	return components.NewButtonGroup(constants.ProjectDirRunAnalysis, constants.ProjectDirRunCodebaseAnalysis)
 }
